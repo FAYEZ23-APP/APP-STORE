@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<VendorWallet> VendorWallets => Set<VendorWallet>();
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<PayoutRequest> PayoutRequests => Set<PayoutRequest>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<UserDeviceToken> UserDeviceTokens => Set<UserDeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -184,6 +186,15 @@ public class AppDbContext : DbContext
             entity.Property(p => p.LengthCm);
             entity.Property(p => p.WidthCm);
             entity.Property(p => p.HeightCm);
+
+            entity.Property(p => p.AverageRating)
+                .HasColumnType("decimal(3,2)")
+                .HasDefaultValue(0.00m)
+                .IsRequired();
+
+            entity.Property(p => p.ReviewsCount)
+                .HasDefaultValue(0)
+                .IsRequired();
 
             entity.Property(p => p.CreatedAt)
                 .IsRequired();
