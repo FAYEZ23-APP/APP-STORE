@@ -16,6 +16,8 @@ public interface IUnitOfWork : IDisposable
     IRepository<VendorWallet> VendorWallets { get; }
     IRepository<WalletTransaction> WalletTransactions { get; }
     IRepository<PayoutRequest> PayoutRequests { get; }
+    IRepository<Review> Reviews { get; }
+    IRepository<UserDeviceToken> UserDeviceTokens { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();
