@@ -480,3 +480,23 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.env*.local
+*.tsbuildinfo
+ios/
+android/
+
