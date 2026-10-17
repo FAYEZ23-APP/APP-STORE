@@ -28,6 +28,12 @@ public class UnitOfWork : IUnitOfWork
         PayoutRequests = new Repository<PayoutRequest>(context);
         Reviews = new Repository<Review>(context);
         UserDeviceTokens = new Repository<UserDeviceToken>(context);
+        ProductVariants = new Repository<ProductVariant>(context);
+        Coupons = new Repository<Coupon>(context);
+        CouponUsages = new Repository<CouponUsage>(context);
+        ReturnRequests = new Repository<ReturnRequest>(context);
+        BuyerWallets = new Repository<BuyerWallet>(context);
+        BuyerWalletTransactions = new Repository<BuyerWalletTransaction>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -44,6 +50,12 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<PayoutRequest> PayoutRequests { get; }
     public IRepository<Review> Reviews { get; }
     public IRepository<UserDeviceToken> UserDeviceTokens { get; }
+    public IRepository<ProductVariant> ProductVariants { get; }
+    public IRepository<Coupon> Coupons { get; }
+    public IRepository<CouponUsage> CouponUsages { get; }
+    public IRepository<ReturnRequest> ReturnRequests { get; }
+    public IRepository<BuyerWallet> BuyerWallets { get; }
+    public IRepository<BuyerWalletTransaction> BuyerWalletTransactions { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();

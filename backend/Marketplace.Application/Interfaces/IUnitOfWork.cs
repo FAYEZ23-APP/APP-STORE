@@ -18,6 +18,12 @@ public interface IUnitOfWork : IDisposable
     IRepository<PayoutRequest> PayoutRequests { get; }
     IRepository<Review> Reviews { get; }
     IRepository<UserDeviceToken> UserDeviceTokens { get; }
+    IRepository<ProductVariant> ProductVariants { get; }
+    IRepository<Coupon> Coupons { get; }
+    IRepository<CouponUsage> CouponUsages { get; }
+    IRepository<ReturnRequest> ReturnRequests { get; }
+    IRepository<BuyerWallet> BuyerWallets { get; }
+    IRepository<BuyerWalletTransaction> BuyerWalletTransactions { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();

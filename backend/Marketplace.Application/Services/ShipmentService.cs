@@ -5,6 +5,7 @@ using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
+using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Services;
 
@@ -13,12 +14,21 @@ public class ShipmentService : IShipmentService
     private readonly IUnitOfWork _uow;
     private readonly IDeliveryProvider _deliveryProvider;
     private readonly IWalletService _walletService;
+    private readonly INotificationService _notificationService;
+    private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-    public ShipmentService(IUnitOfWork uow, IDeliveryProvider deliveryProvider, IWalletService walletService)
+    public ShipmentService(
+        IUnitOfWork uow,
+        IDeliveryProvider deliveryProvider,
+        IWalletService walletService,
+        INotificationService notificationService,
+        Microsoft.Extensions.Configuration.IConfiguration configuration)
     {
         _uow = uow;
         _deliveryProvider = deliveryProvider;
         _walletService = walletService;
+        _notificationService = notificationService;
+        _configuration = configuration;
     }
 
     public async Task<DeliveryQuoteResponse> CalculateQuoteAsync(DeliveryQuoteRequest request)
@@ -52,18 +62,29 @@ public class ShipmentService : IShipmentService
         }
 
         var consolidatedItems = request.Items
-            .GroupBy(i => i.ProductId)
-            .Select(g => new { ProductId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .GroupBy(i => (i.ProductId, i.VariantId))
+            .Select(g => new { g.Key.ProductId, g.Key.VariantId, Quantity = g.Sum(x => x.Quantity) })
             .ToList();
 
-        var loadedItems = new List<(Product Product, int Quantity)>();
+        var loadedItems = new List<(Product Product, ProductVariant? Variant, int Quantity, decimal UnitPrice)>();
         foreach (var item in consolidatedItems)
         {
             var product = await _uow.Products.GetByIdAsync(item.ProductId);
             if (product == null)
                 throw new NotFoundException($"Product with ID {item.ProductId} not found.");
 
-            loadedItems.Add((product, item.Quantity));
+            ProductVariant? variant = null;
+            decimal unitPrice = product.Price;
+            if (item.VariantId.HasValue)
+            {
+                variant = await _uow.ProductVariants.GetByIdAsync(item.VariantId.Value);
+                if (variant != null && variant.ProductId == product.Id)
+                {
+                    unitPrice = variant.PriceOverride ?? product.Price;
+                }
+            }
+
+            loadedItems.Add((product, variant, item.Quantity, unitPrice));
         }
 
         var sellerIds = loadedItems.Select(x => x.Product.SellerId).Distinct().ToList();
@@ -72,6 +93,8 @@ public class ShipmentService : IShipmentService
             .ToDictionary(sp => sp.UserId);
 
         var parcels = new List<SellerParcelQuoteDto>();
+        decimal freeShippingThreshold = _configuration.GetValue<decimal>("Orders:FreeShippingThreshold", 1000m);
+        decimal overallItemsSubtotal = loadedItems.Sum(x => x.UnitPrice * x.Quantity);
 
         foreach (var group in loadedItems.GroupBy(x => x.Product.SellerId))
         {
@@ -81,7 +104,7 @@ public class ShipmentService : IShipmentService
                 : "القاهرة";
 
             int totalWeightGrams = group.Sum(x => Math.Max(1, x.Product.WeightGrams) * x.Quantity);
-            decimal parcelItemsSubtotal = group.Sum(x => x.Product.Price * x.Quantity);
+            decimal parcelItemsSubtotal = group.Sum(x => x.UnitPrice * x.Quantity);
 
             var tariff = await _deliveryProvider.CalculateTariffAsync(new DeliveryTariffRequest
             {
@@ -91,6 +114,12 @@ public class ShipmentService : IShipmentService
                 TotalWeightGrams = totalWeightGrams
             });
 
+            decimal deliveryCost = tariff.Cost;
+            if (parcelItemsSubtotal >= freeShippingThreshold || overallItemsSubtotal >= freeShippingThreshold)
+            {
+                deliveryCost = 0m;
+            }
+
             parcels.Add(new SellerParcelQuoteDto
             {
                 SellerId = sellerId,
@@ -99,7 +128,7 @@ public class ShipmentService : IShipmentService
                 DestinationCity = destinationCity,
                 TotalWeightGrams = totalWeightGrams,
                 ItemsSubtotal = parcelItemsSubtotal,
-                DeliveryCost = tariff.Cost,
+                DeliveryCost = deliveryCost,
                 EtaMinDays = tariff.EtaMinDays,
                 EtaMaxDays = tariff.EtaMaxDays,
                 Items = group.Select(x => new ParcelItemQuoteDto
@@ -107,7 +136,7 @@ public class ShipmentService : IShipmentService
                     ProductId = x.Product.Id,
                     ProductName = x.Product.Name,
                     Quantity = x.Quantity,
-                    UnitPrice = x.Product.Price,
+                    UnitPrice = x.UnitPrice,
                     WeightGrams = x.Product.WeightGrams
                 }).ToList()
             });
@@ -115,6 +144,8 @@ public class ShipmentService : IShipmentService
 
         decimal itemsSubtotal = parcels.Sum(p => p.ItemsSubtotal);
         decimal totalDeliveryCost = parcels.Sum(p => p.DeliveryCost);
+        bool isFreeShippingApplied = (overallItemsSubtotal >= freeShippingThreshold && itemsSubtotal > 0) ||
+                                     parcels.Any(p => p.DeliveryCost == 0m && p.ItemsSubtotal > 0);
 
         return new DeliveryQuoteResponse
         {
@@ -124,7 +155,9 @@ public class ShipmentService : IShipmentService
             Parcels = parcels,
             ItemsSubtotal = itemsSubtotal,
             TotalDeliveryCost = totalDeliveryCost,
-            TotalAmount = itemsSubtotal + totalDeliveryCost
+            TotalAmount = itemsSubtotal + totalDeliveryCost,
+            FreeShippingThreshold = freeShippingThreshold,
+            IsFreeShippingApplied = isFreeShippingApplied
         };
     }
 
@@ -183,6 +216,8 @@ public class ShipmentService : IShipmentService
 
         await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.HandedToCarrier);
         await _uow.SaveChangesAsync();
+
+        await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, ShipmentStatus.HandedToCarrier);
 
         var refreshedItems = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
         var prodIds = refreshedItems.Select(i => i.ProductId).Distinct().ToList();
@@ -250,10 +285,20 @@ public class ShipmentService : IShipmentService
                     var shipmentItems = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
                     foreach (var item in shipmentItems)
                     {
-                        await _uow.ExecuteSqlRawAsync(
-                            @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
-                            item.Quantity,
-                            item.ProductId);
+                        if (item.VariantId.HasValue)
+                        {
+                            await _uow.ExecuteSqlRawAsync(
+                                @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                                item.Quantity,
+                                item.VariantId.Value);
+                        }
+                        else
+                        {
+                            await _uow.ExecuteSqlRawAsync(
+                                @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                                item.Quantity,
+                                item.ProductId);
+                        }
                     }
 
                     await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.Returned);
@@ -261,6 +306,11 @@ public class ShipmentService : IShipmentService
                 }
 
                 await _uow.CommitTransactionAsync();
+
+                if (affected > 0)
+                {
+                    await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, ShipmentStatus.Returned);
+                }
             }
             catch
             {
@@ -271,6 +321,10 @@ public class ShipmentService : IShipmentService
         else
         {
             shipment.Status = targetStatus;
+            if (targetStatus == ShipmentStatus.Delivered)
+            {
+                shipment.DeliveredAt = DateTime.UtcNow;
+            }
             _uow.Shipments.Update(shipment);
             await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, targetStatus);
             await _uow.SaveChangesAsync();
@@ -279,6 +333,8 @@ public class ShipmentService : IShipmentService
             {
                 await _walletService.ProcessShipmentDeliveredAsync(shipment.Id);
             }
+
+            await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, targetStatus);
         }
 
         var refreshedShipment = await _uow.Shipments.GetByIdAsync(shipmentId);

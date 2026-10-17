@@ -51,7 +51,7 @@ export default function MyProductsScreen({ navigation }) {
       setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Failed to load seller products', error);
-      Alert.alert(t('common.error'), 'تعذر تحميل قائمة المنتجات');
+      Alert.alert(t('common.error'), t('common.error'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -75,7 +75,7 @@ export default function MyProductsScreen({ navigation }) {
             await deleteProduct(id);
             fetchProducts();
           } catch (err) {
-            Alert.alert(t('common.error'), 'تعذر حذف المنتج');
+            Alert.alert(t('common.error'), t('common.error'));
           }
         },
       },
@@ -113,7 +113,7 @@ export default function MyProductsScreen({ navigation }) {
           {outOfStockCount > 0 && (
             <View style={[styles.metricBadge, { backgroundColor: '#FEE2E2', marginLeft: 6 }]}>
               <Text style={[styles.metricBadgeText, { color: colors.discount }]}>
-                {outOfStockCount} نفد المخزون
+                {outOfStockCount} {t('product.outOfStock')}
               </Text>
             </View>
           )}
@@ -148,7 +148,7 @@ export default function MyProductsScreen({ navigation }) {
           <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
           <TextInput
             style={[tw`flex-1 ml-2 text-sm`, { color: colors.textPrimary }]}
-            placeholder="ابحث في منتجاتك..."
+            placeholder={t('common.searchPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -196,7 +196,7 @@ export default function MyProductsScreen({ navigation }) {
               {t('seller.noProducts')}
             </Text>
             <Text style={[tw`text-center text-sm mt-1 mb-5 max-w-xs`, { color: colors.textSecondary }]}>
-              ابدأ بإضافة أول منتج لمتجرك لعرضه أمام المشترين في مصر
+              {t('seller.welcome')}
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}

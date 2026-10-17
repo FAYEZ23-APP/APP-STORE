@@ -7,6 +7,9 @@ public class Order
     public int Id { get; set; }
     public int BuyerId { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal DiscountAmount { get; set; } = 0;
+    public string? CouponCode { get; set; }
+    public decimal WalletAmountUsed { get; set; } = 0;
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Pickup;
     public string? PickupPointId { get; set; }

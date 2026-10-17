@@ -52,6 +52,48 @@ public class WalletService : IWalletService
         };
     }
 
+    public async Task<BuyerWalletResponse> GetBuyerWalletAsync(int buyerId)
+    {
+        var buyer = await _uow.Users.GetByIdAsync(buyerId);
+        if (buyer == null)
+            throw new NotFoundException("Buyer not found.");
+
+        var wallet = (await _uow.BuyerWallets.FindAsync(w => w.BuyerId == buyerId)).FirstOrDefault();
+        if (wallet == null)
+        {
+            wallet = new BuyerWallet
+            {
+                BuyerId = buyerId,
+                Balance = 0m,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await _uow.BuyerWallets.AddAsync(wallet);
+            await _uow.SaveChangesAsync();
+        }
+
+        var transactions = (await _uow.BuyerWalletTransactions.FindAsync(t => t.BuyerId == buyerId))
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(50)
+            .ToList();
+
+        return new BuyerWalletResponse
+        {
+            BuyerId = wallet.BuyerId,
+            Balance = wallet.Balance,
+            UpdatedAt = wallet.UpdatedAt,
+            Transactions = transactions.Select(t => new BuyerWalletTransactionResponse
+            {
+                Id = t.Id,
+                OrderId = t.OrderId,
+                ReturnRequestId = t.ReturnRequestId,
+                Amount = t.Amount,
+                Type = t.Type.ToString(),
+                Description = t.Description,
+                CreatedAt = t.CreatedAt
+            }).ToList()
+        };
+    }
+
     public async Task<PayoutRequestResponse> RequestPayoutAsync(int sellerId, CreatePayoutRequest request)
     {
         var seller = await _uow.Users.GetByIdAsync(sellerId);

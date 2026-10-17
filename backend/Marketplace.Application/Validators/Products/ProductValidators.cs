@@ -4,6 +4,26 @@ using Marketplace.Application.Interfaces;
 
 namespace Marketplace.Application.Validators.Products;
 
+public class CreateProductVariantRequestValidator : AbstractValidator<CreateProductVariantRequest>
+{
+    public CreateProductVariantRequestValidator()
+    {
+        RuleFor(x => x.Stock)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Variant stock must be greater than or equal to 0.");
+
+        RuleFor(x => x.PriceOverride)
+            .GreaterThan(0)
+            .When(x => x.PriceOverride.HasValue)
+            .WithMessage("PriceOverride must be greater than 0 when provided.");
+
+        RuleFor(x => x.ImageUrl)
+            .Must(CreateProductRequestValidator.IsValidImageUrl)
+            .When(x => !string.IsNullOrWhiteSpace(x.ImageUrl))
+            .WithMessage("Variant ImageUrl must be a valid path starting with /uploads/ or a valid http/https URL without path traversal or private IP targets.");
+    }
+}
+
 public class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
 {
     public CreateProductRequestValidator(IUnitOfWork uow)
@@ -42,6 +62,10 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
             .GreaterThan(0).WithMessage("CategoryId is required.")
             .MustAsync(async (catId, ct) => (await uow.Categories.GetByIdAsync(catId)) != null)
             .WithMessage("Category does not exist.");
+
+        RuleForEach(x => x.Variants)
+            .SetValidator(new CreateProductVariantRequestValidator())
+            .When(x => x.Variants != null && x.Variants.Any());
     }
 
     public static bool IsValidImageUrl(string? url)
@@ -111,5 +135,9 @@ public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequ
             .GreaterThan(0).WithMessage("CategoryId is required.")
             .MustAsync(async (catId, ct) => (await uow.Categories.GetByIdAsync(catId)) != null)
             .WithMessage("Category does not exist.");
+
+        RuleForEach(x => x.Variants)
+            .SetValidator(new CreateProductVariantRequestValidator())
+            .When(x => x.Variants != null && x.Variants.Any());
     }
 }

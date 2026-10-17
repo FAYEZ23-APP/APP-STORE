@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProductById, getAllProducts } from '../../api/productsApi';
+import { getProductReviews, canReviewProduct } from '../../api/reviewsApi';
+import ReviewModal from '../../components/ReviewModal';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
 import { getCategoryIconName } from '../../utils/categoryIcons';
@@ -66,17 +68,58 @@ export default function ProductDetailsScreen({ route, navigation }) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [isDescTruncated, setIsDescTruncated] = useState(false);
   const [similarProducts, setSimilarProducts] = useState([]);
+  const [reviewsData, setReviewsData] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
-  const cartQty = product?.id != null ? getQuantity(product.id) : 0;
+  const fetchReviews = useCallback(async () => {
+    if (!productId) return;
+    try {
+      setLoadingReviews(true);
+      const res = await getProductReviews(productId);
+      setReviewsData(res?.data);
+    } catch (err) {
+      // ignore
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [productId]);
+
+  const checkCanReview = useCallback(async () => {
+    if (!productId) return;
+    try {
+      const res = await canReviewProduct(productId);
+      setCanReview(res?.data?.canReview === true);
+    } catch (err) {
+      setCanReview(false);
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    fetchReviews();
+    checkCanReview();
+  }, [fetchReviews, checkCanReview]);
+
+  // Initialize selected variant when product variants load
+  useEffect(() => {
+    if (product?.variants && product.variants.length > 0) {
+      const available = product.variants.find((v) => (v.stock || 0) > 0) || product.variants[0];
+      setSelectedVariant((prev) => (prev ? prev : available));
+    }
+  }, [product?.variants]);
+
+  const cartQty = product?.id != null ? getQuantity(product.id, selectedVariant?.id) : 0;
 
   // Keep selectedQty synced when item is already in cart
   useEffect(() => {
     if (cartQty > 0) {
       setSelectedQty(cartQty);
-    } else if (product?.stock > 0 && selectedQty < 1) {
+    } else if ((selectedVariant ? selectedVariant.stock : product?.stock) > 0 && selectedQty < 1) {
       setSelectedQty(1);
     }
-  }, [cartQty, product?.stock]);
+  }, [cartQty, product?.stock, selectedVariant]);
 
   const fetchDetails = useCallback(async () => {
     if (!productId) {
@@ -238,21 +281,24 @@ export default function ProductDetailsScreen({ route, navigation }) {
   const rawImages = Array.isArray(product.imageUrls)
     ? product.imageUrls.map((u) => getImageUrl(u)).filter(Boolean)
     : [];
-  const stock = typeof product.stock === 'number' ? product.stock : 0;
+  const effectivePrice = selectedVariant?.priceOverride != null ? selectedVariant.priceOverride : (Number(product.price) || 0);
+  const stock = selectedVariant
+    ? (typeof selectedVariant.stock === 'number' ? selectedVariant.stock : 0)
+    : (typeof product.stock === 'number' ? product.stock : 0);
   const isOutOfStock = stock <= 0;
   const isLowStock = stock > 0 && stock <= 5;
   const isNew = isCreatedWithinLast7Days(product.createdAt);
 
   const hasRealDiscount =
     typeof product.oldPrice === 'number' &&
-    typeof product.price === 'number' &&
-    product.oldPrice > product.price &&
-    product.price > 0;
+    typeof effectivePrice === 'number' &&
+    product.oldPrice > effectivePrice &&
+    effectivePrice > 0;
 
   const discountPercent = hasRealDiscount
     ? typeof product.discountPercent === 'number' && product.discountPercent > 0
       ? product.discountPercent
-      : Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
+      : Math.round(((product.oldPrice - effectivePrice) / product.oldPrice) * 100)
     : null;
 
   const categoryKey = product.categoryKey || '';
@@ -271,7 +317,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
     if (isOutOfStock) return;
     if (cartQty > 0) {
       const next = cartQty - 1;
-      setQuantity(product, next);
+      setQuantity(product, next, selectedVariant);
       setSelectedQty(Math.max(1, next));
     } else {
       setSelectedQty((prev) => Math.max(1, prev - 1));
@@ -285,14 +331,14 @@ export default function ProductDetailsScreen({ route, navigation }) {
     const next = Math.min(stock, current + 1);
     setSelectedQty(next);
     if (cartQty > 0) {
-      setQuantity(product, next);
+      setQuantity(product, next, selectedVariant);
     }
   };
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
     const qtyToAdd = Math.min(stock, Math.max(1, selectedQty));
-    setQuantity(product, qtyToAdd);
+    setQuantity(product, qtyToAdd, selectedVariant);
     if (Platform.OS === 'android') {
       ToastAndroid.show(t('cart.addedToast'), ToastAndroid.SHORT);
     }
@@ -301,17 +347,18 @@ export default function ProductDetailsScreen({ route, navigation }) {
   const handleBuyNow = () => {
     if (isOutOfStock) return;
     const qty = Math.min(stock, Math.max(1, selectedQty));
-    // "Купить сейчас" does NOT touch the cart: opens Checkout with only this product and quantity
+    // "Buy now" opens Checkout with only this product, selected variant and quantity
     navigation.navigate('Checkout', {
       buyNowItem: {
         product,
+        selectedVariant,
         quantity: qty,
       },
     });
   };
 
   const effectiveQty = isOutOfStock ? 0 : Math.min(stock, Math.max(1, cartQty > 0 ? cartQty : selectedQty));
-  const lineTotal = (Number(product.price) || 0) * (effectiveQty || 1);
+  const lineTotal = (Number(effectivePrice) || 0) * (effectiveQty || 1);
 
   return (
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
@@ -436,7 +483,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 },
               ]}
             >
-              {formatCurrency(product.price)}
+              {formatCurrency(effectivePrice)}
             </Text>
 
             {hasRealDiscount && (
@@ -489,6 +536,19 @@ export default function ProductDetailsScreen({ route, navigation }) {
           >
             {product.name}
           </Text>
+
+          {/* Rating and Reviews Count Badge */}
+          <View style={tw`flex-row items-center mb-3`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="star" size={18} color="#F59E0B" />
+              <Text style={[tw`font-bold text-sm ml-1`, { color: colors.textPrimary }]}>
+                {product.averageRating > 0 ? Number(product.averageRating).toFixed(1) : t('product.newBadge')}
+              </Text>
+            </View>
+            <Text style={[tw`text-xs ml-2`, { color: colors.textSecondary }]}>
+              {product.reviewsCount > 0 ? t('product.ratingsCount', { count: product.reviewsCount }) : t('product.noReviewsYet')}
+            </Text>
+          </View>
 
           {/* Category chip + Stock status row */}
           <View style={[tw`flex-row flex-wrap items-center justify-between`, { marginBottom: 12 }]}>
@@ -577,6 +637,88 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </View>
           ) : null}
         </View>
+
+        {/* Product Variants Selector (Size / Color / Specs chips) */}
+        {Array.isArray(product.variants) && product.variants.length > 0 && (
+          <View
+            style={[
+              cardShadow,
+              {
+                marginHorizontal: 8,
+                marginTop: 8,
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: colors.cardBg,
+              },
+            ]}
+          >
+            <View style={tw`flex-row items-center justify-between mb-3`}>
+              <View style={tw`flex-row items-center`}>
+                <MaterialCommunityIcons name="tag-outline" size={18} color={colors.primary} />
+                <Text style={[tw`font-bold text-sm ml-1.5`, { color: colors.textPrimary }]}>
+                  {t('product.selectVariant')} ({product.variants.length})
+                </Text>
+              </View>
+              {selectedVariant?.sku ? (
+                <Text style={[tw`text-[11px] font-mono`, { color: colors.textSecondary }]}>
+                  {selectedVariant.sku}
+                </Text>
+              ) : null}
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {product.variants.map((v) => {
+                const isSelected = selectedVariant?.id === v.id;
+                const vStock = typeof v.stock === 'number' ? v.stock : 0;
+                const vPrice = v.priceOverride ?? product.price;
+                const label = [
+                  v.size ? `${t('product.size')} ${v.size}` : null,
+                  v.color ? v.color : null,
+                  v.attributeName && v.attributeValue ? `${v.attributeName}: ${v.attributeValue}` : null,
+                ].filter(Boolean).join(' • ') || `${t('common.details')} #${v.id}`;
+
+                return (
+                  <TouchableOpacity
+                    key={`variant-chip-${v.id}`}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedVariant(v)}
+                    style={[
+                      tw`rounded-xl p-3 border`,
+                      {
+                        minWidth: 105,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                        backgroundColor: isSelected ? colors.primarySoft : colors.screenBg,
+                      },
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        tw`font-bold text-xs mb-1`,
+                        { color: isSelected ? colors.primary : colors.textPrimary },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+
+                    <Text style={[tw`font-bold text-xs`, { color: colors.accent }]}>
+                      {formatCurrency(vPrice)}
+                    </Text>
+
+                    <Text
+                      style={[
+                        tw`text-[10px] mt-1 font-semibold`,
+                        { color: vStock > 0 ? colors.newBadge : colors.discount },
+                      ]}
+                    >
+                      {vStock > 0 ? `${t('product.inStock', { count: vStock })}` : t('product.outOfStock')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* 4. Quantity selector ( - n + ) bounded by stock, with live line total ("Итого: 2 598 ₽") */}
         {!isOutOfStock && (
@@ -718,6 +860,128 @@ export default function ProductDetailsScreen({ route, navigation }) {
             )}
           </View>
         ) : null}
+
+        {/* Customer Reviews & Ratings Section */}
+        <View
+          style={[
+            cardShadow,
+            {
+              marginHorizontal: 8,
+              marginTop: 12,
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: colors.cardBg,
+            },
+          ]}
+        >
+          <View style={tw`flex-row items-center justify-between mb-3`}>
+            <View>
+              <Text style={[tw`text-base font-bold`, { color: colors.textPrimary }]}>
+                {t('product.customerReviews')}
+              </Text>
+              <Text style={[tw`text-xs mt-0.5`, { color: colors.textSecondary }]}>
+                {reviewsData?.totalReviews > 0
+                  ? t('product.ratingsCount', { count: reviewsData.totalReviews })
+                  : t('product.noReviewsYet')}
+              </Text>
+            </View>
+
+            {canReview && (
+              <TouchableOpacity
+                onPress={() => setShowReviewModal(true)}
+                activeOpacity={0.8}
+                style={[
+                  tw`px-3 py-1.5 rounded-lg border flex-row items-center`,
+                  { borderColor: colors.accent, backgroundColor: '#FFF7ED' },
+                ]}
+              >
+                <MaterialCommunityIcons name="star-plus" size={16} color={colors.accent} style={tw`mr-1`} />
+                <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+                  {t('product.writeReview')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Average Rating Score Box */}
+          {reviewsData && reviewsData.totalReviews > 0 && (
+            <View style={[tw`flex-row items-center p-3 rounded-xl mb-4`, { backgroundColor: colors.screenBg }]}>
+              <View style={tw`items-center justify-center pr-4 border-r border-gray-200`}>
+                <Text style={[tw`text-3xl font-bold`, { color: colors.textPrimary }]}>
+                  {Number(reviewsData.averageRating).toFixed(1)}
+                </Text>
+                <View style={tw`flex-row mt-1`}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <MaterialCommunityIcons
+                      key={`avg-s-${s}`}
+                      name={s <= Math.round(reviewsData.averageRating) ? 'star' : 'star-outline'}
+                      size={14}
+                      color="#F59E0B"
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={tw`flex-1 pl-4`}>
+                {[5, 4, 3, 2, 1].map((starNum) => {
+                  const count = reviewsData.starDistribution?.[starNum] || 0;
+                  const pct = reviewsData.totalReviews > 0 ? (count / reviewsData.totalReviews) * 100 : 0;
+                  return (
+                    <View key={`dist-${starNum}`} style={tw`flex-row items-center my-0.5`}>
+                      <Text style={[tw`text-[11px] w-4 font-mono`, { color: colors.textSecondary }]}>
+                        {starNum}
+                      </Text>
+                      <MaterialCommunityIcons name="star" size={10} color="#F59E0B" style={tw`mx-1`} />
+                      <View style={tw`flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden`}>
+                        <View style={[tw`h-full rounded-full`, { width: `${pct}%`, backgroundColor: '#F59E0B' }]} />
+                      </View>
+                      <Text style={[tw`text-[10px] w-5 text-right font-mono`, { color: colors.textSecondary }]}>
+                        {count}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Individual Reviews List */}
+          {reviewsData?.reviews && reviewsData.reviews.length > 0 ? (
+            <View>
+              {reviewsData.reviews.slice(0, 5).map((rev) => (
+                <View
+                  key={`rev-${rev.id}`}
+                  style={tw`py-2.5 border-t border-gray-100`}
+                >
+                  <View style={tw`flex-row items-center justify-between mb-1`}>
+                    <Text style={[tw`text-xs font-bold`, { color: colors.textPrimary }]}>
+                      {rev.buyerName || t('product.verifiedBuyer')}
+                    </Text>
+                    <View style={tw`flex-row`}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <MaterialCommunityIcons
+                          key={`rv-s-${s}`}
+                          name={s <= rev.rating ? 'star' : 'star-outline'}
+                          size={12}
+                          color="#F59E0B"
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  {rev.comment ? (
+                    <Text style={[tw`text-xs leading-4`, { color: colors.textSecondary }]}>
+                      {rev.comment}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[tw`text-xs text-center py-2`, { color: colors.textSecondary }]}>
+              {t('product.beFirstReview')}
+            </Text>
+          )}
+        </View>
 
         {/* 6. "Похожие товары" horizontal row (same category, excluding current product, reusing ProductCard) */}
         {similarProducts.length > 0 && (
@@ -861,6 +1125,17 @@ export default function ProductDetailsScreen({ route, navigation }) {
           </View>
         )}
       </View>
+
+      <ReviewModal
+        visible={showReviewModal}
+        productId={productId}
+        productName={product?.name || t('nav.catalog')}
+        onClose={() => setShowReviewModal(false)}
+        onReviewSubmitted={() => {
+          fetchReviews();
+          fetchDetails();
+        }}
+      />
     </View>
   );
 }

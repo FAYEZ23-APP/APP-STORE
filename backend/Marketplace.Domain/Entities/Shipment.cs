@@ -15,6 +15,7 @@ public class Shipment
     public int EtaMinDays { get; set; }
     public int EtaMaxDays { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DeliveredAt { get; set; }
 
     public Order Order { get; set; } = null!;
     public User Seller { get; set; } = null!;

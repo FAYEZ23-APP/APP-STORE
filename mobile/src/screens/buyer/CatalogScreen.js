@@ -231,11 +231,13 @@ export default function CatalogScreen({ route, navigation }) {
               <MaterialCommunityIcons name="storefront" size={20} color={colors.white} />
             </View>
             <Text style={styles.brandTitle}>Marketplace</Text>
-            <Text style={styles.brandBadge}>مصر 🇪🇬</Text>
+            <Text style={styles.brandBadge}>{isRTL ? 'مصر 🇪🇬' : 'Egypt 🇪🇬'}</Text>
           </View>
           <View style={styles.deliveryBadge}>
             <MaterialCommunityIcons name="truck-fast-outline" size={13} color="#FED7AA" />
-            <Text style={styles.deliveryBadgeText}>شحن لكافة المحافظات</Text>
+            <Text style={styles.deliveryBadgeText}>
+              {isRTL ? 'شحن لكافة المحافظات' : 'Delivery Across Egypt'}
+            </Text>
           </View>
         </View>
       </LinearGradient>

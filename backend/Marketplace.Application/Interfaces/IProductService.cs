@@ -6,6 +6,7 @@ public interface IProductService
 {
     Task<ProductResponse> CreateProductAsync(int sellerId, CreateProductRequest request);
     Task<ProductResponse> UpdateProductAsync(int sellerId, int productId, UpdateProductRequest request);
+    Task<ProductResponse> QuickStockUpdateAsync(int sellerId, int productId, Marketplace.Application.DTOs.Dashboard.QuickStockUpdateRequest request);
     Task DeleteProductAsync(int sellerId, int productId);
     Task<IEnumerable<ProductResponse>> GetSellerProductsAsync(int sellerId);
     

@@ -35,7 +35,8 @@ const cardShadow = Platform.select({
 });
 
 export default function CartScreen({ navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === 'ar';
   const {
     items,
     increase,
@@ -131,6 +132,7 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleRemoveConfirm = (entry) => {
+    const key = entry?.cartKey || entry?.productId;
     Alert.alert(
       t('cart.removeItemTitle'),
       t('cart.removeItemConfirm', { name: entry?.product?.name || '' }),
@@ -139,25 +141,28 @@ export default function CartScreen({ navigation }) {
         {
           text: t('common.delete'),
           style: 'destructive',
-          onPress: () => remove(entry.productId),
+          onPress: () => remove(key),
         },
       ]
     );
   };
 
   const handleStepMinus = (entry) => {
+    const key = entry?.cartKey || entry?.productId;
     if (entry.quantity <= 1) {
       handleRemoveConfirm(entry);
     } else {
-      decrease(entry.productId);
+      decrease(key, entry.selectedVariant);
     }
   };
 
   const handleStepPlus = (entry) => {
-    const stock =
-      typeof entry?.product?.stock === 'number' ? entry.product.stock : 0;
+    const stock = entry?.selectedVariant
+      ? (typeof entry.selectedVariant.stock === 'number' ? entry.selectedVariant.stock : 0)
+      : (typeof entry?.product?.stock === 'number' ? entry.product.stock : 0);
     if (entry.quantity >= stock) return;
-    increase(entry.product);
+    const key = entry?.cartKey || entry?.product;
+    increase(key, entry.selectedVariant);
   };
 
   const handleProceedToCheckout = () => {
@@ -225,7 +230,7 @@ export default function CartScreen({ navigation }) {
       {/* Cart Items List */}
       <FlatList
         data={cartList}
-        keyExtractor={(item) => `cart-item-${item.productId}`}
+        keyExtractor={(item) => item.cartKey || `cart-item-${item.productId}_${item.variantId || 'base'}`}
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
@@ -236,8 +241,13 @@ export default function CartScreen({ navigation }) {
         }
         renderItem={({ item }) => {
           const product = item?.product || {};
-          const imageUrl = getImageUrl(product?.imageUrls?.[0]);
-          const stock = typeof product?.stock === 'number' ? product.stock : 0;
+          const imageUrl = getImageUrl(item?.selectedVariant?.imageUrl || product?.imageUrls?.[0]);
+          const stock = item?.selectedVariant
+            ? (typeof item.selectedVariant.stock === 'number' ? item.selectedVariant.stock : 0)
+            : (typeof product?.stock === 'number' ? product.stock : 0);
+          const unitPrice = item?.selectedVariant?.priceOverride != null
+            ? item.selectedVariant.priceOverride
+            : (Number(product?.price) || 0);
           const isAtMaxStock = item.quantity >= stock;
 
           return (
@@ -327,6 +337,21 @@ export default function CartScreen({ navigation }) {
                     </TouchableOpacity>
                   </View>
 
+                  {/* Variant Summary Badge */}
+                  {item.selectedVariant ? (
+                    <View style={[tw`self-start px-2 py-0.5 rounded mt-1`, { backgroundColor: colors.primarySoft }]}>
+                      <Text style={[tw`text-[11px] font-semibold`, { color: colors.primary }]}>
+                        {[
+                          item.selectedVariant.size ? `${t('product.size')} ${item.selectedVariant.size}` : null,
+                          item.selectedVariant.color ? item.selectedVariant.color : null,
+                          item.selectedVariant.attributeName && item.selectedVariant.attributeValue
+                            ? `${item.selectedVariant.attributeName}: ${item.selectedVariant.attributeValue}`
+                            : null,
+                        ].filter(Boolean).join(' • ') || (isRTL ? 'خيار محدد' : 'Selected Option')}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {/* Seller Name */}
                   {product.sellerName ? (
                     <Text
@@ -349,7 +374,7 @@ export default function CartScreen({ navigation }) {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {formatCurrency(product.price)}
+                    {formatCurrency(unitPrice)}
                   </Text>
 
                   {/* Stepper clamped to stock */}
@@ -450,7 +475,7 @@ export default function CartScreen({ navigation }) {
             <Text style={[tw`font-bold text-base`, { color: colors.white }]}>
               {t('cart.checkoutBtn', { total: formatCurrency(totalPrice) }) || t('cart.checkout')}
             </Text>
-            <MaterialCommunityIcons name="arrow-left" size={18} color={colors.white} style={{ marginLeft: 6 }} />
+            <MaterialCommunityIcons name={isRTL ? "arrow-left" : "arrow-right"} size={18} color={colors.white} style={{ marginHorizontal: 6 }} />
           </LinearGradient>
         </TouchableOpacity>
 
@@ -458,7 +483,9 @@ export default function CartScreen({ navigation }) {
         <View style={tw`flex-row items-center justify-center mt-2.5`}>
           <MaterialCommunityIcons name="shield-check-outline" size={14} color={colors.textSecondary} />
           <Text style={[tw`text-[11px] ml-1`, { color: colors.textSecondary }]}>
-            تسوق آمن 100% • إمكانية الدفع عند الاستلام داخل مصر
+            {isRTL
+              ? 'تسوق آمن 100% • إمكانية الدفع عند الاستلام داخل مصر'
+              : '100% Secure Shopping • Cash on Delivery across Egypt'}
           </Text>
         </View>
       </View>

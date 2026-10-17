@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { Alert, Platform } from 'react-native';
+import { useEffect, useState, useContext, useCallback } from 'react';
+import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { AuthContext } from '../context/AuthContext';
+import i18n from '../locales/i18n';
 
 // Completes the auth session for web/browser redirects
 WebBrowser.maybeCompleteAuthSession();
@@ -14,6 +15,9 @@ export const GOOGLE_CONFIG = {
   iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
 };
 
+// Fallback dummy client id so that expo-auth-session invariant doesn't crash during mount when env vars are missing
+const PLACEHOLDER_CLIENT_ID = 'unconfigured-client-id.apps.googleusercontent.com';
+
 export const useGoogleAuth = ({
   role = 'Buyer',
   acceptedTermsAndPrivacy = true,
@@ -23,75 +27,86 @@ export const useGoogleAuth = ({
   const { loginWithGoogle } = useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Setup Expo Google Auth Request
+  const hasConfiguredClientId = Boolean(
+    GOOGLE_CONFIG.webClientId ||
+    GOOGLE_CONFIG.androidClientId ||
+    GOOGLE_CONFIG.iosClientId
+  );
+
+  // Setup Expo Google Auth Request (always pass a valid string to prevent invariant crash on Android/iOS/Web)
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: GOOGLE_CONFIG.webClientId || undefined,
-    androidClientId: GOOGLE_CONFIG.androidClientId || undefined,
-    iosClientId: GOOGLE_CONFIG.iosClientId || undefined,
+    webClientId: GOOGLE_CONFIG.webClientId || PLACEHOLDER_CLIENT_ID,
+    androidClientId: GOOGLE_CONFIG.androidClientId || PLACEHOLDER_CLIENT_ID,
+    iosClientId: GOOGLE_CONFIG.iosClientId || PLACEHOLDER_CLIENT_ID,
   });
+
+  const handleToken = useCallback(
+    async (idToken) => {
+      setIsSubmitting(true);
+      try {
+        await loginWithGoogle(idToken, role, acceptedTermsAndPrivacy, marketingConsent);
+      } catch (err) {
+        let msg = err.response?.data?.error || err.message;
+        if (err.response?.data?.errors) {
+          const details = Object.values(err.response.data.errors).flat().join('\n');
+          if (details) msg = details;
+        }
+        if (onError) onError(msg);
+        else Alert.alert(i18n.t('common.error'), msg || i18n.t('auth.googleAuthError'));
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [loginWithGoogle, role, acceptedTermsAndPrivacy, marketingConsent, onError]
+  );
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
       if (id_token) {
-        handleToken(id_token);
+        queueMicrotask(() => {
+          handleToken(id_token);
+        });
       }
     } else if (response?.type === 'error') {
-      setIsSubmitting(false);
-      const errorMsg = response.error?.message || 'Google Sign-In failed';
-      if (onError) onError(errorMsg);
-      else Alert.alert('خطأ', errorMsg);
+      queueMicrotask(() => {
+        setIsSubmitting(false);
+        const errorMsg = response.error?.message || i18n.t('auth.googleAuthError');
+        if (onError) onError(errorMsg);
+        else Alert.alert(i18n.t('common.error'), errorMsg);
+      });
     }
-  }, [response]);
-
-  const handleToken = async (idToken) => {
-    setIsSubmitting(true);
-    try {
-      await loginWithGoogle(idToken, role, acceptedTermsAndPrivacy, marketingConsent);
-    } catch (err) {
-      let msg = err.response?.data?.error || err.message;
-      if (err.response?.data?.errors) {
-        const details = Object.values(err.response.data.errors).flat().join('\n');
-        if (details) msg = details;
-      }
-      if (onError) onError(msg);
-      else Alert.alert('خطأ', msg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  }, [response, handleToken, onError]);
 
   const signIn = async () => {
-    const hasClientId =
-      GOOGLE_CONFIG.webClientId ||
-      GOOGLE_CONFIG.androidClientId ||
-      GOOGLE_CONFIG.iosClientId;
-
-    if (hasClientId && request) {
+    if (hasConfiguredClientId && request) {
       try {
         setIsSubmitting(true);
         await promptAsync();
       } catch (err) {
         setIsSubmitting(false);
-        Alert.alert('خطأ', err.message || 'تعذر فتح نافذة تسجيل الدخول بجوجل');
+        Alert.alert(i18n.t('common.error'), err.message || i18n.t('auth.googleAuthError'));
       }
       return;
     }
 
     // In local development when Google Cloud Client ID is not yet configured in .env,
     // offer a seamless dev simulation so the user/developer can verify the full auth flow immediately.
+    const isAr = !i18n.language || i18n.language.startsWith('ar');
     Alert.alert(
-      'تسجيل الدخول بجوجل (وضع التطوير)',
-      'لم يتم تعيين معرّف Google Client ID في ملف الإعدادات بعد.\nهل ترغب في تسجيل الدخول كحساب تجريبي لاختبار التطبيق؟',
+      isAr ? 'تسجيل الدخول بجوجل (وضع التطوير)' : 'Google Sign-In (Dev Simulation)',
+      isAr
+        ? 'لم يتم تعيين معرّف Google Client ID في ملف الإعدادات (.env) بعد.\nهل ترغب في تسجيل الدخول كحساب تجريبي لاختبار التطبيق؟'
+        : 'Google Client ID is not configured in .env yet.\nWould you like to simulate Google sign-in with a test account?',
       [
         {
-          text: 'إلغاء',
+          text: i18n.t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'دخول تجريبي بجوجل',
+          text: isAr ? 'دخول تجريبي بجوجل' : 'Demo Google Sign-In',
           onPress: async () => {
-            const mockToken = `mock-google-token:user_${Date.now().toString().slice(-4)}@gmail.com:مستخدم جوجل التجريبي`;
+            const mockToken = `mock-google-token:user_${Date.now().toString().slice(-4)}@gmail.com:${isAr ? 'مستخدم تجريبي' : 'Demo User'}`;
             await handleToken(mockToken);
           },
         },

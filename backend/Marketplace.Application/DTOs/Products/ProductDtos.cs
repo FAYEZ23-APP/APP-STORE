@@ -1,5 +1,33 @@
 namespace Marketplace.Application.DTOs.Products;
 
+public class ProductVariantDto
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
+    public string? Sku { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+    public string? AttributeName { get; set; }
+    public string? AttributeValue { get; set; }
+    public decimal? PriceOverride { get; set; }
+    public decimal EffectivePrice { get; set; }
+    public int Stock { get; set; }
+    public string? ImageUrl { get; set; }
+}
+
+public class CreateProductVariantRequest
+{
+    public int? Id { get; set; }
+    public string? Sku { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+    public string? AttributeName { get; set; }
+    public string? AttributeValue { get; set; }
+    public decimal? PriceOverride { get; set; }
+    public int Stock { get; set; }
+    public string? ImageUrl { get; set; }
+}
+
 public class ProductResponse
 {
     public int Id { get; set; }
@@ -21,6 +49,8 @@ public class ProductResponse
     public string CategoryKey { get; set; } = string.Empty;
     public string CategoryIcon { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+
+    public List<ProductVariantDto> Variants { get; set; } = new();
 }
 
 public class CreateProductRequest
@@ -36,6 +66,7 @@ public class CreateProductRequest
     public int? HeightCm { get; set; }
     public List<string> ImageUrls { get; set; } = new();
     public int CategoryId { get; set; }
+    public List<CreateProductVariantRequest>? Variants { get; set; }
 }
 
 public class UpdateProductRequest
@@ -51,4 +82,5 @@ public class UpdateProductRequest
     public int? HeightCm { get; set; }
     public List<string> ImageUrls { get; set; } = new();
     public int CategoryId { get; set; }
+    public List<CreateProductVariantRequest>? Variants { get; set; }
 }

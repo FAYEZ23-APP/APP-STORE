@@ -44,6 +44,9 @@ public static class DependencyInjection
                 break;
         }
 
+        // Push Notifications (Expo / FCM)
+        services.AddHttpClient<IPushNotificationProvider, Marketplace.Infrastructure.Notifications.ExpoPushNotificationProvider>();
+
         return services;
     }
 }

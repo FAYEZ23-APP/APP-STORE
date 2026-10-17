@@ -22,4 +22,5 @@ public class User
     public ICollection<PayoutRequest> PayoutRequests { get; set; } = new List<PayoutRequest>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
     public ICollection<UserDeviceToken> DeviceTokens { get; set; } = new List<UserDeviceToken>();
+    public BuyerWallet? BuyerWallet { get; set; }
 }

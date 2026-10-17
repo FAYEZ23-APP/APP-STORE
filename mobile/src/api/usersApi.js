@@ -20,3 +20,10 @@ export const deleteMyAddress = (id) => client.delete(`/users/me/addresses/${id}`
 export const exportMyData = () => client.get('/users/me/export-data');
 export const deleteMyAccount = (currentPassword) => 
   client.delete('/users/me', { data: { currentPassword } });
+
+// Dashboard Hub Endpoints
+export const getSellerDashboard = () => client.get('/users/me/seller-dashboard');
+export const getBuyerDashboard = () => client.get('/users/me/buyer-dashboard');
+
+// Buyer Wallet Endpoint (Store Credit)
+export const getMyWallet = () => client.get('/users/me/wallet');

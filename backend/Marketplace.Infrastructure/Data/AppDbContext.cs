@@ -22,6 +22,12 @@ public class AppDbContext : DbContext
     public DbSet<PayoutRequest> PayoutRequests => Set<PayoutRequest>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<UserDeviceToken> UserDeviceTokens => Set<UserDeviceToken>();
+    public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<CouponUsage> CouponUsages => Set<CouponUsage>();
+    public DbSet<ReturnRequest> ReturnRequests => Set<ReturnRequest>();
+    public DbSet<BuyerWallet> BuyerWallets => Set<BuyerWallet>();
+    public DbSet<BuyerWalletTransaction> BuyerWalletTransactions => Set<BuyerWalletTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -231,6 +237,19 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasColumnType("decimal(18,2)");
 
+            entity.Property(o => o.DiscountAmount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m);
+
+            entity.Property(o => o.CouponCode)
+                .HasMaxLength(50);
+
+            entity.Property(o => o.WalletAmountUsed)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m);
+
             entity.Property(o => o.Status)
                 .IsRequired()
                 .HasConversion<string>()
@@ -321,6 +340,8 @@ public class AppDbContext : DbContext
             entity.Property(s => s.CreatedAt)
                 .IsRequired();
 
+            entity.Property(s => s.DeliveredAt);
+
             entity.HasOne(s => s.Order)
                 .WithMany(o => o.Shipments)
                 .HasForeignKey(s => s.OrderId)
@@ -344,6 +365,11 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasColumnType("decimal(18,2)");
 
+            entity.Property(oi => oi.VariantId);
+
+            entity.Property(oi => oi.VariantSummary)
+                .HasMaxLength(200);
+
             entity.HasOne(oi => oi.Order)
                 .WithMany(o => o.Items)
                 .HasForeignKey(oi => oi.OrderId)
@@ -358,6 +384,11 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(oi => oi.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(oi => oi.Variant)
+                .WithMany()
+                .HasForeignKey(oi => oi.VariantId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // --- UserConsent (PDPL 151/2020) -------------------------
@@ -479,6 +510,294 @@ public class AppDbContext : DbContext
                 .WithMany(u => u.PayoutRequests)
                 .HasForeignKey(p => p.SellerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- Review ----------------------------------------------
+        modelBuilder.Entity<Review>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.Property(r => r.Rating)
+                .IsRequired();
+
+            entity.Property(r => r.Comment)
+                .HasMaxLength(1000);
+
+            entity.Property(r => r.CreatedAt)
+                .IsRequired();
+
+            entity.HasOne(r => r.Product)
+                .WithMany(p => p.Reviews)
+                .HasForeignKey(r => r.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.Buyer)
+                .WithMany(u => u.Reviews)
+                .HasForeignKey(r => r.BuyerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(r => new { r.ProductId, r.BuyerId });
+        });
+
+        // --- UserDeviceToken -------------------------------------
+        modelBuilder.Entity<UserDeviceToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+
+            entity.Property(t => t.DeviceToken)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(t => t.Platform)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(t => t.UpdatedAt)
+                .IsRequired();
+
+            entity.HasOne(t => t.User)
+                .WithMany(u => u.DeviceTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(t => new { t.UserId, t.DeviceToken })
+                .IsUnique();
+        });
+
+        // --- ProductVariant --------------------------------------
+        modelBuilder.Entity<ProductVariant>(entity =>
+        {
+            entity.HasKey(pv => pv.Id);
+
+            entity.Property(pv => pv.Sku)
+                .HasMaxLength(100);
+
+            entity.Property(pv => pv.Size)
+                .HasMaxLength(50);
+
+            entity.Property(pv => pv.Color)
+                .HasMaxLength(50);
+
+            entity.Property(pv => pv.AttributeName)
+                .HasMaxLength(50);
+
+            entity.Property(pv => pv.AttributeValue)
+                .HasMaxLength(100);
+
+            entity.Property(pv => pv.PriceOverride)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(pv => pv.Stock)
+                .IsRequired();
+
+            entity.Property(pv => pv.ImageUrl)
+                .HasMaxLength(500);
+
+            entity.HasOne(pv => pv.Product)
+                .WithMany(p => p.Variants)
+                .HasForeignKey(pv => pv.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(pv => pv.ProductId);
+        });
+
+        // --- Coupon ----------------------------------------------
+        modelBuilder.Entity<Coupon>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.Code)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.HasIndex(c => c.Code)
+                .IsUnique();
+
+            entity.Property(c => c.DiscountType)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(c => c.DiscountValue)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(c => c.MinOrderSubtotal)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(c => c.MaxDiscountAmount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(c => c.MaxUsage)
+                .IsRequired();
+
+            entity.Property(c => c.UsedCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.Property(c => c.PerUserLimit)
+                .IsRequired()
+                .HasDefaultValue(1);
+
+            entity.Property(c => c.ExpiresAt)
+                .IsRequired();
+
+            entity.Property(c => c.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(c => c.CreatedAt)
+                .IsRequired();
+
+            entity.HasOne(c => c.Seller)
+                .WithMany()
+                .HasForeignKey(c => c.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // --- CouponUsage -----------------------------------------
+        modelBuilder.Entity<CouponUsage>(entity =>
+        {
+            entity.HasKey(cu => cu.Id);
+
+            entity.Property(cu => cu.DiscountApplied)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(cu => cu.UsedAt)
+                .IsRequired();
+
+            entity.HasOne(cu => cu.Coupon)
+                .WithMany(c => c.Usages)
+                .HasForeignKey(cu => cu.CouponId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(cu => cu.Buyer)
+                .WithMany()
+                .HasForeignKey(cu => cu.BuyerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(cu => cu.Order)
+                .WithMany()
+                .HasForeignKey(cu => cu.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(cu => new { cu.CouponId, cu.BuyerId });
+        });
+
+        // --- ReturnRequest ---------------------------------------
+        modelBuilder.Entity<ReturnRequest>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.Property(r => r.Quantity)
+                .IsRequired();
+
+            entity.Property(r => r.Reason)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(r => r.DefectImageUrl)
+                .HasMaxLength(500);
+
+            entity.Property(r => r.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(r => r.RefundAmount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(r => r.CreatedAt)
+                .IsRequired();
+
+            entity.Property(r => r.ResolvedAt);
+
+            entity.HasOne(r => r.Order)
+                .WithMany()
+                .HasForeignKey(r => r.OrderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Shipment)
+                .WithMany()
+                .HasForeignKey(r => r.ShipmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.OrderItem)
+                .WithMany()
+                .HasForeignKey(r => r.OrderItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Buyer)
+                .WithMany()
+                .HasForeignKey(r => r.BuyerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Seller)
+                .WithMany()
+                .HasForeignKey(r => r.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // --- BuyerWallet -----------------------------------------
+        modelBuilder.Entity<BuyerWallet>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+
+            entity.Property(w => w.Balance)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m);
+
+            entity.Property(w => w.UpdatedAt)
+                .IsRequired();
+
+            entity.HasOne(w => w.Buyer)
+                .WithOne(u => u.BuyerWallet)
+                .HasForeignKey<BuyerWallet>(w => w.BuyerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(w => w.BuyerId)
+                .IsUnique();
+        });
+
+        // --- BuyerWalletTransaction ------------------------------
+        modelBuilder.Entity<BuyerWalletTransaction>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+
+            entity.Property(t => t.Amount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(t => t.Type)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(30);
+
+            entity.Property(t => t.Description)
+                .IsRequired()
+                .HasMaxLength(250);
+
+            entity.Property(t => t.CreatedAt)
+                .IsRequired();
+
+            entity.HasOne(t => t.Buyer)
+                .WithMany()
+                .HasForeignKey(t => t.BuyerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(t => t.Order)
+                .WithMany()
+                .HasForeignKey(t => t.OrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(t => t.ReturnRequest)
+                .WithMany()
+                .HasForeignKey(t => t.ReturnRequestId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

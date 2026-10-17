@@ -1,4 +1,5 @@
 using Marketplace.API.Extensions;
+using Marketplace.Application.DTOs.Dashboard;
 using Marketplace.Application.DTOs.Users;
 using Marketplace.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,23 @@ namespace Marketplace.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IWalletService _walletService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IWalletService walletService)
     {
         _userService = userService;
+        _walletService = walletService;
+    }
+
+    /// <summary>Get buyer in-app store credit wallet and transaction history.</summary>
+    [HttpGet("me/wallet")]
+    [Authorize]
+    [ProducesResponseType(typeof(Marketplace.Application.DTOs.Wallet.BuyerWalletResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<Marketplace.Application.DTOs.Wallet.BuyerWalletResponse>> GetMyWallet()
+    {
+        var userId = User.GetUserId();
+        var wallet = await _walletService.GetBuyerWalletAsync(userId);
+        return Ok(wallet);
     }
 
     /// <summary>Get current user profile (includes SellerProfile fields if applicable).</summary>
@@ -158,6 +172,32 @@ public class UsersController : ControllerBase
         var userId = User.GetUserId();
         var stats = await _userService.GetBuyerStatsAsync(userId);
         return Ok(stats);
+    }
+
+    /// <summary>Get comprehensive seller central dashboard analytics.</summary>
+    [HttpGet("me/seller-dashboard")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(SellerDashboardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<SellerDashboardResponse>> GetMySellerDashboard()
+    {
+        var userId = User.GetUserId();
+        var dashboard = await _userService.GetSellerDashboardAsync(userId);
+        return Ok(dashboard);
+    }
+
+    /// <summary>Get buyer account hub dashboard metrics and active tracking.</summary>
+    [HttpGet("me/buyer-dashboard")]
+    [Authorize(Roles = "Buyer")]
+    [ProducesResponseType(typeof(BuyerDashboardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<BuyerDashboardResponse>> GetMyBuyerDashboard()
+    {
+        var userId = User.GetUserId();
+        var dashboard = await _userService.GetBuyerDashboardAsync(userId);
+        return Ok(dashboard);
     }
 
     /// <summary>Export all user data under Egyptian PDPL 151/2020 (Right to Data Portability).</summary>

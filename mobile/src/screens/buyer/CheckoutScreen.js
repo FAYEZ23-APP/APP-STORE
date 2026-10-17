@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
   I18nManager,
+  Switch,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,7 +19,8 @@ import { CartContext } from '../../context/CartContext';
 import { createOrder } from '../../api/ordersApi';
 import { getProductById } from '../../api/productsApi';
 import { getDeliveryCities, getPickupPoints, calculateDeliveryQuote } from '../../api/deliveryApi';
-import { getMyAddresses } from '../../api/usersApi';
+import { getMyAddresses, getMyWallet } from '../../api/usersApi';
+import { validateCoupon } from '../../api/couponsApi';
 import { formatCurrency } from '../../utils/currency';
 import { isValidEgyptianPhone, normalizeEgyptianPhone, formatEgyptianPhone } from '../../utils/egyptianPhone';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -39,9 +41,9 @@ const cardShadow = Platform.select({
 });
 
 export default function CheckoutScreen({ route, navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { removeItems, updateCartItem } = useContext(CartContext);
-  const isRTL = I18nManager.isRTL;
+  const isRTL = i18n.language === 'ar';
 
   const buyNowItem = route?.params?.buyNowItem;
   const initialCartItems = route?.params?.cartItems;
@@ -52,6 +54,8 @@ export default function CheckoutScreen({ route, navigation }) {
       ? [
           {
             productId: buyNowItem.product.id,
+            variantId: buyNowItem.selectedVariant?.id || null,
+            selectedVariant: buyNowItem.selectedVariant || null,
             quantity: buyNowItem.quantity,
             product: buyNowItem.product,
           },
@@ -59,8 +63,18 @@ export default function CheckoutScreen({ route, navigation }) {
       : initialCartItems || []
   );
 
-  // Delivery Method: 'Courier' (باب المنزل) or 'Pickup' (نقطة استلام بوسطة)
+  // Delivery Method: 'Courier' or 'Pickup'
   const [deliveryMethod, setDeliveryMethod] = useState('Courier');
+
+  // Coupon Engine State
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  // Buyer Wallet (Store Credit) State
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
+  const [loadingWallet, setLoadingWallet] = useState(false);
 
   // Saved addresses
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -69,14 +83,14 @@ export default function CheckoutScreen({ route, navigation }) {
   // Manual Courier Address Fields
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
-  const [governorate, setGovernorate] = useState('القاهرة');
-  const [city, setCity] = useState('مدينة نصر');
-  const [area, setArea] = useState('الحي السابع');
+  const [governorate, setGovernorate] = useState(isRTL ? 'القاهرة' : 'Cairo');
+  const [city, setCity] = useState(isRTL ? 'مدينة نصر' : 'Nasr City');
+  const [area, setArea] = useState(isRTL ? 'الحي السابع' : '7th District');
   const [streetBuilding, setStreetBuilding] = useState('');
 
   // Pickup Branch State
   const [availableCities, setAvailableCities] = useState([]);
-  const [pickupCity, setPickupCity] = useState('القاهرة');
+  const [pickupCity, setPickupCity] = useState(isRTL ? 'القاهرة' : 'Cairo');
   const [pickupPoints, setPickupPoints] = useState([]);
   const [selectedPickupPointId, setSelectedPickupPointId] = useState('');
 
@@ -90,7 +104,9 @@ export default function CheckoutScreen({ route, navigation }) {
   // Calculate items total
   const itemsSubtotal = useMemo(() => {
     return checkoutItems.reduce((acc, it) => {
-      const price = Number(it?.product?.price) || 0;
+      const price = it?.selectedVariant?.priceOverride != null
+        ? Number(it.selectedVariant.priceOverride)
+        : (Number(it?.product?.price) || 0);
       const qty = Number(it?.quantity) || 1;
       return acc + price * qty;
     }, 0);
@@ -100,7 +116,7 @@ export default function CheckoutScreen({ route, navigation }) {
     return checkoutItems.reduce((acc, it) => acc + (Number(it?.quantity) || 1), 0);
   }, [checkoutItems]);
 
-  // Load addresses & delivery cities on mount
+  // Load addresses, delivery cities, and buyer wallet on mount
   useEffect(() => {
     const initData = async () => {
       try {
@@ -111,8 +127,8 @@ export default function CheckoutScreen({ route, navigation }) {
           setSelectedAddressId(def.id);
           setRecipientName(def.recipientName || '');
           setRecipientPhone(def.recipientPhone || '');
-          setGovernorate(def.governorate || 'القاهرة');
-          setCity(def.city || 'مدينة نصر');
+          setGovernorate(def.governorate || (isRTL ? 'القاهرة' : 'Cairo'));
+          setCity(def.city || (isRTL ? 'مدينة نصر' : 'Nasr City'));
           setArea(def.area || '');
           setStreetBuilding(def.streetBuilding || '');
         }
@@ -130,6 +146,18 @@ export default function CheckoutScreen({ route, navigation }) {
         }
       } catch (e) {
         console.warn('Failed to load delivery cities:', e);
+      }
+
+      try {
+        setLoadingWallet(true);
+        const walletRes = await getMyWallet();
+        if (walletRes?.data?.balance != null) {
+          setWalletBalance(Number(walletRes.data.balance));
+        }
+      } catch (e) {
+        console.warn('Failed to load wallet:', e);
+      } finally {
+        setLoadingWallet(false);
       }
     };
 
@@ -159,12 +187,13 @@ export default function CheckoutScreen({ route, navigation }) {
     try {
       setQuoteLoading(true);
       const targetCity = deliveryMethod === 'Courier'
-        ? (governorate || city || 'القاهرة')
-        : (pickupCity || 'القاهرة');
+        ? (governorate || city || (isRTL ? 'القاهرة' : 'Cairo'))
+        : (pickupCity || (isRTL ? 'القاهرة' : 'Cairo'));
 
       const payload = {
         items: checkoutItems.map((it) => ({
           productId: it.productId,
+          variantId: it.variantId || it.selectedVariant?.id || null,
           quantity: it.quantity,
         })),
         deliveryMethod,
@@ -188,6 +217,45 @@ export default function CheckoutScreen({ route, navigation }) {
     fetchQuote();
   }, [fetchQuote]);
 
+  // Handle Coupon Validation
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim() || validatingCoupon) return;
+    try {
+      setValidatingCoupon(true);
+      const payload = {
+        code: couponCodeInput.trim(),
+        items: checkoutItems.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId || it.selectedVariant?.id || null,
+          quantity: it.quantity,
+        })),
+      };
+      const res = await validateCoupon(payload);
+      if (res?.data?.isValid) {
+        setAppliedCoupon(res.data);
+        Alert.alert(
+          isRTL ? 'تم تفعيل الكوبون' : 'Coupon Applied',
+          res.data.message || (isRTL ? 'تم احتساب الخصم بنجاح!' : 'Discount applied successfully!')
+        );
+      } else {
+        Alert.alert(
+          isRTL ? 'كوبون غير صالح' : 'Invalid Coupon',
+          res?.data?.message || (isRTL ? 'كود الكوبون غير صحيح أو غير مفعّل.' : 'Coupon code is invalid or expired.')
+        );
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || (isRTL ? 'تعذر التحقق من الكوبون' : 'Failed to validate coupon');
+      Alert.alert(isRTL ? 'خطأ بالكوبون' : 'Coupon Error', msg);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+  };
+
   // Handle Saved Address Selection
   const handleSelectSavedAddress = (addr) => {
     setSelectedAddressId(addr.id);
@@ -204,15 +272,26 @@ export default function CheckoutScreen({ route, navigation }) {
     loadPickupPoints(newCity);
   };
 
+  // Free shipping threshold calculations
+  const freeShippingThreshold = quoteData?.freeShippingThreshold || 1000;
+  const isFreeShipping = quoteData?.isFreeShippingApplied === true || itemsSubtotal >= freeShippingThreshold;
+  const freeShippingProgress = Math.min(100, Math.round((itemsSubtotal / freeShippingThreshold) * 100));
+  const neededForFreeShipping = Math.max(0, freeShippingThreshold - itemsSubtotal);
+
+  // Price totals
+  const couponDiscount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
   const deliveryCostTotal = Number(quoteData?.totalDeliveryCost) || (deliveryMethod === 'Pickup' ? 35 : 50);
-  const grandTotal = itemsSubtotal + deliveryCostTotal;
+  const subtotalAfterCoupon = Math.max(0, itemsSubtotal - couponDiscount);
+  const totalBeforeWallet = subtotalAfterCoupon + deliveryCostTotal;
+  const walletDeduction = useWalletBalance ? Math.min(walletBalance, totalBeforeWallet) : 0;
+  const grandTotal = Math.max(0, totalBeforeWallet - walletDeduction);
 
   const handleConfirmOrder = async () => {
     if (checkoutItems.length === 0 || submitting) return;
 
     // Validate inputs
     if (!recipientName.trim()) {
-      Alert.alert(t('common.error'), 'يرجى إدخال اسم المستلم بالكامل');
+      Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال اسم المستلم بالكامل' : 'Please enter full recipient name');
       return;
     }
 
@@ -223,12 +302,20 @@ export default function CheckoutScreen({ route, navigation }) {
 
     if (deliveryMethod === 'Courier') {
       if (!governorate.trim() || !city.trim() || !area.trim() || !streetBuilding.trim()) {
-        Alert.alert(t('common.error'), 'يرجى استكمال بيانات العنوان (المحافظة، المدينة، الحي، الشارع والعمارة)');
+        Alert.alert(
+          t('common.error'),
+          isRTL
+            ? 'يرجى استكمال بيانات العنوان (المحافظة، المدينة، الحي، الشارع والعمارة)'
+            : 'Please complete all address fields (governorate, city, area, street & building)'
+        );
         return;
       }
     } else {
       if (!selectedPickupPointId) {
-        Alert.alert(t('common.error'), 'يرجى اختيار فرع أو نقطة استلام بوسطة');
+        Alert.alert(
+          t('common.error'),
+          isRTL ? 'يرجى اختيار فرع أو نقطة استلام بوسطة' : 'Please select a Bosta branch or pickup point'
+        );
         return;
       }
     }
@@ -238,6 +325,7 @@ export default function CheckoutScreen({ route, navigation }) {
     const payload = {
       items: checkoutItems.map((it) => ({
         productId: it.productId,
+        variantId: it.variantId || it.selectedVariant?.id || null,
         quantity: it.quantity,
       })),
       deliveryMethod,
@@ -246,9 +334,11 @@ export default function CheckoutScreen({ route, navigation }) {
       recipientPhone: normalizeEgyptianPhone(recipientPhone),
       governorate: deliveryMethod === 'Courier' ? governorate.trim() : pickupCity,
       city: deliveryMethod === 'Courier' ? city.trim() : pickupCity,
-      area: deliveryMethod === 'Courier' ? area.trim() : 'نقطة استلام',
-      streetBuilding: deliveryMethod === 'Courier' ? streetBuilding.trim() : 'استلام من الفرع',
+      area: deliveryMethod === 'Courier' ? area.trim() : (isRTL ? 'نقطة استلام' : 'Pickup Point'),
+      streetBuilding: deliveryMethod === 'Courier' ? streetBuilding.trim() : (isRTL ? 'استلام من الفرع' : 'Branch Pickup'),
       paymentMethod: 'CashOnDelivery',
+      couponCode: appliedCoupon?.code || null,
+      useWalletBalance: useWalletBalance,
     };
 
     try {
@@ -266,7 +356,7 @@ export default function CheckoutScreen({ route, navigation }) {
         t('checkout.orderSuccessMessage'),
         [
           {
-            text: 'عرض طلباتي',
+            text: t('nav.orders'),
             onPress: () => {
               navigation.navigate('BuyerRoot', {
                 screen: 'MyOrders',
@@ -287,7 +377,7 @@ export default function CheckoutScreen({ route, navigation }) {
       // Check if COD blocked
       if (err?.response?.status === 400 && serverMsg.includes('الدفع عند الاستلام')) {
         Alert.alert(
-          'تنبيه الدفع عند الاستلام',
+          isRTL ? 'تنبيه الدفع عند الاستلام' : 'Cash on Delivery Notice',
           t('checkout.codBlocked')
         );
       } else {
@@ -327,6 +417,56 @@ export default function CheckoutScreen({ route, navigation }) {
         contentContainerStyle={{ padding: 14, paddingBottom: 36 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Free Shipping Progress Bar */}
+        <View
+          style={[
+            cardShadow,
+            tw`rounded-2xl p-4 mb-3 border`,
+            {
+              backgroundColor: isFreeShipping ? '#F0FDF4' : colors.cardBg,
+              borderColor: isFreeShipping ? colors.newBadge : colors.border,
+            },
+          ]}
+        >
+          <View style={tw`flex-row items-center justify-between mb-2`}>
+            <View style={tw`flex-row items-center flex-1`}>
+              <MaterialCommunityIcons
+                name={isFreeShipping ? 'truck-check' : 'truck-fast-outline'}
+                size={22}
+                color={isFreeShipping ? colors.newBadge : colors.accent}
+              />
+              <Text
+                style={[
+                  tw`font-bold text-xs ${isRTL ? 'mr-2' : 'ml-2'} flex-1`,
+                  { color: isFreeShipping ? colors.newBadge : colors.textPrimary },
+                ]}
+              >
+                {isFreeShipping
+                  ? t('checkout.freeShippingQualified')
+                  : t('checkout.freeShippingAddMore', { amount: formatCurrency(neededForFreeShipping) })}
+              </Text>
+            </View>
+            <Text style={[tw`font-bold text-xs`, { color: isFreeShipping ? colors.newBadge : colors.accent }]}>
+              {freeShippingProgress}%
+            </Text>
+          </View>
+
+          {/* Progress Bar Track */}
+          <View style={[tw`w-full h-2 rounded-full overflow-hidden`, { backgroundColor: '#E2E8F0' }]}>
+            <View
+              style={{
+                width: `${freeShippingProgress}%`,
+                height: '100%',
+                backgroundColor: isFreeShipping ? colors.newBadge : colors.accent,
+                borderRadius: 999,
+              }}
+            />
+          </View>
+          <Text style={[tw`text-[10px] mt-1.5`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t('checkout.freeShippingMin', { amount: formatCurrency(freeShippingThreshold) })}
+          </Text>
+        </View>
+
         {/* 1. Egyptian COD Banner */}
         <View
           style={[
@@ -390,11 +530,11 @@ export default function CheckoutScreen({ route, navigation }) {
                     { color: deliveryMethod === 'Courier' ? colors.primary : colors.textPrimary },
                   ]}
                 >
-                  توصيل للمنزل
+                  {t('checkout.homeDelivery')}
                 </Text>
               </View>
               <Text style={[tw`text-[10px]`, { color: colors.textSecondary }]}>
-                سريع لباب بيتك
+                {t('checkout.homeDeliveryDesc')}
               </Text>
             </TouchableOpacity>
 
@@ -422,11 +562,11 @@ export default function CheckoutScreen({ route, navigation }) {
                     { color: deliveryMethod === 'Pickup' ? colors.primary : colors.textPrimary },
                   ]}
                 >
-                  فرع بوسطة
+                  {t('checkout.branchPickup')}
                 </Text>
               </View>
               <Text style={[tw`text-[10px]`, { color: colors.textSecondary }]}>
-                اقتصادي ومناسب
+                {t('checkout.branchPickupDesc')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -470,7 +610,7 @@ export default function CheckoutScreen({ route, navigation }) {
             ]}
             value={recipientName}
             onChangeText={setRecipientName}
-            placeholder="مثال: أحمد محمد علي"
+            placeholder={isRTL ? 'مثال: أحمد محمد علي' : 'e.g. Ahmed Mohamed'}
             placeholderTextColor={colors.textSecondary}
           />
 
@@ -528,7 +668,7 @@ export default function CheckoutScreen({ route, navigation }) {
                         ]}
                       >
                         <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
-                          {addr.label || 'عنوان'}
+                          {addr.label || (isRTL ? 'عنوان' : 'Address')}
                         </Text>
                         <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
                           {addr.governorate}، {addr.city}
@@ -557,7 +697,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     ]}
                     value={governorate}
                     onChangeText={setGovernorate}
-                    placeholder="القاهرة"
+                    placeholder={isRTL ? 'القاهرة' : 'Cairo'}
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
@@ -578,7 +718,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     ]}
                     value={city}
                     onChangeText={setCity}
-                    placeholder="مدينة نصر"
+                    placeholder={isRTL ? 'مدينة نصر' : 'Nasr City'}
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
@@ -600,7 +740,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   ]}
                   value={area}
                   onChangeText={setArea}
-                  placeholder="الحي / المنطقة"
+                  placeholder={isRTL ? 'الحي / المنطقة' : 'District / Area'}
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
@@ -621,7 +761,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   ]}
                   value={streetBuilding}
                   onChangeText={setStreetBuilding}
-                  placeholder="الشارع ورقم العمارة والدور والشقة"
+                  placeholder={isRTL ? 'الشارع ورقم العمارة والدور والشقة' : 'Street, building, floor & apt'}
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
@@ -631,10 +771,17 @@ export default function CheckoutScreen({ route, navigation }) {
             <View>
               {/* City Selector */}
               <Text style={[tw`text-xs font-semibold mb-1.5`, { color: colors.textSecondary }]}>
-                اختر المحافظة / المدينة:
+                {isRTL ? 'اختر المحافظة / المدينة:' : 'Select Governorate / City:'}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-3`}>
-                {(availableCities.length > 0 ? availableCities : [{ name: 'القاهرة' }, { name: 'الجيزة' }, { name: 'الإسكندرية' }]).map((c) => (
+                {(availableCities.length > 0
+                  ? availableCities
+                  : [
+                      { name: isRTL ? 'القاهرة' : 'Cairo' },
+                      { name: isRTL ? 'الجيزة' : 'Giza' },
+                      { name: isRTL ? 'الإسكندرية' : 'Alexandria' },
+                    ]
+                ).map((c) => (
                   <TouchableOpacity
                     key={`pickup-city-${c.name}`}
                     onPress={() => handleCityChangeForPickup(c.name)}
@@ -687,7 +834,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   </Text>
                   {point.workHours && (
                     <Text style={[tw`text-[10px] mt-0.5`, { color: colors.primary }]}>
-                      مواعيد العمل: {point.workHours}
+                      {isRTL ? 'مواعيد العمل:' : 'Working hours:'} {point.workHours}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -711,7 +858,7 @@ export default function CheckoutScreen({ route, navigation }) {
               </Text>
               <View style={[tw`px-2.5 py-0.5 rounded-full`, { backgroundColor: colors.primarySoft }]}>
                 <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>
-                  {quoteData.parcels.length} {quoteData.parcels.length === 1 ? 'شحنة' : 'شحنات منفصلة'}
+                  {quoteData.parcels.length} {quoteData.parcels.length === 1 ? (isRTL ? 'شحنة' : 'parcel') : (isRTL ? 'شحنات منفصلة' : 'parcels')}
                 </Text>
               </View>
             </View>
@@ -733,15 +880,15 @@ export default function CheckoutScreen({ route, navigation }) {
                 >
                   <View style={tw`flex-row items-center justify-between mb-1.5`}>
                     <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
-                      {t('checkout.sellerParcel', { seller: parcel.sellerName || `تاجر رقم ${parcel.sellerId}` })}
+                      {t('checkout.sellerParcel', { seller: parcel.sellerName || (isRTL ? `تاجر رقم ${parcel.sellerId}` : `Seller #${parcel.sellerId}`) })}
                     </Text>
                     <Text style={[tw`text-xs font-semibold`, { color: colors.primary }]}>
-                      الشحن: {formatCurrency(parcel.deliveryCost)}
+                      {isRTL ? 'الشحن:' : 'Shipping:'} {formatCurrency(parcel.deliveryCost)}
                     </Text>
                   </View>
 
                   <Text style={[tw`text-[11px]`, { color: colors.textSecondary }]}>
-                    تشحن من: {parcel.dispatchCity || 'القاهرة'} • التوصيل المتوقع خلال {parcel.etaMinDays}–{parcel.etaMaxDays} أيام
+                    {t('checkout.fromCity', { city: parcel.dispatchCity || (isRTL ? 'القاهرة' : 'Cairo') })} • {t('checkout.eta', { min: parcel.etaMinDays, max: parcel.etaMaxDays })}
                   </Text>
 
                   {/* Shipment COD Badge */}
@@ -751,7 +898,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     ]}
                   >
                     <Text style={[tw`text-[11px] font-medium`, { color: colors.textSecondary }]}>
-                      مبلغ التحصيل لهذه الشحنة (COD):
+                      {isRTL ? 'مبلغ التحصيل لهذه الشحنة (COD):' : 'COD Amount for this shipment:'}
                     </Text>
                     <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
                       {formatCurrency(parcelCodAmount)}
@@ -776,18 +923,21 @@ export default function CheckoutScreen({ route, navigation }) {
               {t('cart.orderSummary')}
             </Text>
             <Text style={[tw`text-xs font-medium`, { color: colors.textSecondary }]}>
-              {totalCount} {totalCount === 1 ? 'منتج' : 'منتجات'}
+              {totalCount} {totalCount === 1 ? (isRTL ? 'منتج' : 'item') : (isRTL ? 'منتجات' : 'items')}
             </Text>
           </View>
 
           {checkoutItems.map((item, index) => {
             const product = item?.product || {};
-            const imageUrl = getImageUrl(product?.imageUrls?.[0]);
-            const linePrice = (Number(product.price) || 0) * (Number(item.quantity) || 1);
+            const unitPrice = item?.selectedVariant?.priceOverride != null
+              ? item.selectedVariant.priceOverride
+              : (Number(product.price) || 0);
+            const imageUrl = getImageUrl(item?.selectedVariant?.imageUrl || product?.imageUrls?.[0]);
+            const linePrice = unitPrice * (Number(item.quantity) || 1);
 
             return (
               <View
-                key={`checkout-it-${item.productId}-${index}`}
+                key={`checkout-it-${item.productId}-${item.variantId || 'base'}-${index}`}
                 style={[
                   tw`flex-row items-center py-2.5`,
                   index < checkoutItems.length - 1 && tw`border-b border-gray-100`,
@@ -812,8 +962,19 @@ export default function CheckoutScreen({ route, navigation }) {
                   <Text numberOfLines={1} style={[tw`font-semibold text-sm`, { color: colors.textPrimary }]}>
                     {product.name}
                   </Text>
+                  {item.selectedVariant ? (
+                    <Text style={[tw`text-[11px] font-semibold mt-0.5`, { color: colors.primary }]}>
+                      {[
+                        item.selectedVariant.size ? (isRTL ? `مقاس ${item.selectedVariant.size}` : `Size ${item.selectedVariant.size}`) : null,
+                        item.selectedVariant.color ? item.selectedVariant.color : null,
+                        item.selectedVariant.attributeName && item.selectedVariant.attributeValue
+                          ? `${item.selectedVariant.attributeName}: ${item.selectedVariant.attributeValue}`
+                          : null,
+                      ].filter(Boolean).join(' • ') || (isRTL ? 'خيار محدد' : 'Selected option')}
+                    </Text>
+                  ) : null}
                   <Text style={[tw`text-xs mt-0.5`, { color: colors.textSecondary }]}>
-                    {`${formatCurrency(product.price)} × ${item.quantity}`}
+                    {`${formatCurrency(unitPrice)} × ${item.quantity}`}
                   </Text>
                 </View>
 
@@ -823,6 +984,145 @@ export default function CheckoutScreen({ route, navigation }) {
               </View>
             );
           })}
+        </View>
+
+        {/* Promo Code / Coupon Engine Card */}
+        <View
+          style={[
+            cardShadow,
+            tw`rounded-2xl p-4 mb-3 border`,
+            { backgroundColor: colors.cardBg, borderColor: colors.border },
+          ]}
+        >
+          <View style={tw`flex-row items-center justify-between mb-2.5`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="ticket-percent-outline" size={20} color={colors.primary} />
+              <Text style={[tw`font-bold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                {t('checkout.promoCode')}
+              </Text>
+            </View>
+            {appliedCoupon ? (
+              <View style={[tw`px-2 py-0.5 rounded-full`, { backgroundColor: colors.newBadgeSoft }]}>
+                <Text style={[tw`text-xs font-bold`, { color: colors.newBadge }]}>
+                  {isRTL ? 'خصم' : 'Discount'} {formatCurrency(appliedCoupon.discountAmount)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {appliedCoupon ? (
+            <View
+              style={[
+                tw`flex-row items-center justify-between p-3 rounded-xl border`,
+                { borderColor: colors.newBadge, backgroundColor: '#F0FDF4' },
+              ]}
+            >
+              <View>
+                <Text style={[tw`font-bold text-xs`, { color: colors.newBadge }]}>
+                  {isRTL ? 'تم تطبيق الكوبون:' : 'Applied coupon:'} {appliedCoupon.code}
+                </Text>
+                <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
+                  {isRTL ? 'قيمة الخصم المحتسبة:' : 'Calculated discount:'} {formatCurrency(appliedCoupon.discountAmount)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleRemoveCoupon}
+                style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.discount, backgroundColor: colors.dangerSoft }]}
+              >
+                <Text style={[tw`text-xs font-bold`, { color: colors.discount }]}>{isRTL ? 'إلغاء' : 'Cancel'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={tw`flex-row items-center`}>
+              <TextInput
+                style={[
+                  tw`flex-1 border rounded-xl px-3.5 py-2.5 text-sm ${isRTL ? 'ml-2' : 'mr-2'}`,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.screenBg,
+                    color: colors.textPrimary,
+                    textAlign: isRTL ? 'right' : 'left',
+                  },
+                ]}
+                value={couponCodeInput}
+                onChangeText={(txt) => setCouponCodeInput(txt.toUpperCase())}
+                placeholder={t('checkout.promoPlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={validatingCoupon || !couponCodeInput.trim()}
+                onPress={handleApplyCoupon}
+                style={[
+                  tw`px-4 py-2.5 rounded-xl items-center justify-center`,
+                  {
+                    backgroundColor: !couponCodeInput.trim() ? colors.disabledBg : colors.primary,
+                    minHeight: 44,
+                  },
+                ]}
+              >
+                {validatingCoupon ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={[tw`font-bold text-xs text-white`]}>{t('checkout.applyPromo')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Buyer Wallet (Store Credit) Balance Card */}
+        <View
+          style={[
+            cardShadow,
+            tw`rounded-2xl p-4 mb-3 border`,
+            { backgroundColor: colors.cardBg, borderColor: colors.border },
+          ]}
+        >
+          <View style={tw`flex-row items-center justify-between`}>
+            <View style={tw`flex-row items-center flex-1`}>
+              <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.accent} />
+              <View style={[tw`${isRTL ? 'mr-2' : 'ml-2'} flex-1`]}>
+                <Text style={[tw`font-bold text-sm`, { color: colors.textPrimary }]}>
+                  {t('checkout.useWallet')}
+                </Text>
+                <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
+                  {isRTL ? 'الرصيد المتاح:' : 'Available balance:'} {formatCurrency(walletBalance)}
+                </Text>
+              </View>
+            </View>
+
+            <Switch
+              value={useWalletBalance && walletBalance > 0}
+              onValueChange={(val) => {
+                if (walletBalance <= 0 && val) {
+                  Alert.alert(t('checkout.walletTitle'), t('checkout.walletEmptyNotice'));
+                  return;
+                }
+                setUseWalletBalance(val);
+              }}
+              trackColor={{ false: colors.border, true: colors.primarySoft }}
+              thumbColor={useWalletBalance && walletBalance > 0 ? colors.primary : '#94A3B8'}
+              disabled={walletBalance <= 0}
+            />
+          </View>
+
+          {useWalletBalance && walletDeduction > 0 && (
+            <View
+              style={[
+                tw`mt-3 p-2.5 rounded-xl border flex-row items-center justify-between`,
+                { borderColor: colors.newBadge, backgroundColor: '#F0FDF4' },
+              ]}
+            >
+              <Text style={[tw`text-xs font-semibold`, { color: colors.newBadge }]}>
+                {t('checkout.walletDeducted')}
+              </Text>
+              <Text style={[tw`text-xs font-bold`, { color: colors.newBadge }]}>
+                -{formatCurrency(walletDeduction)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* 6. Pricing Breakdown */}
@@ -849,18 +1149,42 @@ export default function CheckoutScreen({ route, navigation }) {
             <Text style={[tw`text-sm font-semibold`, { color: colors.primary }]}>
               {quoteLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
+              ) : isFreeShipping ? (
+                t('checkout.free')
               ) : (
                 formatCurrency(deliveryCostTotal)
               )}
             </Text>
           </View>
 
+          {couponDiscount > 0 && (
+            <View style={tw`flex-row items-center justify-between mb-2`}>
+              <Text style={[tw`text-sm font-semibold`, { color: colors.newBadge }]}>
+                {isRTL ? `خصم الكوبون (${appliedCoupon?.code})` : `Coupon Discount (${appliedCoupon?.code})`}
+              </Text>
+              <Text style={[tw`text-sm font-bold`, { color: colors.newBadge }]}>
+                -{formatCurrency(couponDiscount)}
+              </Text>
+            </View>
+          )}
+
+          {walletDeduction > 0 && (
+            <View style={tw`flex-row items-center justify-between mb-2`}>
+              <Text style={[tw`text-sm font-semibold`, { color: colors.newBadge }]}>
+                {t('checkout.walletDeduction')}
+              </Text>
+              <Text style={[tw`text-sm font-bold`, { color: colors.newBadge }]}>
+                -{formatCurrency(walletDeduction)}
+              </Text>
+            </View>
+          )}
+
           <View style={tw`border-t border-gray-100 pt-3 mt-1 flex-row items-center justify-between`}>
             <Text style={[tw`text-base font-bold`, { color: colors.textPrimary }]}>
               {t('checkout.grandTotal')}
             </Text>
             <Text style={[tw`text-xl font-bold`, { color: colors.primary }]}>
-              {formatCurrency(grandTotal)}
+              {grandTotal === 0 ? t('checkout.paidInFullWallet') : formatCurrency(grandTotal)}
             </Text>
           </View>
         </View>

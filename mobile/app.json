@@ -3,6 +3,7 @@
     "name": "MarketplaceMobile",
     "slug": "MarketplaceMobile",
     "version": "1.0.0",
+    "scheme": "marketplacemobile",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,7 +23,8 @@
     },
     "plugins": [
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     "extra": {
       "supportsRTL": true

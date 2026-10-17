@@ -121,6 +121,21 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    /// <summary>Quick update product stock and/or price from seller dashboard. (Seller only)</summary>
+    [HttpPatch("{id:int}/quick-stock")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductResponse>> QuickStock(int id, Marketplace.Application.DTOs.Dashboard.QuickStockUpdateRequest request)
+    {
+        var sellerId = User.GetUserId();
+        var product = await _productService.QuickStockUpdateAsync(sellerId, id, request);
+        return Ok(product);
+    }
+
     /// <summary>Delete a product. Must be the owner. (Seller only)</summary>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

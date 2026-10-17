@@ -15,12 +15,15 @@ public class CreateOrderRequest
     public string? StreetBuilding { get; set; }
     public string? AddressLine { get; set; }
     public string PaymentMethod { get; set; } = "OnReceipt";
+    public string? CouponCode { get; set; }
+    public bool UseWalletBalance { get; set; } = false;
 }
 
 public class OrderItemRequest
 {
     public int ProductId { get; set; }
     public int Quantity { get; set; }
+    public int? VariantId { get; set; }
 }
 
 public class OrderResponse
@@ -28,6 +31,9 @@ public class OrderResponse
     public int Id { get; set; }
     public decimal ItemsSubtotal { get; set; }
     public decimal DeliveryCost { get; set; }
+    public decimal DiscountAmount { get; set; } = 0;
+    public string? CouponCode { get; set; }
+    public decimal WalletAmountUsed { get; set; } = 0;
     public decimal TotalAmount { get; set; }
     public string Status { get; set; } = string.Empty;
     public string DeliveryMethod { get; set; } = string.Empty;
@@ -47,8 +53,11 @@ public class OrderResponse
 
 public class OrderItemResponse
 {
+    public int Id { get; set; }
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public int? VariantId { get; set; }
+    public string? VariantSummary { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public int WeightGrams { get; set; }
@@ -59,6 +68,8 @@ public class SellerOrderResponse
     public int OrderId { get; set; }
     public string BuyerName { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+    public int? VariantId { get; set; }
+    public string? VariantSummary { get; set; }
     public int Quantity { get; set; }
     public decimal TotalPrice { get; set; }
     public string Status { get; set; } = string.Empty;

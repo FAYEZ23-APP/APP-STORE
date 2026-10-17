@@ -18,6 +18,7 @@ export const searchProducts = (query) => client.get(`/products/search?query=${en
 export const getMyProducts = () => client.get('/products/my-products');
 export const createProduct = (data) => client.post('/products', data);
 export const updateProduct = (id, data) => client.put(`/products/${id}`, data);
+export const quickUpdateProductStock = (id, data) => client.patch(`/products/${id}/quick-stock`, data);
 export const deleteProduct = (id) => client.delete(`/products/${id}`);
 export const uploadProductImage = (formData) => client.post('/products/upload-image', formData, {
   headers: {

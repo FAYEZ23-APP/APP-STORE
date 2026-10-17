@@ -1,4 +1,3 @@
-using Marketplace.Application.Common;
 using Marketplace.Application.DTOs.Delivery;
 using Marketplace.Application.DTOs.Orders;
 using Marketplace.Application.DTOs.Shipments;
@@ -6,6 +5,7 @@ using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
+using Marketplace.Application.Common;
 using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Services;
@@ -15,12 +15,18 @@ public class OrderService : IOrderService
     private readonly IUnitOfWork _uow;
     private readonly IDeliveryProvider _deliveryProvider;
     private readonly IConfiguration _configuration;
+    private readonly INotificationService _notificationService;
 
-    public OrderService(IUnitOfWork uow, IDeliveryProvider deliveryProvider, IConfiguration configuration)
+    public OrderService(
+        IUnitOfWork uow,
+        IDeliveryProvider deliveryProvider,
+        IConfiguration configuration,
+        INotificationService notificationService)
     {
         _uow = uow;
         _deliveryProvider = deliveryProvider;
         _configuration = configuration;
+        _notificationService = notificationService;
     }
 
     public async Task<OrderResponse> CreateOrderAsync(int buyerId, CreateOrderRequest request)
@@ -117,13 +123,13 @@ public class OrderService : IOrderService
             addressLine = $"{destinationArea}، {destinationStreetBuilding}".Trim();
         }
 
-        // Consolidate duplicate product IDs if any
+        // Group duplicate order items by (ProductId, VariantId)
         var consolidatedItems = request.Items
-            .GroupBy(i => i.ProductId)
-            .Select(g => new { ProductId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .GroupBy(i => (i.ProductId, i.VariantId))
+            .Select(g => new { g.Key.ProductId, g.Key.VariantId, Quantity = g.Sum(x => x.Quantity) })
             .ToList();
 
-        var loadedItems = new List<(Product Product, int Quantity)>();
+        var loadedItems = new List<(Product Product, ProductVariant? Variant, int Quantity, decimal UnitPrice, string? VariantSummary)>();
 
         await _uow.BeginTransactionAsync();
         try
@@ -143,27 +149,58 @@ public class OrderService : IOrderService
                     throw new BadRequestException($"لا يمكنك شراء منتجك الخاص '{product.Name}'.");
                 }
 
-                // Atomic conditional stock decrement: only succeeds if current Stock >= reqItem.Quantity
-                var affected = await _uow.ExecuteSqlRawAsync(
-                    @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" - {0} WHERE ""Id"" = {1} AND ""Stock"" >= {0}",
-                    reqItem.Quantity,
-                    reqItem.ProductId);
+                ProductVariant? variant = null;
+                decimal unitPrice = product.Price;
+                string? variantSummary = null;
 
-                if (affected == 0)
+                if (reqItem.VariantId.HasValue)
                 {
-                    throw new BadRequestException($"المخزون غير كافٍ للمنتج '{product.Name}'. المتوفر أقل من الكمية المطلوبة.");
+                    variant = await _uow.ProductVariants.GetByIdAsync(reqItem.VariantId.Value);
+                    if (variant == null || variant.ProductId != product.Id)
+                    {
+                        throw new BadRequestException($"المتغير المطلوب غير موجود للمنتج '{product.Name}'.");
+                    }
+
+                    unitPrice = variant.PriceOverride ?? product.Price;
+
+                    var parts = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(variant.Size)) parts.Add($"المقاس: {variant.Size}");
+                    if (!string.IsNullOrWhiteSpace(variant.Color)) parts.Add($"اللون: {variant.Color}");
+                    if (!string.IsNullOrWhiteSpace(variant.AttributeName) && !string.IsNullOrWhiteSpace(variant.AttributeValue))
+                        parts.Add($"{variant.AttributeName}: {variant.AttributeValue}");
+                    variantSummary = parts.Any() ? string.Join(" | ", parts) : null;
+
+                    var affected = await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" - {0} WHERE ""Id"" = {1} AND ""ProductId"" = {2} AND ""Stock"" >= {0}",
+                        reqItem.Quantity,
+                        variant.Id,
+                        product.Id);
+
+                    if (affected == 0)
+                    {
+                        throw new BadRequestException($"المخزون غير كافٍ للمنتج '{product.Name}' (المتغير: {variantSummary ?? variant.Sku ?? "المحدد"}).");
+                    }
+                }
+                else
+                {
+                    var affected = await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" - {0} WHERE ""Id"" = {1} AND ""Stock"" >= {0}",
+                        reqItem.Quantity,
+                        reqItem.ProductId);
+
+                    if (affected == 0)
+                    {
+                        throw new BadRequestException($"المخزون غير كافٍ للمنتج '{product.Name}'. المتوفر أقل من الكمية المطلوبة.");
+                    }
                 }
 
-                // Keep tracked product entity unmodified so SaveChangesAsync doesn't overwrite atomic SQL update
-                loadedItems.Add((product, reqItem.Quantity));
+                loadedItems.Add((product, variant, reqItem.Quantity, unitPrice, variantSummary));
             }
 
             var sellerIds = loadedItems.Select(x => x.Product.SellerId).Distinct().ToList();
             var sellers = (await _uow.Users.FindAsync(u => sellerIds.Contains(u.Id))).ToDictionary(u => u.Id, u => u.Name);
             var sellerProfiles = (await _uow.SellerProfiles.FindAsync(sp => sellerIds.Contains(sp.UserId)))
                 .ToDictionary(sp => sp.UserId);
-
-            // normalizedPhone is already computed above
 
             var order = new Order
             {
@@ -184,6 +221,8 @@ public class OrderService : IOrderService
 
             decimal itemsSubtotal = 0m;
             decimal deliveryTotal = 0m;
+            decimal freeShippingThreshold = _configuration.GetValue<decimal>("Orders:FreeShippingThreshold", 1000m);
+            decimal overallOrderItemsSubtotal = loadedItems.Sum(x => x.UnitPrice * x.Quantity);
 
             // Group items by seller -> 1 Shipment per seller
             var sellerGroups = loadedItems.GroupBy(x => x.Product.SellerId);
@@ -196,7 +235,7 @@ public class OrderService : IOrderService
                     : "القاهرة";
 
                 int parcelWeightGrams = group.Sum(x => Math.Max(1, x.Product.WeightGrams) * x.Quantity);
-                decimal parcelItemsSubtotal = group.Sum(x => x.Product.Price * x.Quantity);
+                decimal parcelItemsSubtotal = group.Sum(x => x.UnitPrice * x.Quantity);
 
                 var carrierShipment = await _deliveryProvider.CreateShipmentAsync(new CreateCarrierShipmentRequest
                 {
@@ -208,9 +247,14 @@ public class OrderService : IOrderService
                     TotalWeightGrams = parcelWeightGrams
                 });
 
-                // Per-shipment COD amount = that shipment's items subtotal + that shipment's delivery cost
+                decimal deliveryCost = carrierShipment.DeliveryCost;
+                if (parcelItemsSubtotal >= freeShippingThreshold || overallOrderItemsSubtotal >= freeShippingThreshold)
+                {
+                    deliveryCost = 0m;
+                }
+
                 decimal shipmentCodAmount = paymentMethod == PaymentMethod.OnReceipt
-                    ? parcelItemsSubtotal + carrierShipment.DeliveryCost
+                    ? parcelItemsSubtotal + deliveryCost
                     : 0m;
 
                 var shipment = new Shipment
@@ -219,7 +263,7 @@ public class OrderService : IOrderService
                     SellerId = sellerId,
                     Status = carrierShipment.Status,
                     TrackingNumber = carrierShipment.TrackingNumber,
-                    DeliveryCost = carrierShipment.DeliveryCost,
+                    DeliveryCost = deliveryCost,
                     CodAmount = shipmentCodAmount,
                     EtaMinDays = carrierShipment.EtaMinDays,
                     EtaMaxDays = carrierShipment.EtaMaxDays,
@@ -227,15 +271,17 @@ public class OrderService : IOrderService
                     Items = new List<OrderItem>()
                 };
 
-                foreach (var (product, quantity) in group)
+                foreach (var (product, variant, quantity, unitPrice, variantSummary) in group)
                 {
                     var orderItem = new OrderItem
                     {
                         Order = order,
                         Shipment = shipment,
                         ProductId = product.Id,
+                        VariantId = variant?.Id,
+                        VariantSummary = variantSummary,
                         Quantity = quantity,
-                        UnitPrice = product.Price
+                        UnitPrice = unitPrice
                     };
 
                     itemsSubtotal += orderItem.UnitPrice * orderItem.Quantity;
@@ -247,8 +293,152 @@ public class OrderService : IOrderService
                 order.Shipments.Add(shipment);
             }
 
-            // Server is authoritative for prices, delivery costs, and totals
-            order.TotalAmount = itemsSubtotal + deliveryTotal;
+            // Coupon Processing
+            decimal totalDiscount = 0m;
+            Coupon? coupon = null;
+
+            if (!string.IsNullOrWhiteSpace(request.CouponCode))
+            {
+                var code = request.CouponCode.Trim().ToUpperInvariant();
+                coupon = (await _uow.Coupons.FindAsync(c => c.Code == code)).FirstOrDefault();
+                if (coupon == null || !coupon.IsActive || coupon.ExpiresAt < DateTime.UtcNow)
+                {
+                    throw new BadRequestException("كوبون الخصم غير صالح أو منتهي الصلاحية.");
+                }
+
+                if (coupon.UsedCount >= coupon.MaxUsage)
+                {
+                    throw new BadRequestException("تم استنفاد الحد الأقصى لاستخدام هذا الكوبون.");
+                }
+
+                var userUsageCount = (await _uow.CouponUsages.FindAsync(u => u.CouponId == coupon.Id && u.BuyerId == buyerId)).Count();
+                if (userUsageCount >= coupon.PerUserLimit)
+                {
+                    throw new BadRequestException("لقد استخدمت هذا الكوبون الحد الأقصى المسموح به.");
+                }
+
+                var applicableItems = loadedItems.Where(x => !coupon.SellerId.HasValue || x.Product.SellerId == coupon.SellerId.Value).ToList();
+                if (!applicableItems.Any())
+                {
+                    throw new BadRequestException("كوبون الخصم غير قابل للتطبيق على أي من منتجات هذا الطلب.");
+                }
+
+                decimal applicableSubtotal = applicableItems.Sum(x => x.UnitPrice * x.Quantity);
+                if (applicableSubtotal < coupon.MinOrderSubtotal)
+                {
+                    throw new BadRequestException($"الحد الأدنى لتطبيق هذا الكوبون هو {coupon.MinOrderSubtotal} ج.م.");
+                }
+
+                // Atomic update to avoid race conditions
+                var couponAffected = await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""Coupons"" SET ""UsedCount"" = ""UsedCount"" + 1 WHERE ""Id"" = {0} AND ""IsActive"" = TRUE AND ""UsedCount"" < ""MaxUsage""",
+                    coupon.Id);
+
+                if (couponAffected == 0)
+                {
+                    throw new BadRequestException("كوبون الخصم غير صالح أو تم استنفاد الحد الأقصى لاستخدامه.");
+                }
+
+                if (coupon.DiscountType == DiscountType.Percentage)
+                {
+                    totalDiscount = applicableSubtotal * (coupon.DiscountValue / 100m);
+                    if (coupon.MaxDiscountAmount.HasValue && totalDiscount > coupon.MaxDiscountAmount.Value)
+                    {
+                        totalDiscount = coupon.MaxDiscountAmount.Value;
+                    }
+                }
+                else
+                {
+                    totalDiscount = Math.Min(coupon.DiscountValue, applicableSubtotal);
+                }
+
+                totalDiscount = Math.Round(totalDiscount, 2);
+                order.DiscountAmount = totalDiscount;
+                order.CouponCode = coupon.Code;
+
+                if (totalDiscount > 0)
+                {
+                    decimal remainingDiscount = totalDiscount;
+                    var applicableShipments = order.Shipments
+                        .Where(s => !coupon.SellerId.HasValue || s.SellerId == coupon.SellerId.Value)
+                        .ToList();
+
+                    decimal totalCod = applicableShipments.Sum(s => s.CodAmount);
+
+                    for (int i = 0; i < applicableShipments.Count; i++)
+                    {
+                        var s = applicableShipments[i];
+                        decimal deduct = (i == applicableShipments.Count - 1 || totalCod == 0)
+                            ? remainingDiscount
+                            : Math.Round(totalDiscount * (s.CodAmount / totalCod), 2);
+
+                        deduct = Math.Min(deduct, s.CodAmount);
+                        s.CodAmount = Math.Max(0m, s.CodAmount - deduct);
+                        remainingDiscount -= deduct;
+                    }
+
+                    var couponUsage = new CouponUsage
+                    {
+                        CouponId = coupon.Id,
+                        BuyerId = buyerId,
+                        Order = order,
+                        DiscountApplied = totalDiscount,
+                        UsedAt = DateTime.UtcNow
+                    };
+                    await _uow.CouponUsages.AddAsync(couponUsage);
+                }
+            }
+
+            // Buyer Wallet Processing
+            decimal walletUsed = 0m;
+            if (request.UseWalletBalance)
+            {
+                var wallet = (await _uow.BuyerWallets.FindAsync(w => w.BuyerId == buyerId)).FirstOrDefault();
+                if (wallet != null && wallet.Balance > 0)
+                {
+                    decimal payableCodTotal = order.Shipments.Sum(s => s.CodAmount);
+                    walletUsed = Math.Min(wallet.Balance, payableCodTotal);
+
+                    if (walletUsed > 0)
+                    {
+                        var walletAffected = await _uow.ExecuteSqlRawAsync(
+                            @"UPDATE ""BuyerWallets"" SET ""Balance"" = ""Balance"" - {0}, ""UpdatedAt"" = {1} WHERE ""BuyerId"" = {2} AND ""Balance"" >= {0}",
+                            walletUsed,
+                            DateTime.UtcNow,
+                            buyerId);
+
+                        if (walletAffected == 0)
+                        {
+                            throw new BadRequestException("حدث تعارض أثناء خصم رصيد المحفظة أو الرصيد غير كافٍ.");
+                        }
+
+                        var walletTx = new BuyerWalletTransaction
+                        {
+                            BuyerId = buyerId,
+                            Order = order,
+                            Amount = -walletUsed,
+                            Type = BuyerWalletTransactionType.OrderRedemption,
+                            Description = $"استخدام الرصيد في الطلب",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await _uow.BuyerWalletTransactions.AddAsync(walletTx);
+
+                        order.WalletAmountUsed = walletUsed;
+
+                        decimal remainingWallet = walletUsed;
+                        foreach (var s in order.Shipments)
+                        {
+                            if (remainingWallet <= 0) break;
+                            decimal sDeduct = Math.Min(s.CodAmount, remainingWallet);
+                            s.CodAmount = Math.Max(0m, s.CodAmount - sDeduct);
+                            remainingWallet -= sDeduct;
+                        }
+                    }
+                }
+            }
+
+            // Authoritative total
+            order.TotalAmount = Math.Max(0m, itemsSubtotal + deliveryTotal - order.DiscountAmount);
             order.Status = Order.DeriveStatus(order.Shipments.Select(s => s.Status));
 
             await _uow.Orders.AddAsync(order);
@@ -256,7 +446,11 @@ public class OrderService : IOrderService
 
             await _uow.CommitTransactionAsync();
 
-            var productLookup = loadedItems.ToDictionary(x => x.Product.Id, x => x.Product);
+            await _notificationService.NotifyOrderPlacedAsync(order.Id);
+
+            var productLookup = loadedItems
+                .GroupBy(x => x.Product.Id)
+                .ToDictionary(g => g.Key, g => g.First().Product);
 
             return MapOrderToResponse(order, order.Shipments.ToList(), order.Items.ToList(), productLookup, sellers);
         }
@@ -318,7 +512,6 @@ public class OrderService : IOrderService
         var productIds = items.Select(i => i.ProductId).Distinct().ToList();
         var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
 
-        // If caller is a Seller (not the Buyer), filter out other vendors' shipments and items
         if (!isBuyer && isSeller)
         {
             shipments = shipments.Where(s => s.SellerId == userId).ToList();
@@ -331,7 +524,6 @@ public class OrderService : IOrderService
 
         var mapped = MapOrderToResponse(order, shipments, items, products, sellers);
 
-        // If seller caller, ensure TotalAmount only reflects that seller's items and delivery cost
         if (!isBuyer && isSeller)
         {
             mapped.TotalAmount = mapped.ItemsSubtotal + mapped.DeliveryCost;
@@ -371,6 +563,8 @@ public class OrderService : IOrderService
                 OrderId = order.Id,
                 BuyerName = ExtractFirstName(order.RecipientName.Length > 0 ? order.RecipientName : buyerName),
                 ProductName = product?.Name ?? "Unknown Product",
+                VariantId = item.VariantId,
+                VariantSummary = item.VariantSummary,
                 Quantity = item.Quantity,
                 TotalPrice = item.UnitPrice * item.Quantity,
                 Status = order.Status.ToString(),
@@ -401,7 +595,6 @@ public class OrderService : IOrderService
         }
         else
         {
-            // For multi-vendor orders, derive parent status safely so one seller cannot hijack other sellers' order state
             order.Status = Order.DeriveStatus(allShipments.Select(s => s.Status));
         }
 
@@ -425,8 +618,11 @@ public class OrderService : IOrderService
                 .Where(i => i.ShipmentId == s.Id || (i.ShipmentId == 0 && products.TryGetValue(i.ProductId, out var p) && p.SellerId == s.SellerId))
                 .Select(i => new OrderItemResponse
                 {
+                    Id = i.Id,
                     ProductId = i.ProductId,
                     ProductName = products.TryGetValue(i.ProductId, out var prod) ? prod.Name : "Unknown",
+                    VariantId = i.VariantId,
+                    VariantSummary = i.VariantSummary,
                     Quantity = i.Quantity,
                     UnitPrice = i.UnitPrice,
                     WeightGrams = products.TryGetValue(i.ProductId, out var prodW) ? prodW.WeightGrams : 500
@@ -453,8 +649,11 @@ public class OrderService : IOrderService
 
         var itemResponses = items.Select(i => new OrderItemResponse
         {
+            Id = i.Id,
             ProductId = i.ProductId,
             ProductName = products.TryGetValue(i.ProductId, out var prod) ? prod.Name : "Unknown",
+            VariantId = i.VariantId,
+            VariantSummary = i.VariantSummary,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice,
             WeightGrams = products.TryGetValue(i.ProductId, out var prodW) ? prodW.WeightGrams : 500
@@ -467,6 +666,9 @@ public class OrderService : IOrderService
             Id = order.Id,
             ItemsSubtotal = itemsSubtotal,
             DeliveryCost = deliveryCost,
+            DiscountAmount = order.DiscountAmount,
+            CouponCode = order.CouponCode,
+            WalletAmountUsed = order.WalletAmountUsed,
             TotalAmount = order.TotalAmount,
             Status = order.Status.ToString(),
             DeliveryMethod = order.DeliveryMethod.ToString(),

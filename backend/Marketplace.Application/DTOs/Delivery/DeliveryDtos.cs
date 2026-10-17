@@ -102,4 +102,6 @@ public class DeliveryQuoteResponse
     public decimal ItemsSubtotal { get; set; }
     public decimal TotalDeliveryCost { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal FreeShippingThreshold { get; set; } = 1000m;
+    public bool IsFreeShippingApplied { get; set; } = false;
 }

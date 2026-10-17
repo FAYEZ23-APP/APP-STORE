@@ -46,6 +46,24 @@ public class ProductService : IProductService
             CreatedAt = DateTime.UtcNow
         };
 
+        if (request.Variants != null && request.Variants.Any())
+        {
+            foreach (var v in request.Variants)
+            {
+                product.Variants.Add(new ProductVariant
+                {
+                    Sku = v.Sku?.Trim(),
+                    Size = v.Size?.Trim(),
+                    Color = v.Color?.Trim(),
+                    AttributeName = v.AttributeName?.Trim(),
+                    AttributeValue = v.AttributeValue?.Trim(),
+                    PriceOverride = v.PriceOverride,
+                    Stock = v.Stock,
+                    ImageUrl = v.ImageUrl?.Trim()
+                });
+            }
+        }
+
         await _uow.Products.AddAsync(product);
         await _uow.SaveChangesAsync();
 
@@ -77,11 +95,92 @@ public class ProductService : IProductService
         product.ImageUrls = request.ImageUrls;
         product.CategoryId = request.CategoryId;
 
+        if (request.Variants != null)
+        {
+            var existingVariants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == productId)).ToList();
+            var reqVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
+
+            foreach (var ev in existingVariants)
+            {
+                if (!reqVariantIds.Contains(ev.Id))
+                {
+                    _uow.ProductVariants.Remove(ev);
+                }
+            }
+
+            foreach (var rv in request.Variants)
+            {
+                if (rv.Id.HasValue && existingVariants.FirstOrDefault(v => v.Id == rv.Id.Value) is { } ev)
+                {
+                    ev.Sku = rv.Sku?.Trim();
+                    ev.Size = rv.Size?.Trim();
+                    ev.Color = rv.Color?.Trim();
+                    ev.AttributeName = rv.AttributeName?.Trim();
+                    ev.AttributeValue = rv.AttributeValue?.Trim();
+                    ev.PriceOverride = rv.PriceOverride;
+                    ev.Stock = rv.Stock;
+                    ev.ImageUrl = rv.ImageUrl?.Trim();
+                    _uow.ProductVariants.Update(ev);
+                }
+                else
+                {
+                    var newVariant = new ProductVariant
+                    {
+                        ProductId = productId,
+                        Sku = rv.Sku?.Trim(),
+                        Size = rv.Size?.Trim(),
+                        Color = rv.Color?.Trim(),
+                        AttributeName = rv.AttributeName?.Trim(),
+                        AttributeValue = rv.AttributeValue?.Trim(),
+                        PriceOverride = rv.PriceOverride,
+                        Stock = rv.Stock,
+                        ImageUrl = rv.ImageUrl?.Trim()
+                    };
+                    await _uow.ProductVariants.AddAsync(newVariant);
+                }
+            }
+        }
+
         _uow.Products.Update(product);
         await _uow.SaveChangesAsync();
 
+        product.Variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == productId)).ToList();
+
         var seller = await _uow.Users.GetByIdAsync(sellerId);
         return MapToResponse(product, seller!.Name, category);
+    }
+
+    public async Task<ProductResponse> QuickStockUpdateAsync(int sellerId, int productId, Marketplace.Application.DTOs.Dashboard.QuickStockUpdateRequest request)
+    {
+        var product = await _uow.Products.GetByIdAsync(productId);
+        if (product is null)
+            throw new NotFoundException("Product not found.");
+
+        if (product.SellerId != sellerId)
+            throw new ForbiddenException("You do not have permission to modify this product.");
+
+        if (request.Stock.HasValue)
+        {
+            if (request.Stock.Value < 0)
+                throw new BadRequestException("Stock cannot be negative.");
+            product.Stock = request.Stock.Value;
+        }
+
+        if (request.Price.HasValue)
+        {
+            if (request.Price.Value <= 0)
+                throw new BadRequestException("Price must be greater than 0.");
+            product.Price = request.Price.Value;
+        }
+
+        _uow.Products.Update(product);
+        await _uow.SaveChangesAsync();
+
+        product.Variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == productId)).ToList();
+
+        var seller = await _uow.Users.GetByIdAsync(sellerId);
+        var category = await _uow.Categories.GetByIdAsync(product.CategoryId);
+        return MapToResponse(product, seller?.Name ?? "Seller", category);
     }
 
     public async Task DeleteProductAsync(int sellerId, int productId)
@@ -103,7 +202,17 @@ public class ProductService : IProductService
         if (seller is null)
             throw new NotFoundException("Seller not found.");
 
-        var products = await _uow.Products.FindAsync(p => p.SellerId == sellerId);
+        var products = (await _uow.Products.FindAsync(p => p.SellerId == sellerId)).ToList();
+        var productIds = products.Select(p => p.Id).ToList();
+        var variants = (await _uow.ProductVariants.FindAsync(v => productIds.Contains(v.ProductId)))
+            .GroupBy(v => v.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var p in products)
+        {
+            p.Variants = variants.GetValueOrDefault(p.Id, new List<ProductVariant>());
+        }
+
         var categories = (await _uow.Categories.GetAllAsync()).ToDictionary(c => c.Id);
 
         return products.Select(p => MapToResponse(p, seller.Name, categories.GetValueOrDefault(p.CategoryId)));
@@ -153,6 +262,16 @@ public class ProductService : IProductService
         }
 
         var products = query.ToList();
+        var productIds = products.Select(p => p.Id).ToList();
+        var variants = (await _uow.ProductVariants.FindAsync(v => productIds.Contains(v.ProductId)))
+            .GroupBy(v => v.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var p in products)
+        {
+            p.Variants = variants.GetValueOrDefault(p.Id, new List<ProductVariant>());
+        }
+
         var sellers = (await _uow.Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.Name);
         var categories = (await _uow.Categories.GetAllAsync()).ToDictionary(c => c.Id);
 
@@ -164,6 +283,8 @@ public class ProductService : IProductService
         var product = await _uow.Products.GetByIdAsync(id);
         if (product is null)
             throw new NotFoundException("Product not found.");
+
+        product.Variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == product.Id)).ToList();
 
         var seller = await _uow.Users.GetByIdAsync(product.SellerId);
         var category = await _uow.Categories.GetByIdAsync(product.CategoryId);
@@ -185,6 +306,22 @@ public class ProductService : IProductService
                 MidpointRounding.AwayFromZero);
         }
 
+        var variantDtos = (product.Variants ?? Enumerable.Empty<ProductVariant>())
+            .Select(v => new ProductVariantDto
+            {
+                Id = v.Id,
+                ProductId = v.ProductId,
+                Sku = v.Sku,
+                Size = v.Size,
+                Color = v.Color,
+                AttributeName = v.AttributeName,
+                AttributeValue = v.AttributeValue,
+                PriceOverride = v.PriceOverride,
+                EffectivePrice = v.PriceOverride ?? product.Price,
+                Stock = v.Stock,
+                ImageUrl = v.ImageUrl
+            }).ToList();
+
         return new ProductResponse
         {
             Id = product.Id,
@@ -204,7 +341,8 @@ public class ProductService : IProductService
             CategoryId = product.CategoryId,
             CategoryKey = category?.Key ?? string.Empty,
             CategoryIcon = category?.IconName ?? string.Empty,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            Variants = variantDtos
         };
     }
 }

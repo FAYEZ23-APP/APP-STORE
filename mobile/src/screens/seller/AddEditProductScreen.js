@@ -23,8 +23,8 @@ import { colors } from '../../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AddEditProductScreen({ route, navigation }) {
-  const { t } = useTranslation();
-  const isRTL = I18nManager.isRTL;
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language?.startsWith('ar');
   const editingProduct = route.params?.product;
 
   const [name, setName] = useState(editingProduct?.name || '');
@@ -37,6 +37,54 @@ export default function AddEditProductScreen({ route, navigation }) {
   const [weightGrams, setWeightGrams] = useState(
     editingProduct?.weightGrams != null ? editingProduct.weightGrams.toString() : ''
   );
+
+  // Product Variants State
+  const [variants, setVariants] = useState(
+    Array.isArray(editingProduct?.variants) ? editingProduct.variants : []
+  );
+  const [newVariantSize, setNewVariantSize] = useState('');
+  const [newVariantColor, setNewVariantColor] = useState('');
+  const [newVariantPrice, setNewVariantPrice] = useState('');
+  const [newVariantStock, setNewVariantStock] = useState('');
+  const [newVariantSku, setNewVariantSku] = useState('');
+  const [showAddVariant, setShowAddVariant] = useState(false);
+
+  const handleAddVariant = () => {
+    if (!newVariantSize.trim() && !newVariantColor.trim()) {
+      Alert.alert(t('seller.variantAlertTitle'), t('seller.variantReqAlert'));
+      return;
+    }
+    const st = parseInt(newVariantStock, 10);
+    if (isNaN(st) || st < 0) {
+      Alert.alert(t('seller.variantAlertTitle'), t('seller.variantStockAlert'));
+      return;
+    }
+    const pr = newVariantPrice.trim() ? parseFloat(newVariantPrice) : null;
+    if (pr !== null && (isNaN(pr) || pr <= 0)) {
+      Alert.alert(t('seller.variantAlertTitle'), t('seller.variantPriceAlert'));
+      return;
+    }
+
+    const newV = {
+      sku: newVariantSku.trim() || null,
+      size: newVariantSize.trim() || null,
+      color: newVariantColor.trim() || null,
+      priceOverride: pr,
+      stock: st,
+    };
+
+    setVariants((prev) => [...prev, newV]);
+    setNewVariantSize('');
+    setNewVariantColor('');
+    setNewVariantPrice('');
+    setNewVariantStock('');
+    setNewVariantSku('');
+    setShowAddVariant(false);
+  };
+
+  const handleRemoveVariant = (index) => {
+    setVariants((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -61,12 +109,21 @@ export default function AddEditProductScreen({ route, navigation }) {
         if (isMounted) {
           if (!res?.data?.dispatchCity) {
             Alert.alert(
-              'تنبيه التاجر',
-              'يجب تحديد محافظة/مدينة الشحن للتاجر أولاً من شاشة "حسابي" قبل البدء بإضافة المنتجات.',
+              t('seller.dispatchAlertTitle'),
+              t('seller.dispatchAlertMsg'),
               [
                 {
-                  text: 'الذهاب لحسابي',
-                  onPress: () => navigation.navigate('Profile'),
+                  text: t('common.cancel'),
+                  style: 'cancel',
+                  onPress: () => {
+                    if (navigation.canGoBack()) {
+                      navigation.goBack();
+                    }
+                  },
+                },
+                {
+                  text: t('seller.goToProfile'),
+                  onPress: () => navigation.navigate('SellerRoot', { screen: 'Profile' }),
                 },
               ]
             );
@@ -97,7 +154,7 @@ export default function AddEditProductScreen({ route, navigation }) {
       } catch (err) {
         console.error('Failed to load categories', err);
         if (isMounted) {
-          Alert.alert(t('common.error'), 'Failed to load categories');
+          Alert.alert(t('common.error'), t('seller.loadCategoriesError'));
         }
       } finally {
         if (isMounted) setLoadingCategories(false);
@@ -127,7 +184,7 @@ export default function AddEditProductScreen({ route, navigation }) {
       }
     } catch (err) {
       console.error('Image picker error', err);
-      Alert.alert(t('common.error'), 'Could not open image picker');
+      Alert.alert(t('common.error'), t('seller.imagePickerError'));
     }
   };
 
@@ -153,7 +210,7 @@ export default function AddEditProductScreen({ route, navigation }) {
       }
     } catch (err) {
       console.error('Image upload failed', err);
-      Alert.alert(t('common.error'), err.response?.data?.error || 'Failed to upload image');
+      Alert.alert(t('common.error'), err.response?.data?.error || t('seller.uploadImageFailed'));
     } finally {
       setUploadingImage(false);
     }
@@ -167,7 +224,7 @@ export default function AddEditProductScreen({ route, navigation }) {
 
     const parsedWeight = parseInt(weightGrams, 10);
     if (isNaN(parsedWeight) || parsedWeight <= 0) {
-      Alert.alert(t('common.error'), 'يرجى إدخال وزن المنتج بالجرام بشكل صحيح');
+      Alert.alert(t('common.error'), t('seller.weightAlert'));
       return;
     }
 
@@ -196,6 +253,14 @@ export default function AddEditProductScreen({ route, navigation }) {
         weightGrams: parsedWeight,
         imageUrls: relativeImageUrl ? [relativeImageUrl] : [],
         categoryId: selectedCategory.id,
+        variants: variants.length > 0 ? variants.map((v) => ({
+          sku: v.sku || null,
+          size: v.size || null,
+          color: v.color || null,
+          priceOverride: v.priceOverride || null,
+          stock: v.stock || 0,
+          imageUrl: v.imageUrl || null,
+        })) : null,
       };
 
       if (editingProduct) {
@@ -348,7 +413,7 @@ export default function AddEditProductScreen({ route, navigation }) {
       <View style={tw`flex-row justify-between mb-3`}>
         <View style={tw`flex-1 mr-1.5`}>
           <Text style={[tw`text-xs font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t('seller.price')} (ج.م) *
+            {t('seller.priceCurrency', { currency: isRTL ? 'ج.م' : 'EGP' })}
           </Text>
           <TextInput
             style={[
@@ -365,7 +430,7 @@ export default function AddEditProductScreen({ route, navigation }) {
 
         <View style={tw`flex-1 ml-1.5`}>
           <Text style={[tw`text-xs font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t('seller.oldPrice')} (ج.م)
+            {t('seller.oldPriceCurrency', { currency: isRTL ? 'ج.م' : 'EGP' })}
           </Text>
           <TextInput
             style={[
@@ -385,14 +450,14 @@ export default function AddEditProductScreen({ route, navigation }) {
       <View style={tw`flex-row justify-between mb-5`}>
         <View style={tw`flex-1 mr-1.5`}>
           <Text style={[tw`text-xs font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t('seller.stock')} (قطع) *
+            {t('seller.stockUnit')}
           </Text>
           <TextInput
             style={[
               tw`w-full h-12 border rounded-xl px-4`,
               { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
             ]}
-            placeholder="الكمية"
+            placeholder={t('seller.stockPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             keyboardType="numeric"
             value={stock}
@@ -402,20 +467,248 @@ export default function AddEditProductScreen({ route, navigation }) {
 
         <View style={tw`flex-1 ml-1.5`}>
           <Text style={[tw`text-xs font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t('seller.weightGrams')} *
+            {t('seller.weightUnit')}
           </Text>
           <TextInput
             style={[
               tw`w-full h-12 border rounded-xl px-4`,
               { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
             ]}
-            placeholder="500"
+            placeholder={t('seller.weightGramsPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             keyboardType="numeric"
             value={weightGrams}
             onChangeText={setWeightGrams}
           />
         </View>
+      </View>
+
+      {/* Product Variants (Size, Color, Specs) Section */}
+      <View
+        style={[
+          tw`rounded-2xl p-4 mb-5 border`,
+          { backgroundColor: colors.screenBg, borderColor: colors.border },
+        ]}
+      >
+        <View style={tw`flex-row items-center justify-between mb-3`}>
+          <View style={tw`flex-row items-center flex-1 mr-2`}>
+            <MaterialCommunityIcons
+              name="layers-outline"
+              size={20}
+              color={colors.accent}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                tw`font-bold text-sm`,
+                { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+              ]}
+            >
+              {t('seller.variantTitle')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowAddVariant(!showAddVariant)}
+            style={[
+              tw`px-3 py-1.5 rounded-full flex-row items-center border`,
+              {
+                backgroundColor: showAddVariant ? colors.cardBg : colors.accent,
+                borderColor: colors.accent,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={showAddVariant ? 'close' : 'plus'}
+              size={14}
+              color={showAddVariant ? colors.accent : colors.white}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                tw`text-xs font-bold`,
+                { color: showAddVariant ? colors.accent : colors.white },
+              ]}
+            >
+              {showAddVariant ? t('seller.cancelAddVariant') : t('seller.addVariant')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[tw`text-xs mb-3`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+          {t('seller.variantSubtitle')}
+        </Text>
+
+        {/* Existing Variants List */}
+        {variants.length > 0 ? (
+          <View style={tw`mb-3`}>
+            {variants.map((v, idx) => {
+              const summaryParts = [];
+              if (v.size) summaryParts.push(`${t('seller.sizePrefix')} ${v.size}`);
+              if (v.color) summaryParts.push(`${t('seller.colorPrefix')} ${v.color}`);
+              if (v.sku) summaryParts.push(`SKU: ${v.sku}`);
+              const summary = summaryParts.join(' | ') || `${t('seller.optionDefault')} #${idx + 1}`;
+              const priceDisplay = v.priceOverride
+                ? `${v.priceOverride} ${isRTL ? 'ج.م' : 'EGP'}`
+                : t('seller.sameBasePrice');
+
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    tw`flex-row items-center justify-between p-3 rounded-xl mb-2 border`,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                  ]}
+                >
+                  <View style={tw`flex-1 mr-2`}>
+                    <Text style={[tw`font-bold text-sm`, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {summary}
+                    </Text>
+                    <View style={tw`flex-row items-center mt-1`}>
+                      <Text style={[tw`text-xs font-semibold mr-3`, { color: colors.accent }]}>
+                        {priceDisplay}
+                      </Text>
+                      <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>
+                        {t('seller.stockPieces', { count: v.stock })}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveVariant(idx)}
+                    style={tw`p-2 rounded-full bg-red-50`}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          !showAddVariant && (
+            <Text style={[tw`text-xs italic py-2 text-center`, { color: colors.textSecondary }]}>
+              {t('seller.noVariants')}
+            </Text>
+          )
+        )}
+
+        {/* Add Variant Form */}
+        {showAddVariant && (
+          <View
+            style={[
+              tw`p-3 rounded-xl border mt-1`,
+              { backgroundColor: colors.cardBg, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[tw`font-bold text-xs mb-2`, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t('seller.newVariantData')}
+            </Text>
+
+            <View style={tw`flex-row justify-between mb-2`}>
+              <View style={tw`flex-1 mr-1`}>
+                <Text style={[tw`text-[11px] font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('seller.variantSize')}
+                </Text>
+                <TextInput
+                  style={[
+                    tw`w-full h-10 border rounded-lg px-3 text-xs`,
+                    { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                  placeholder={t('seller.variantSizePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={newVariantSize}
+                  onChangeText={setNewVariantSize}
+                />
+              </View>
+
+              <View style={tw`flex-1 ml-1`}>
+                <Text style={[tw`text-[11px] font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('seller.variantColor')}
+                </Text>
+                <TextInput
+                  style={[
+                    tw`w-full h-10 border rounded-lg px-3 text-xs`,
+                    { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                  placeholder={t('seller.variantColorPlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={newVariantColor}
+                  onChangeText={setNewVariantColor}
+                />
+              </View>
+            </View>
+
+            <View style={tw`flex-row justify-between mb-2`}>
+              <View style={tw`flex-1 mr-1`}>
+                <Text style={[tw`text-[11px] font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('seller.variantStock')}
+                </Text>
+                <TextInput
+                  style={[
+                    tw`w-full h-10 border rounded-lg px-3 text-xs`,
+                    { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                  value={newVariantStock}
+                  onChangeText={setNewVariantStock}
+                />
+              </View>
+
+              <View style={tw`flex-1 ml-1`}>
+                <Text style={[tw`text-[11px] font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('seller.variantPrice', { currency: isRTL ? 'ج.م' : 'EGP' })}
+                </Text>
+                <TextInput
+                  style={[
+                    tw`w-full h-10 border rounded-lg px-3 text-xs`,
+                    { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                  placeholder={t('seller.sameBasePrice')}
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                  value={newVariantPrice}
+                  onChangeText={setNewVariantPrice}
+                />
+              </View>
+            </View>
+
+            <View style={tw`mb-3`}>
+              <Text style={[tw`text-[11px] font-semibold mb-1`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('seller.variantSku')}
+              </Text>
+              <TextInput
+                style={[
+                  tw`w-full h-10 border rounded-lg px-3 text-xs`,
+                  { borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                ]}
+                placeholder={t('seller.skuPlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                value={newVariantSku}
+                onChangeText={setNewVariantSku}
+              />
+            </View>
+
+            <View style={tw`flex-row justify-end`}>
+              <TouchableOpacity
+                onPress={() => setShowAddVariant(false)}
+                style={[tw`px-3 py-2 rounded-lg border mr-2`, { borderColor: colors.border }]}
+              >
+                <Text style={[tw`text-xs font-semibold`, { color: colors.textSecondary }]}>
+                  {t('seller.cancelAddVariant')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleAddVariant}
+                style={[tw`px-4 py-2 rounded-lg`, { backgroundColor: colors.accent }]}
+              >
+                <Text style={[tw`text-xs font-bold`, { color: colors.white }]}>
+                  {t('seller.saveVariant')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       <TouchableOpacity

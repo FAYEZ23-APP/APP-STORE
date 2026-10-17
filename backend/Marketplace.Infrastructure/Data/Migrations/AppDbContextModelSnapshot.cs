@@ -22,6 +22,82 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWallet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Balance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId")
+                        .IsUnique();
+
+                    b.ToTable("BuyerWallets");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWalletTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("BuyerWalletId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ReturnRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("BuyerWalletId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ReturnRequestId");
+
+                    b.ToTable("BuyerWalletTransactions");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Category", b =>
                 {
                     b.Property<int>("Id")
@@ -104,6 +180,104 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.Coupon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DiscountType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("DiscountValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal?>("MaxDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("MaxUsage")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MinOrderSubtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PerUserLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int?>("SellerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("Coupons");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.CouponUsage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CouponId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("DiscountApplied")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("CouponId", "BuyerId");
+
+                    b.ToTable("CouponUsages");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -125,6 +299,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("CouponCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -134,6 +312,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("Pickup");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<string>("Governorate")
                         .IsRequired()
@@ -178,6 +361,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("WalletAmountUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.HasKey("Id");
 
                     b.HasIndex("BuyerId");
@@ -208,6 +396,13 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("VariantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VariantSummary")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
@@ -215,6 +410,8 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.HasIndex("ShipmentId");
+
+                    b.HasIndex("VariantId");
 
                     b.ToTable("OrderItems");
                 });
@@ -273,6 +470,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("AverageRating")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(3,2)")
+                        .HasDefaultValue(0.00m);
+
                     b.Property<int>("CategoryId")
                         .HasColumnType("integer");
 
@@ -305,6 +507,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("ReviewsCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<int>("SellerId")
                         .HasColumnType("integer");
 
@@ -326,6 +533,155 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.HasIndex("SellerId");
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ProductVariant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AttributeName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("AttributeValue")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal?>("PriceOverride")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductVariants");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ReturnRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DefectImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrderItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("RefundAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SellerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ShipmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OrderItemId");
+
+                    b.HasIndex("SellerId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("ReturnRequests");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.Review", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("ProductId", "BuyerId");
+
+                    b.ToTable("Reviews");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.SellerProfile", b =>
@@ -372,6 +728,9 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("DeliveryCost")
@@ -542,6 +901,38 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.ToTable("UserConsents");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.UserDeviceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DeviceToken")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DeviceToken")
+                        .IsUnique();
+
+                    b.ToTable("UserDeviceTokens");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.VendorWallet", b =>
                 {
                     b.Property<int>("Id")
@@ -623,6 +1014,83 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.ToTable("WalletTransactions");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWallet", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
+                        .WithOne("BuyerWallet")
+                        .HasForeignKey("Marketplace.Domain.Entities.BuyerWallet", "BuyerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWalletTransaction", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.BuyerWallet", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("BuyerWalletId");
+
+                    b.HasOne("Marketplace.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Marketplace.Domain.Entities.ReturnRequest", "ReturnRequest")
+                        .WithMany()
+                        .HasForeignKey("ReturnRequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("ReturnRequest");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.Coupon", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Seller");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.CouponUsage", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.Coupon", "Coupon")
+                        .WithMany("Usages")
+                        .HasForeignKey("CouponId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Coupon");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Order", b =>
                 {
                     b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
@@ -654,11 +1122,18 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Marketplace.Domain.Entities.ProductVariant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Order");
 
                     b.Navigation("Product");
 
                     b.Navigation("Shipment");
+
+                    b.Navigation("Variant");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.PayoutRequest", b =>
@@ -689,6 +1164,79 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Seller");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ProductVariant", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.Product", "Product")
+                        .WithMany("Variants")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ReturnRequest", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.OrderItem", "OrderItem")
+                        .WithMany()
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.User", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderItem");
+
+                    b.Navigation("Seller");
+
+                    b.Navigation("Shipment");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.Review", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "Buyer")
+                        .WithMany("Reviews")
+                        .HasForeignKey("BuyerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Marketplace.Domain.Entities.Product", "Product")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.SellerProfile", b =>
@@ -743,6 +1291,17 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.UserDeviceToken", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "User")
+                        .WithMany("DeviceTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.VendorWallet", b =>
                 {
                     b.HasOne("Marketplace.Domain.Entities.User", "Seller")
@@ -779,9 +1338,19 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Navigation("Wallet");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWallet", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Category", b =>
                 {
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.Coupon", b =>
+                {
+                    b.Navigation("Usages");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Order", b =>
@@ -789,6 +1358,13 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("Shipments");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("Reviews");
+
+                    b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Shipment", b =>
@@ -800,13 +1376,19 @@ namespace Marketplace.Infrastructure.Data.Migrations
                 {
                     b.Navigation("Addresses");
 
+                    b.Navigation("BuyerWallet");
+
                     b.Navigation("Consents");
+
+                    b.Navigation("DeviceTokens");
 
                     b.Navigation("Orders");
 
                     b.Navigation("PayoutRequests");
 
                     b.Navigation("Products");
+
+                    b.Navigation("Reviews");
 
                     b.Navigation("SellerProfile");
 

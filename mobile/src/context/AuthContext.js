@@ -3,6 +3,7 @@ import { jwtDecode } from 'jwt-decode';
 import { getToken, setToken, removeToken } from '../utils/storage';
 import { login as loginApi, register as registerApi, googleAuth as googleAuthApi } from '../api/authApi';
 import { setOnUnauthorized } from '../api/client';
+import { syncPushToken } from '../utils/notifications';
 
 export const AuthContext = createContext();
 
@@ -30,6 +31,7 @@ export const AuthProvider = ({ children }) => {
         setUserId(id ? String(id) : null);
         setUserName(name || null);
         setUserEmail(email || null);
+        syncPushToken();
       } else {
         setUserRole(null);
         setUserId(null);

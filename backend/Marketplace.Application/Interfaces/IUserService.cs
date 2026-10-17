@@ -20,4 +20,8 @@ public interface IUserService
     Task<UserDataExportDto> ExportUserDataAsync(int userId);
     Task DeleteAccountAsync(int userId, string? currentPassword = null, string? googleIdToken = null);
     Task<BuyerStatsResponse> GetBuyerStatsAsync(int userId);
+
+    // Dashboard Hub Aggregations
+    Task<Marketplace.Application.DTOs.Dashboard.SellerDashboardResponse> GetSellerDashboardAsync(int sellerId);
+    Task<Marketplace.Application.DTOs.Dashboard.BuyerDashboardResponse> GetBuyerDashboardAsync(int buyerId);
 }

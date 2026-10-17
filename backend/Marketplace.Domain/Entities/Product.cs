@@ -25,4 +25,5 @@ public class Product
     public User Seller { get; set; } = null!;
     public Category Category { get; set; } = null!;
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
+    public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
 }
