@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Marketplace.API/Marketplace.API.csproj" />
+  <Project Path="Marketplace.Application/Marketplace.Application.csproj" />
+  <Project Path="Marketplace.Domain/Marketplace.Domain.csproj" />
+  <Project Path="Marketplace.Infrastructure/Marketplace.Infrastructure.csproj" />
+</Solution>
