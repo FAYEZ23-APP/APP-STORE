@@ -26,6 +26,8 @@ public class UnitOfWork : IUnitOfWork
         VendorWallets = new Repository<VendorWallet>(context);
         WalletTransactions = new Repository<WalletTransaction>(context);
         PayoutRequests = new Repository<PayoutRequest>(context);
+        Reviews = new Repository<Review>(context);
+        UserDeviceTokens = new Repository<UserDeviceToken>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -40,6 +42,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<VendorWallet> VendorWallets { get; }
     public IRepository<WalletTransaction> WalletTransactions { get; }
     public IRepository<PayoutRequest> PayoutRequests { get; }
+    public IRepository<Review> Reviews { get; }
+    public IRepository<UserDeviceToken> UserDeviceTokens { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();
