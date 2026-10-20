@@ -23,7 +23,10 @@ public static class DependencyInjection
         else
         {
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+            {
+                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+            });
         }
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
