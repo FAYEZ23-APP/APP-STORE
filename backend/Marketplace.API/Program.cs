@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Threading.RateLimiting;
 using Marketplace.API.Filters;
@@ -136,32 +137,78 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     var db = scope.ServiceProvider.GetRequiredService<Marketplace.Infrastructure.Data.AppDbContext>();
-    if (string.Equals(app.Configuration["UseInMemoryDatabase"], "true", StringComparison.OrdinalIgnoreCase))
-    {
-        db.Database.EnsureCreated();
-    }
+    var useInMemory = string.Equals(app.Configuration["UseInMemoryDatabase"], "true", StringComparison.OrdinalIgnoreCase);
 
-    var adminEmail = "admin@marketplace.eg";
-    if (!db.Users.Any(u => u.Email == adminEmail))
+    try
     {
-        var hasher = scope.ServiceProvider.GetRequiredService<Marketplace.Application.Interfaces.IPasswordHasher>();
-        db.Users.Add(new Marketplace.Domain.Entities.User
+        if (useInMemory)
         {
-            Name = "مدير المنصة",
-            Email = adminEmail,
-            PasswordHash = hasher.Hash("Admin123!"),
-            Role = Marketplace.Domain.Enums.UserRole.Admin,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        db.SaveChanges();
+            await db.Database.EnsureCreatedAsync();
+            logger.LogInformation("Database initialized using InMemory provider.");
+        }
+        else
+        {
+            logger.LogInformation("Applying EF Core PostgreSQL migrations on startup...");
+            await db.Database.MigrateAsync();
+            logger.LogInformation("Database migrations applied successfully.");
+        }
+
+        // Seed initial categories if none exist
+        if (!await db.Categories.AnyAsync())
+        {
+            db.Categories.AddRange(
+                new Marketplace.Domain.Entities.Category { Id = 1, Key = "electronics", IconName = "devices" },
+                new Marketplace.Domain.Entities.Category { Id = 2, Key = "clothing", IconName = "shirt" },
+                new Marketplace.Domain.Entities.Category { Id = 3, Key = "shoes", IconName = "shoe-sneaker" },
+                new Marketplace.Domain.Entities.Category { Id = 4, Key = "home", IconName = "home" },
+                new Marketplace.Domain.Entities.Category { Id = 5, Key = "beauty", IconName = "sparkles" },
+                new Marketplace.Domain.Entities.Category { Id = 6, Key = "kids", IconName = "baby" },
+                new Marketplace.Domain.Entities.Category { Id = 7, Key = "sports", IconName = "basketball" },
+                new Marketplace.Domain.Entities.Category { Id = 8, Key = "accessories", IconName = "watch" },
+                new Marketplace.Domain.Entities.Category { Id = 9, Key = "other", IconName = "dots-horizontal" }
+            );
+            await db.SaveChangesAsync();
+            logger.LogInformation("Core categories seeded successfully.");
+        }
+
+        // Seed admin user
+        var adminEmail = "admin@marketplace.eg";
+        if (!await db.Users.AnyAsync(u => u.Email == adminEmail))
+        {
+            string? adminPassword = Environment.GetEnvironmentVariable("ADMIN_INITIAL_PASSWORD")
+                                    ?? Environment.GetEnvironmentVariable("ADMIN_PASSWORD")
+                                    ?? app.Configuration["AdminSeed:Password"]
+                                    ?? "Admin123!";
+
+            var hasher = scope.ServiceProvider.GetRequiredService<Marketplace.Application.Interfaces.IPasswordHasher>();
+            db.Users.Add(new Marketplace.Domain.Entities.User
+            {
+                Name = "مدير المنصة",
+                Email = adminEmail,
+                PasswordHash = hasher.Hash(adminPassword),
+                Role = Marketplace.Domain.Enums.UserRole.Admin,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            logger.LogInformation("Initial platform admin seeded: {AdminEmail}", adminEmail);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred during database migration or startup seeding.");
+        if (!app.Environment.IsDevelopment())
+        {
+            throw;
+        }
     }
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || string.Equals(Environment.GetEnvironmentVariable("ENABLE_SWAGGER"), "true", StringComparison.OrdinalIgnoreCase))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
