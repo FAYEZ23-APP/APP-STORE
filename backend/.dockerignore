@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/node_modules
+**/.git
+**/wwwroot/uploads/*
+**/tests
+**/*.md
+**/*.sql
