@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
 
@@ -7,6 +8,12 @@ namespace Marketplace.Infrastructure.Data;
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+    }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
