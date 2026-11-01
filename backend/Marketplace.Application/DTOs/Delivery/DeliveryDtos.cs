@@ -63,6 +63,8 @@ public class DeliveryQuoteRequest
     public string? DestinationCity { get; set; }
     public string? Governorate { get; set; }
     public string? PickupPointId { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 
     public string? EffectiveCity =>
         !string.IsNullOrWhiteSpace(City) ? City.Trim() :

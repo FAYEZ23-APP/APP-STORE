@@ -143,20 +143,20 @@ const RegisterScreen = ({ navigation }) => {
     let targetEmail = null;
     let targetPhone = null;
 
-    if (signupMethod === 'phone') {
+    if (signupMethod === 'email') {
+      const cleanEmail = email.trim();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        Alert.alert(t('common.error'), t('common.fillAllFields'));
+        return;
+      }
+      targetEmail = cleanEmail.toLowerCase();
+    } else {
       const cleanPhone = phone.trim();
       if (!cleanPhone || !isValidEgyptianPhone(cleanPhone)) {
         Alert.alert(t('common.error'), t('common.invalidPhone'));
         return;
       }
       targetPhone = normalizeEgyptianPhone(cleanPhone);
-    } else {
-      const cleanEmail = email.trim();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        Alert.alert(t('common.error'), t('common.fillAllFields'));
-        return;
-      }
-      targetEmail = cleanEmail;
     }
 
     if (!password || password.length < 6) {
@@ -181,10 +181,10 @@ const RegisterScreen = ({ navigation }) => {
         marketingConsent,
       });
 
-      const target = res?.target || (signupMethod === 'phone' ? targetPhone : targetEmail);
+      const effectiveTarget = signupMethod === 'email' ? targetEmail : targetPhone;
       navigation.navigate('Verify', {
-        target,
-        maskedTarget: res?.target || target,
+        target: effectiveTarget,
+        maskedTarget: res?.target || effectiveTarget,
         purpose: 'Verify',
       });
     } catch (err) {
@@ -283,59 +283,59 @@ const RegisterScreen = ({ navigation }) => {
               />
             </View>
 
-            {/* Email / Phone Method Toggle (Only if phoneSignupEnabled) */}
-            {phoneSignupEnabled && (
-              <View style={styles.methodToggleContainer}>
-                <Text style={styles.sectionLabel}>{t('auth.chooseMethod')}</Text>
-                <View style={styles.toggleRow}>
-                  <TouchableOpacity
+            {/* Method selection (Email vs Phone) */}
+            <View style={styles.methodToggleContainer}>
+              <Text style={styles.sectionLabel}>{t('auth.chooseMethod')}</Text>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    signupMethod === 'email' && styles.toggleButtonActive,
+                  ]}
+                  onPress={() => setSignupMethod('email')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={18}
+                    color={signupMethod === 'email' ? '#fff' : colors.textSecondary}
+                    style={{ marginHorizontal: 6 }}
+                  />
+                  <Text
                     style={[
-                      styles.toggleButton,
-                      signupMethod === 'email' && styles.toggleButtonActive,
+                      styles.toggleButtonText,
+                      signupMethod === 'email' && styles.toggleButtonTextActive,
                     ]}
-                    onPress={() => setSignupMethod('email')}
                   >
-                    <Ionicons
-                      name="mail-outline"
-                      size={18}
-                      color={signupMethod === 'email' ? '#fff' : colors.textSecondary}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.toggleButtonText,
-                        signupMethod === 'email' && styles.toggleButtonTextActive,
-                      ]}
-                    >
-                      {t('auth.registerWithEmail')}
-                    </Text>
-                  </TouchableOpacity>
+                    {t('auth.registerWithEmail')}
+                  </Text>
+                </TouchableOpacity>
 
-                  <TouchableOpacity
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    signupMethod === 'phone' && styles.toggleButtonActive,
+                  ]}
+                  onPress={() => setSignupMethod('phone')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="call-outline"
+                    size={18}
+                    color={signupMethod === 'phone' ? '#fff' : colors.textSecondary}
+                    style={{ marginHorizontal: 6 }}
+                  />
+                  <Text
                     style={[
-                      styles.toggleButton,
-                      signupMethod === 'phone' && styles.toggleButtonActive,
+                      styles.toggleButtonText,
+                      signupMethod === 'phone' && styles.toggleButtonTextActive,
                     ]}
-                    onPress={() => setSignupMethod('phone')}
                   >
-                    <Ionicons
-                      name="call-outline"
-                      size={18}
-                      color={signupMethod === 'phone' ? '#fff' : colors.textSecondary}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.toggleButtonText,
-                        signupMethod === 'phone' && styles.toggleButtonTextActive,
-                      ]}
-                    >
-                      {t('auth.registerWithPhone')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                    {t('auth.registerWithPhone')}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            )}
+            </View>
 
             {/* Name input */}
             <View style={styles.inputGroup}>
@@ -364,35 +364,8 @@ const RegisterScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Email OR Phone input depending on signupMethod */}
-            {signupMethod === 'phone' && phoneSignupEnabled ? (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('auth.phone')}</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedField === 'phone' && styles.inputFocused,
-                  ]}
-                >
-                  <Ionicons
-                    name="call-outline"
-                    size={20}
-                    color={focusedField === 'phone' ? colors.accent : colors.textSecondary}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder={t('auth.phonePlaceholder')}
-                    placeholderTextColor={colors.oldPrice}
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={setPhone}
-                    onFocus={() => setFocusedField('phone')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-              </View>
-            ) : (
+            {/* Email OR Phone input based on signupMethod */}
+            {signupMethod === 'email' ? (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('auth.email')}</Text>
                 <View
@@ -416,6 +389,31 @@ const RegisterScreen = ({ navigation }) => {
                     value={email}
                     onChangeText={setEmail}
                     onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('auth.phone')}</Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    styles.phoneInputContainer,
+                    focusedField === 'phone' && styles.inputFocused,
+                  ]}
+                >
+                  <View style={styles.countryPrefixBadge}>
+                    <Text style={styles.countryPrefixText}>🇪🇬 +20</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, styles.phoneInputLtr]}
+                    placeholder="1012345678 / 01012345678"
+                    placeholderTextColor={colors.oldPrice}
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                    onFocus={() => setFocusedField('phone')}
                     onBlur={() => setFocusedField(null)}
                   />
                 </View>
@@ -756,6 +754,30 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 10,
+  },
+  phoneInputContainer: {
+    direction: 'ltr',
+    paddingHorizontal: 0,
+    overflow: 'hidden',
+  },
+  countryPrefixBadge: {
+    height: '100%',
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderEndWidth: 1,
+    borderEndColor: colors.border,
+    backgroundColor: colors.cardBg,
+  },
+  countryPrefixText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  phoneInputLtr: {
+    paddingHorizontal: 12,
+    textAlign: 'left',
+    writingDirection: 'ltr',
   },
   input: {
     flex: 1,

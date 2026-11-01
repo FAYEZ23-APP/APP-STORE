@@ -19,19 +19,29 @@ public class DevAuthController : ControllerBase
     [HttpGet("last-code")]
     public async Task<IActionResult> GetLastCode(
         [FromQuery] string target,
-        [FromServices] Marketplace.Infrastructure.Data.AppDbContext db)
+        [FromServices] Marketplace.Infrastructure.Data.AppDbContext db,
+        [FromServices] IVerificationService verificationService)
     {
         if (!_env.IsDevelopment())
         {
             return NotFound();
         }
 
-        var code = _messageStore.GetLastCode(target);
-        var normalized = target.Trim().ToLowerInvariant();
+        string normalized;
+        try
+        {
+            normalized = verificationService.NormalizeTarget(target, out _);
+        }
+        catch
+        {
+            normalized = target.Trim().ToLowerInvariant();
+        }
+
+        var code = _messageStore.GetLastCode(normalized) ?? _messageStore.GetLastCode(target);
         var codeRecord = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
             db.VerificationCodes.Where(c => c.Target == normalized).OrderByDescending(c => c.CreatedAt));
 
-        return Ok(new { target, code, userId = codeRecord?.UserId });
+        return Ok(new { target = normalized, code, userId = codeRecord?.UserId });
     }
 
     [HttpGet("codes")]

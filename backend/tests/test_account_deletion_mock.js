@@ -71,10 +71,22 @@ function verifyCSharpSourceContracts() {
   const adminCtrl = fs.readFileSync(path.join(repoRoot, 'backend/Marketplace.API/Controllers/AdminController.cs'), 'utf8');
   const usersCtrl = fs.readFileSync(path.join(repoRoot, 'backend/Marketplace.API/Controllers/UsersController.cs'), 'utf8');
 
-  assert(walletCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'), 'WalletController must default Features:WalletEnabled to false');
-  assert(couponsCtrl.includes('GetValue<bool>("Features:CouponsEnabled", false)'), 'CouponsController must default Features:CouponsEnabled to false');
-  assert(adminCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'), 'AdminController payout endpoints must default Features:WalletEnabled to false');
-  assert(usersCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'), 'UsersController buyer wallet endpoint must default Features:WalletEnabled to false');
+  assert(
+    walletCtrl.includes('RequireFeature(FeatureFlag.Wallet)') || walletCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'),
+    'WalletController must guard behind Features:Wallet'
+  );
+  assert(
+    couponsCtrl.includes('RequireFeature(FeatureFlag.Coupons)') || couponsCtrl.includes('GetValue<bool>("Features:CouponsEnabled", false)'),
+    'CouponsController must guard behind Features:Coupons'
+  );
+  assert(
+    adminCtrl.includes('RequireFeature(FeatureFlag.VendorPayouts)') || adminCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'),
+    'AdminController payout endpoints must guard behind Features:VendorPayouts or Features:Wallet'
+  );
+  assert(
+    usersCtrl.includes('RequireFeature(FeatureFlag.Wallet)') || usersCtrl.includes('GetValue<bool>("Features:WalletEnabled", false)'),
+    'UsersController buyer wallet endpoint must guard behind Features:Wallet'
+  );
   console.log('✅ Item 10 (C#): Wallet, Vendor Payouts (vendor + admin), and Coupons default to OFF (false) and return 404.');
 }
 

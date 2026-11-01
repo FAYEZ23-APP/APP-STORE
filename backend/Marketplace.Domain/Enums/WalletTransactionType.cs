@@ -5,5 +5,9 @@ public enum WalletTransactionType
     COD_Collection,
     Commission,
     Payout,
-    Refund
+    Refund,
+    OrderSettlement,
+    COD_EscrowHold,
+    COD_EscrowRelease,
+    Clawback
 }

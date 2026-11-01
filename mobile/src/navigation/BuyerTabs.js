@@ -25,8 +25,8 @@ export default function BuyerTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: '#475569', // High contrast slate for sharp visibility
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.cardBg,
           borderTopColor: colors.border,
@@ -35,7 +35,7 @@ export default function BuyerTabs() {
           paddingBottom: bottomInset,
           paddingTop: 8,
           elevation: 16,
-          shadowColor: '#000',
+          shadowColor: colors.shadow,
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.08,
           shadowRadius: 10,
@@ -46,7 +46,7 @@ export default function BuyerTabs() {
           marginTop: 2,
         },
         headerStyle: {
-          backgroundColor: colors.primary,
+          backgroundColor: colors.secondary,
         },
         headerTintColor: colors.white,
         headerTitleStyle: {

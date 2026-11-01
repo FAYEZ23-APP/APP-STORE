@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Read-only PostgreSQL verification helper for test suites. Reuses Npgsql through the
+       Infrastructure project reference (no new package). Not part of the solution. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Marketplace.Infrastructure\Marketplace.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

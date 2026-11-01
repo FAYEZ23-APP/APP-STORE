@@ -13,9 +13,17 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 import BuyerTabs from './BuyerTabs';
 import SellerTabs from './SellerTabs';
+import AdminTabs from './AdminTabs';
 import AddEditProductScreen from '../screens/seller/AddEditProductScreen';
+import SellerWalletScreen from '../screens/seller/SellerWalletScreen';
+import SellerCouponsScreen from '../screens/seller/SellerCouponsScreen';
 import ProductDetailsScreen from '../screens/buyer/ProductDetailsScreen';
+import SellerStoreScreen from '../screens/buyer/SellerStoreScreen';
 import CheckoutScreen from '../screens/buyer/CheckoutScreen';
+import MobileSearchScreen from '../screens/buyer/MobileSearchScreen';
+import MobileLocationPicker from '../components/MobileLocationPicker';
+import WishlistScreen from '../screens/buyer/WishlistScreen';
+import NotificationsScreen from '../screens/common/NotificationsScreen';
 
 import { colors } from '../theme/colors';
 
@@ -27,14 +35,26 @@ export default function AppNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F172A' }}>
-        <ActivityIndicator size="large" color="#FF8C33" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.screenBg }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
+  const navigationTheme = {
+    dark: false,
+    colors: {
+      primary: colors.primary,
+      background: colors.screenBg,
+      card: colors.cardBg,
+      text: colors.textPrimary,
+      border: colors.border,
+      notification: colors.discount,
+    },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -60,6 +80,16 @@ export default function AppNavigator() {
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           </>
+        ) : userRole === 'Admin' ? (
+          // Role = Admin
+          <Stack.Group>
+            <Stack.Screen name="AdminRoot" component={AdminTabs} />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{ headerShown: false }}
+            />
+          </Stack.Group>
         ) : userRole === 'Seller' ? (
           // Role = Seller
           <Stack.Group>
@@ -69,11 +99,43 @@ export default function AppNavigator() {
               component={AddEditProductScreen}
               options={{ presentation: 'modal', headerShown: true, title: '' }}
             />
+            <Stack.Screen
+              name="SellerWallet"
+              component={SellerWalletScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="SellerCoupons"
+              component={SellerCouponsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{ headerShown: false }}
+            />
           </Stack.Group>
         ) : (
           // Default to Buyer
           <Stack.Group>
             <Stack.Screen name="BuyerRoot" component={BuyerTabs} />
+            <Stack.Screen
+              name="Wishlist"
+              component={WishlistScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Search"
+              component={MobileSearchScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
             <Stack.Screen
               name="ProductDetails"
               component={ProductDetailsScreen}
@@ -83,11 +145,26 @@ export default function AppNavigator() {
               }}
             />
             <Stack.Screen
+              name="SellerStore"
+              component={SellerStoreScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="Checkout"
               component={CheckoutScreen}
               options={{
                 headerShown: true,
                 title: t('buyer.checkout'),
+              }}
+            />
+            <Stack.Screen
+              name="LocationPicker"
+              component={MobileLocationPicker}
+              options={{
+                presentation: 'modal',
+                headerShown: false,
               }}
             />
           </Stack.Group>

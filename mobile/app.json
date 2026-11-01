@@ -10,11 +10,22 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "السماح بالدخول السريع والآمن بالبصمة / Allow Face ID for quick and secure biometric login"
+        "NSFaceIDUsageDescription": "السماح بالدخول السريع والآمن بالبصمة / Allow Face ID for quick and secure biometric login",
+        "NSLocationWhenInUseUsageDescription": "يحتاج التطبيق للوصول إلى موقعك لتحديد عنوان التوصيل بدقة وحساب تكلفة الشحن / Allow location access to pinpoint your delivery address and calculate shipping fees accurately."
       }
     },
     "android": {
       "package": "com.marketplace.app",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -39,6 +50,12 @@
         "expo-secure-store",
         {
           "faceIDPermission": "السماح بالدخول السريع والآمن بالبصمة / Allow Face ID for quick and secure biometric login"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "يحتاج التطبيق للوصول إلى موقعك لتحديد عنوان التوصيل بدقة وحساب تكلفة الشحن / Allow location access to pinpoint your delivery address and calculate shipping fees accurately."
         }
       ]
     ],

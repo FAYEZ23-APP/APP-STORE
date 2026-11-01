@@ -93,6 +93,12 @@ const validNumbers = [
   '+201512345678',
   '010-1234-5678',
   '+20 10 1234 5678',
+  '٠١٠١٢٣٤٥٦٧٨',
+  '+٢٠١٠١٢٣٤٥٦٧٨',
+  '٠٠٢٠١٢١٢٣٤٥٦٧٨',
+  '۰۱۰۱۲۳۴۵۶۷۸',
+  '٠١٥-١٢٣٤-٥٦٧٨',
+  '+٢٠ ١٠ ١٢٣٤ ٥٦٧٨',
 ];
 
 for (const num of validNumbers) {
@@ -105,8 +111,12 @@ for (const num of validNumbers) {
 const invalidNumbers = [
   '01312345678', // Invalid carrier prefix 013
   '01912345678', // Invalid carrier prefix 019
+  '٠١٩١٢٣٤٥٦٧٨', // Invalid carrier prefix with Eastern Arabic numerals
+  '۰۱۳۱۲۳۴۵۶۷۸', // Invalid carrier prefix with Extended Arabic numerals
   '123456',      // Too short
+  '١٢٣٤٥٦',      // Too short Arabic
   '0101234567890', // Too long
+  '٠١٠١٢٣٤٥٦٧٨٩٠', // Too long Arabic
   'invalid-phone',
   '',
   null,
@@ -117,7 +127,12 @@ for (const num of invalidNumbers) {
 }
 
 assert.strictEqual(normalizeEgyptianPhone('01012345678'), '+201012345678');
+assert.strictEqual(normalizeEgyptianPhone('٠١٠١٢٣٤٥٦٧٨'), '+201012345678');
+assert.strictEqual(normalizeEgyptianPhone('+٢٠١٠١٢٣٤٥٦٧٨'), '+201012345678');
+assert.strictEqual(normalizeEgyptianPhone('٠٠٢٠١٢١٢٣٤٥٦٧٨'), '+201212345678');
+assert.strictEqual(normalizeEgyptianPhone('۰۱۰۱۲۳۴۵۶۷۸'), '+201012345678');
 assert.strictEqual(formatEgyptianPhone('01012345678'), '010 1234 5678');
+assert.strictEqual(formatEgyptianPhone('٠١٠١٢٣٤٥٦٧٨'), '010 1234 5678');
 console.log('✅ [PASS] Egyptian phone validator, normalizer, and formatter all accurate');
 
 // 3. OTP 6-Box Logic Unit Tests

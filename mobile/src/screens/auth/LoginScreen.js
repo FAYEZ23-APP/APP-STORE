@@ -92,11 +92,14 @@ const LoginScreen = ({ navigation }) => {
     } catch (err) {
       // Check if user is not verified yet (HTTP 403 NOT_VERIFIED)
       if (err.response?.status === 403 && err.response?.data?.code === 'NOT_VERIFIED') {
-        const target = err.response.data.target || cleanIdentifier;
+        const unmaskedTarget = cleanIdentifier.includes('@')
+          ? cleanIdentifier.toLowerCase()
+          : cleanIdentifier;
         navigation.navigate('Verify', {
-          target,
-          maskedTarget: err.response.data.target || cleanIdentifier,
+          target: unmaskedTarget,
+          maskedTarget: err.response.data.target || unmaskedTarget,
           purpose: 'Verify',
+          initialCountdown: 0,
         });
         return;
       }

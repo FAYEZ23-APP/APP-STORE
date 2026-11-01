@@ -28,7 +28,7 @@ import {
   logoutAll as logoutAllApi,
 } from '../api/authApi';
 import { setOnUnauthorized } from '../api/client';
-import { syncPushToken } from '../utils/notifications';
+import { syncPushToken, getDevicePushToken, unregisterCurrentPushToken } from '../utils/notifications';
 import {
   checkBiometricSupport,
   promptBiometricAuth,
@@ -462,10 +462,17 @@ export const AuthProvider = ({ children }) => {
   // ─── Logout Flows ───────────────────────────────────────────
   const logout = async () => {
     try {
+      const deviceToken = await getDevicePushToken().catch(() => null);
+      if (deviceToken) {
+        await unregisterCurrentPushToken().catch(() => {});
+      }
       if (userId) {
         const rt = await getRefreshToken(userId);
-        if (rt) {
-          logoutApi({ refreshToken: rt }).catch(() => {});
+        if (rt || deviceToken) {
+          logoutApi({
+            refreshToken: rt || '',
+            ...(deviceToken ? { deviceToken } : {}),
+          }).catch(() => {});
         }
         await removeRefreshToken(userId);
       }
@@ -482,6 +489,7 @@ export const AuthProvider = ({ children }) => {
 
   const logoutAll = async () => {
     try {
+      await unregisterCurrentPushToken().catch(() => {});
       await logoutAllApi().catch(() => {});
       if (userId) {
         await removeRefreshToken(userId);

@@ -26,11 +26,43 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<OrderResponse>> CreateOrder(CreateOrderRequest request)
+    public async Task<ActionResult<OrderResponse>> CreateOrder(
+        [FromBody] CreateOrderRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null)
     {
         var buyerId = User.GetUserId();
-        var order = await _orderService.CreateOrderAsync(buyerId, request);
+        var order = await _orderService.CreateOrderAsync(buyerId, request, idempotencyKey);
         return StatusCode(StatusCodes.Status201Created, order);
+    }
+
+    /// <summary>Cancel an order before it is handed to carrier. (Buyer only)</summary>
+    [HttpPost("{id:int}/cancel")]
+    [Authorize(Roles = "Buyer")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderResponse>> CancelOrder(int id)
+    {
+        var buyerId = User.GetUserId();
+        var order = await _orderService.CancelOrderAsync(buyerId, id);
+        return Ok(order);
+    }
+
+    /// <summary>Get order by ID (Buyer who placed it, or Admin).</summary>
+    [HttpGet("{id:int}")]
+    [Authorize(Roles = "Buyer,Admin")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderResponse>> GetOrderById(int id)
+    {
+        var userId = User.GetUserId();
+        var role = User.IsInRole("Admin") ? "Admin" : "Buyer";
+        var order = await _orderService.GetOrderByIdAsync(userId, id, role);
+        return Ok(order);
     }
 
     /// <summary>Get all orders for the logged-in buyer. (Buyer only)</summary>
@@ -59,9 +91,9 @@ public class OrdersController : ControllerBase
         return Ok(orders);
     }
 
-    /// <summary>Update the status of an order. Must contain a product belonging to the seller. (Seller only)</summary>
+    /// <summary>Update the status of an order. Restricted to Admin. Sellers must update shipments via /api/shipments/{id}/status.</summary>
     [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "Seller")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -69,8 +101,7 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request)
     {
-        var sellerId = User.GetUserId();
-        await _orderService.UpdateOrderStatusAsync(sellerId, id, request.Status);
+        await _orderService.UpdateOrderStatusAsync(id, request.Status);
         return NoContent();
     }
 }

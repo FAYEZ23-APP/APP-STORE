@@ -1,0 +1,25 @@
+{
+  "totalBackendRoutes": 118,
+  "totalMobileApiCalls": 95,
+  "totalWebApiCalls": 95,
+  "uncalledBackendRoutesCount": 15,
+  "uncalledBackendRoutes": [
+    "POST /api/dev/auth/clear (DevAuthController.Clear)",
+    "GET /api/dev/auth/codes (DevAuthController.GetAllCodes)",
+    "POST /api/dev/auth/expire-code (DevAuthController.ExpireCode)",
+    "GET /api/dev/auth/last-code (DevAuthController.GetLastCode)",
+    "GET /api/dev/auth/token (DevAuthController.GetTokenForUser)",
+    "POST /api/dev/carrier/shipments/{id:int}/settle-cod (DevCarrierController.SettleCarrierCod)",
+    "PUT /api/dev/carrier/shipments/{id:int}/status (DevCarrierController.UpdateCarrierStatus)",
+    "GET /api/files/private/{fileName} (FilesController.GetPrivateFile)",
+    "POST /api/files/private/return-evidence (FilesController.UploadReturnEvidence)",
+    "GET /api/health (Program.getHealthResponse)",
+    "DELETE /api/notifications/devices (NotificationsController.UnregisterToken)",
+    "POST /api/products/{productId:int}/reviews (ReviewsController.AddProductReview)",
+    "POST /api/reviews/upload-photos (ReviewsController.UploadReviewPhotos)",
+    "POST /api/search/reindex (SearchController.ReindexAll)",
+    "GET /health (Program.getHealthResponse)"
+  ],
+  "clientCallsToNonExistentCount": 0,
+  "clientCallsToNonExistent": []
+}

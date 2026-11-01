@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Marketplace.Domain.Entities;
 
 public class SellerProfile
@@ -7,6 +9,12 @@ public class SellerProfile
     public string DispatchCity { get; set; } = string.Empty;
     public string? DispatchAddress { get; set; }
     public string? ContactPhone { get; set; }
+
+    [NotMapped]
+    public double? DispatchLatitude { get; set; }
+
+    [NotMapped]
+    public double? DispatchLongitude { get; set; }
 
     public User User { get; set; } = null!;
 }

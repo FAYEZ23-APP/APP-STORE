@@ -85,6 +85,7 @@ public class RefreshTokenRequest
 public class LogoutRequest
 {
     public string? RefreshToken { get; set; }
+    public string? DeviceToken { get; set; }
 }
 
 public class ConfigResponse
@@ -106,6 +107,45 @@ public class AuthResponse
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string Role { get; set; } = string.Empty;
+
+    public bool RequiresTwoFactor { get; set; } = false;
+    public bool TwoFactorSetupRequired { get; set; } = false;
+    public string? TwoFactorToken { get; set; }
+    public string? QrCodeUri { get; set; }
+    public string? ManualEntryKey { get; set; }
+}
+
+public class TwoFactorSetupResponse
+{
+    public string Secret { get; set; } = string.Empty;
+    public string QrCodeUri { get; set; } = string.Empty;
+    public string ManualEntryKey { get; set; } = string.Empty;
+}
+
+public class TwoFactorVerifyRequest
+{
+    public string TwoFactorToken { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Secret { get; set; }
+    public string? DeviceId { get; set; }
+    public string? DeviceName { get; set; }
+}
+
+public class TwoFactorEnableRequest
+{
+    public string Secret { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+public class TwoFactorDisableRequest
+{
+    public string Password { get; set; } = string.Empty;
+}
+
+public class TwoFactorStatusResponse
+{
+    public bool IsEnabled { get; set; }
+    public bool IsEnforced { get; set; }
 }
 
 public class GoogleAuthRequest

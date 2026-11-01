@@ -23,7 +23,7 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
             .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
         RuleFor(x => x.Phone)
-            .Matches(EgyptianPhoneValidation.PhoneRegex)
+            .Must(EgyptianPhoneValidation.IsValid)
             .WithMessage("Phone must be a valid Egyptian mobile number (e.g. 01012345678 or +201012345678).")
             .When(x => !string.IsNullOrWhiteSpace(x.Phone));
 

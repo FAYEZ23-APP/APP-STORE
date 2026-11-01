@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_COOLDOWN_SECONDS);
+  const isSubmittingRef = useRef(false);
   const [focusedField, setFocusedField] = useState(null);
 
   // Animations
@@ -100,10 +101,12 @@ const ResetPasswordScreen = ({ route, navigation }) => {
       return;
     }
 
+    if (isSubmittingRef.current || loading) return;
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       await resetPasswordApi({
-        identifier,
+        identifier: (identifier || '').trim().toLowerCase(),
         code: trimmedCode,
         newPassword,
       });
@@ -124,7 +127,11 @@ const ResetPasswordScreen = ({ route, navigation }) => {
       Alert.alert(t('common.error'), msg);
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        isSubmittingRef.current = false;
+      }, 1000);
     }
+
   };
 
   return (
@@ -173,7 +180,9 @@ const ResetPasswordScreen = ({ route, navigation }) => {
           >
             <Text style={styles.title}>{t('auth.resetPasswordTitle')}</Text>
             <Text style={styles.subtitle}>
-              {t('auth.resetSubtitle', { target: maskedTarget || identifier })}
+              {t('auth.resetSubtitle', {
+                target: `\u2066${maskedTarget || identifier}\u2069`,
+              })}
             </Text>
 
             {/* 6-box OTP Input */}

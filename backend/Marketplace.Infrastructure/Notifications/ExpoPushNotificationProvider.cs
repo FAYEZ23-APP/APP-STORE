@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Marketplace.Application.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Marketplace.Infrastructure.Notifications;
@@ -7,12 +8,17 @@ namespace Marketplace.Infrastructure.Notifications;
 public class ExpoPushNotificationProvider : IPushNotificationProvider
 {
     private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ExpoPushNotificationProvider> _logger;
     private const string ExpoPushEndpoint = "https://exp.host/--/api/v2/push/send";
 
-    public ExpoPushNotificationProvider(HttpClient httpClient, ILogger<ExpoPushNotificationProvider> logger)
+    public ExpoPushNotificationProvider(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<ExpoPushNotificationProvider> logger)
     {
         _httpClient = httpClient;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -26,6 +32,11 @@ public class ExpoPushNotificationProvider : IPushNotificationProvider
 
     public async Task<int> SendMulticastPushAsync(IEnumerable<string> deviceTokens, string title, string body, Dictionary<string, string>? data = null)
     {
+        if (_configuration.GetValue<bool>("Push:ThrowException"))
+        {
+            throw new HttpRequestException("Simulated upstream push provider network outage");
+        }
+
         var tokens = deviceTokens.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList();
         if (!tokens.Any())
             return 0;

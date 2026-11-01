@@ -1,0 +1,1046 @@
+[
+  {
+    "controller": "AdminController",
+    "action": "GetAuditLogs",
+    "method": "GET",
+    "route": "/api/admin/audit-logs",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AdminController.cs:108"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "HideReview",
+    "method": "POST",
+    "route": "/api/admin/reviews/{id:int}/hide",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "ReviewsController.cs:263"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "UnhideReview",
+    "method": "POST",
+    "route": "/api/admin/reviews/{id:int}/unhide",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "ReviewsController.cs:279"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "GetReportedReviews",
+    "method": "GET",
+    "route": "/api/admin/reviews/reported",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "ReviewsController.cs:248"
+  },
+  {
+    "controller": "AdminController",
+    "action": "SettleCod",
+    "method": "POST",
+    "route": "/api/admin/shipments/{id:int}/settle-cod",
+    "auth": "Role:Admin",
+    "feature": "Wallet",
+    "source": "AdminController.cs:93"
+  },
+  {
+    "controller": "AdminController",
+    "action": "GetStats",
+    "method": "GET",
+    "route": "/api/admin/stats",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AdminController.cs:55"
+  },
+  {
+    "controller": "AdminController",
+    "action": "GetUsers",
+    "method": "GET",
+    "route": "/api/admin/users",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AdminController.cs:28"
+  },
+  {
+    "controller": "AdminController",
+    "action": "UpdateUserStatus",
+    "method": "PUT",
+    "route": "/api/admin/users/{id:int}/status",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AdminController.cs:41"
+  },
+  {
+    "controller": "AdminController",
+    "action": "GetPayouts",
+    "method": "GET",
+    "route": "/api/admin/wallet/payouts",
+    "auth": "Role:Admin",
+    "feature": "VendorPayouts",
+    "source": "AdminController.cs:66"
+  },
+  {
+    "controller": "AdminController",
+    "action": "ProcessPayout",
+    "method": "POST",
+    "route": "/api/admin/wallet/payouts/{id:int}/process",
+    "auth": "Role:Admin",
+    "feature": "VendorPayouts",
+    "source": "AdminController.cs:79"
+  },
+  {
+    "controller": "AuthController",
+    "action": "DisableTwoFactor",
+    "method": "POST",
+    "route": "/api/auth/2fa/disable",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "AuthController.cs:258"
+  },
+  {
+    "controller": "AuthController",
+    "action": "EnableTwoFactor",
+    "method": "POST",
+    "route": "/api/auth/2fa/enable",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AuthController.cs:242"
+  },
+  {
+    "controller": "AuthController",
+    "action": "SetupTwoFactor",
+    "method": "POST",
+    "route": "/api/auth/2fa/setup",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "AuthController.cs:227"
+  },
+  {
+    "controller": "AuthController",
+    "action": "GetTwoFactorStatus",
+    "method": "GET",
+    "route": "/api/auth/2fa/status",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "AuthController.cs:213"
+  },
+  {
+    "controller": "AuthController",
+    "action": "VerifyTwoFactorLogin",
+    "method": "POST",
+    "route": "/api/auth/2fa/verify-login",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:199"
+  },
+  {
+    "controller": "AuthController",
+    "action": "ForgotPassword",
+    "method": "POST",
+    "route": "/api/auth/forgot-password",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:91"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Google",
+    "method": "POST",
+    "route": "/api/auth/google",
+    "auth": "Anonymous",
+    "feature": "GoogleAuth",
+    "source": "AuthController.cs:125"
+  },
+  {
+    "controller": "AuthController",
+    "action": "LinkGoogle",
+    "method": "POST",
+    "route": "/api/auth/google/link",
+    "auth": "Authenticated",
+    "feature": "GoogleAuth",
+    "source": "AuthController.cs:140"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Login",
+    "method": "POST",
+    "route": "/api/auth/login",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:77"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Logout",
+    "method": "POST",
+    "route": "/api/auth/logout",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:173"
+  },
+  {
+    "controller": "AuthController",
+    "action": "LogoutAll",
+    "method": "POST",
+    "route": "/api/auth/logout-all",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "AuthController.cs:185"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Refresh",
+    "method": "POST",
+    "route": "/api/auth/refresh",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:158"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Register",
+    "method": "POST",
+    "route": "/api/auth/register",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:29"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Resend",
+    "method": "POST",
+    "route": "/api/auth/resend",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:59"
+  },
+  {
+    "controller": "AuthController",
+    "action": "ResetPassword",
+    "method": "POST",
+    "route": "/api/auth/reset-password",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:108"
+  },
+  {
+    "controller": "AuthController",
+    "action": "Verify",
+    "method": "POST",
+    "route": "/api/auth/verify",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "AuthController.cs:45"
+  },
+  {
+    "controller": "CategoriesController",
+    "action": "GetCategories",
+    "method": "GET",
+    "route": "/api/categories",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "CategoriesController.cs:21"
+  },
+  {
+    "controller": "CategoriesController",
+    "action": "CreateCategory",
+    "method": "POST",
+    "route": "/api/categories",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "CategoriesController.cs:44"
+  },
+  {
+    "controller": "CategoriesController",
+    "action": "DeleteCategory",
+    "method": "DELETE",
+    "route": "/api/categories/{id:int}",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "CategoriesController.cs:75"
+  },
+  {
+    "controller": "CategoriesController",
+    "action": "GetCategoryById",
+    "method": "GET",
+    "route": "/api/categories/{id:int}",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "CategoriesController.cs:33"
+  },
+  {
+    "controller": "CategoriesController",
+    "action": "UpdateCategory",
+    "method": "PUT",
+    "route": "/api/categories/{id:int}",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "CategoriesController.cs:58"
+  },
+  {
+    "controller": "ConfigController",
+    "action": "GetConfig",
+    "method": "GET",
+    "route": "/api/config",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ConfigController.cs:26"
+  },
+  {
+    "controller": "CouponsController",
+    "action": "CreateCoupon",
+    "method": "POST",
+    "route": "/api/coupons",
+    "auth": "Role:Seller,Admin",
+    "feature": "Coupons",
+    "source": "CouponsController.cs:36"
+  },
+  {
+    "controller": "CouponsController",
+    "action": "GetMyCoupons",
+    "method": "GET",
+    "route": "/api/coupons/my",
+    "auth": "Role:Seller",
+    "feature": "Coupons",
+    "source": "CouponsController.cs:51"
+  },
+  {
+    "controller": "CouponsController",
+    "action": "ValidateCoupon",
+    "method": "POST",
+    "route": "/api/coupons/validate",
+    "auth": "Authenticated",
+    "feature": "Coupons",
+    "source": "CouponsController.cs:24"
+  },
+  {
+    "controller": "DeliveryController",
+    "action": "GetCities",
+    "method": "GET",
+    "route": "/api/delivery/cities",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DeliveryController.cs:21"
+  },
+  {
+    "controller": "DeliveryController",
+    "action": "GetPickupPoints",
+    "method": "GET",
+    "route": "/api/delivery/pickup-points",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DeliveryController.cs:30"
+  },
+  {
+    "controller": "DeliveryController",
+    "action": "GetQuote",
+    "method": "POST",
+    "route": "/api/delivery/quote",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DeliveryController.cs:39"
+  },
+  {
+    "controller": "DevAuthController",
+    "action": "Clear",
+    "method": "POST",
+    "route": "/api/dev/auth/clear",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevAuthController.cs:58"
+  },
+  {
+    "controller": "DevAuthController",
+    "action": "GetAllCodes",
+    "method": "GET",
+    "route": "/api/dev/auth/codes",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevAuthController.cs:47"
+  },
+  {
+    "controller": "DevAuthController",
+    "action": "ExpireCode",
+    "method": "POST",
+    "route": "/api/dev/auth/expire-code",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevAuthController.cs:70"
+  },
+  {
+    "controller": "DevAuthController",
+    "action": "GetLastCode",
+    "method": "GET",
+    "route": "/api/dev/auth/last-code",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevAuthController.cs:19"
+  },
+  {
+    "controller": "DevAuthController",
+    "action": "GetTokenForUser",
+    "method": "GET",
+    "route": "/api/dev/auth/token",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevAuthController.cs:94"
+  },
+  {
+    "controller": "DevCarrierController",
+    "action": "SettleCarrierCod",
+    "method": "POST",
+    "route": "/api/dev/carrier/shipments/{id:int}/settle-cod",
+    "auth": "Anonymous",
+    "feature": "Wallet",
+    "source": "DevCarrierController.cs:61"
+  },
+  {
+    "controller": "DevCarrierController",
+    "action": "UpdateCarrierStatus",
+    "method": "PUT",
+    "route": "/api/dev/carrier/shipments/{id:int}/status",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "DevCarrierController.cs:34"
+  },
+  {
+    "controller": "FilesController",
+    "action": "GetPrivateFile",
+    "method": "GET",
+    "route": "/api/files/private/{fileName}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "FilesController.cs:36"
+  },
+  {
+    "controller": "FilesController",
+    "action": "UploadReturnEvidence",
+    "method": "POST",
+    "route": "/api/files/private/return-evidence",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "FilesController.cs:106"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "GetNotifications",
+    "method": "GET",
+    "route": "/api/notifications",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:22"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "MarkAsRead",
+    "method": "PUT",
+    "route": "/api/notifications/{id:int}/read",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:46"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "UnregisterToken",
+    "method": "DELETE",
+    "route": "/api/notifications/devices",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:84"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "MarkAllAsRead",
+    "method": "PUT",
+    "route": "/api/notifications/read-all",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:61"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "RegisterToken",
+    "method": "POST",
+    "route": "/api/notifications/register-token",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:72"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "GetUnreadCount",
+    "method": "GET",
+    "route": "/api/notifications/unread-count",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:35"
+  },
+  {
+    "controller": "NotificationsController",
+    "action": "UnregisterToken",
+    "method": "POST",
+    "route": "/api/notifications/unregister-token",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "NotificationsController.cs:85"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "CreateOrder",
+    "method": "POST",
+    "route": "/api/orders",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "OrdersController.cs:21"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "GetOrderById",
+    "method": "GET",
+    "route": "/api/orders/{id:int}",
+    "auth": "Role:Buyer,Admin",
+    "feature": "None",
+    "source": "OrdersController.cs:54"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "CancelOrder",
+    "method": "POST",
+    "route": "/api/orders/{id:int}/cancel",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "OrdersController.cs:39"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "UpdateOrderStatus",
+    "method": "PUT",
+    "route": "/api/orders/{id:int}/status",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "OrdersController.cs:95"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "GetMyOrders",
+    "method": "GET",
+    "route": "/api/orders/mine",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "OrdersController.cs:69"
+  },
+  {
+    "controller": "OrdersController",
+    "action": "GetSellerOrders",
+    "method": "GET",
+    "route": "/api/orders/seller",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "OrdersController.cs:82"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "GetAllProducts",
+    "method": "GET",
+    "route": "/api/products",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ProductsController.cs:185"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "CreateProduct",
+    "method": "POST",
+    "route": "/api/products",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:117"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "DeleteProduct",
+    "method": "DELETE",
+    "route": "/api/products/{id:int}",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:160"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "GetProductById",
+    "method": "GET",
+    "route": "/api/products/{id:int}",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ProductsController.cs:219"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "UpdateProduct",
+    "method": "PUT",
+    "route": "/api/products/{id:int}",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:131"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "QuickStock",
+    "method": "PATCH",
+    "route": "/api/products/{id:int}/quick-stock",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:145"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "GetReviewEligibility",
+    "method": "GET",
+    "route": "/api/products/{id:int}/review-eligibility",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:27"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "GetProductReviews",
+    "method": "GET",
+    "route": "/api/products/{productId:int}/reviews",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ReviewsController.cs:51"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "AddProductReview",
+    "method": "POST",
+    "route": "/api/products/{productId:int}/reviews",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:81"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "GetMyProducts",
+    "method": "GET",
+    "route": "/api/products/my-products",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:173"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "SearchProducts",
+    "method": "GET",
+    "route": "/api/products/search",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ProductsController.cs:230"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "GetSellerStorefront",
+    "method": "GET",
+    "route": "/api/products/store/{sellerId:int}",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ProductsController.cs:202"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "UploadImage",
+    "method": "POST",
+    "route": "/api/products/upload-image",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:30"
+  },
+  {
+    "controller": "ProductsController",
+    "action": "UploadImages",
+    "method": "POST",
+    "route": "/api/products/upload-images",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ProductsController.cs:63"
+  },
+  {
+    "controller": "ReturnsController",
+    "action": "CreateReturn",
+    "method": "POST",
+    "route": "/api/returns",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReturnsController.cs:58"
+  },
+  {
+    "controller": "ReturnsController",
+    "action": "ResolveReturn",
+    "method": "PUT",
+    "route": "/api/returns/{id:int}/resolve",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ReturnsController.cs:83"
+  },
+  {
+    "controller": "ReturnsController",
+    "action": "GetBuyerReturns",
+    "method": "GET",
+    "route": "/api/returns/buyer",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReturnsController.cs:72"
+  },
+  {
+    "controller": "ReturnsController",
+    "action": "GetSellerReturns",
+    "method": "GET",
+    "route": "/api/returns/seller",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ReturnsController.cs:97"
+  },
+  {
+    "controller": "ReturnsController",
+    "action": "UploadEvidence",
+    "method": "POST",
+    "route": "/api/returns/upload-evidence",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReturnsController.cs:26"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "AddReview",
+    "method": "POST",
+    "route": "/api/reviews",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:66"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "DeleteReview",
+    "method": "DELETE",
+    "route": "/api/reviews/{id:int}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:116"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "UpdateReview",
+    "method": "PUT",
+    "route": "/api/reviews/{id:int}",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReviewsController.cs:99"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "AddSellerReply",
+    "method": "POST",
+    "route": "/api/reviews/{id:int}/reply",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ReviewsController.cs:202"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "ReportReview",
+    "method": "POST",
+    "route": "/api/reviews/{id:int}/report",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:232"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "CanReview",
+    "method": "GET",
+    "route": "/api/reviews/can-review/{productId:int}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "ReviewsController.cs:39"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "UploadReviewPhoto",
+    "method": "POST",
+    "route": "/api/reviews/upload-photo",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReviewsController.cs:131"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "UploadReviewPhotos",
+    "method": "POST",
+    "route": "/api/reviews/upload-photos",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "ReviewsController.cs:159"
+  },
+  {
+    "controller": "SearchController",
+    "action": "SearchProducts",
+    "method": "GET",
+    "route": "/api/search/products",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "SearchController.cs:45"
+  },
+  {
+    "controller": "SearchController",
+    "action": "ReindexAll",
+    "method": "POST",
+    "route": "/api/search/reindex",
+    "auth": "Role:Admin",
+    "feature": "None",
+    "source": "SearchController.cs:59"
+  },
+  {
+    "controller": "SearchController",
+    "action": "GetSuggestions",
+    "method": "GET",
+    "route": "/api/search/suggestions",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "SearchController.cs:27"
+  },
+  {
+    "controller": "ReviewsController",
+    "action": "GetSellerReviews",
+    "method": "GET",
+    "route": "/api/seller/reviews",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ReviewsController.cs:219"
+  },
+  {
+    "controller": "ShipmentsController",
+    "action": "UpdateStatus",
+    "method": "PUT",
+    "route": "/api/shipments/{id:int}/status",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ShipmentsController.cs:39"
+  },
+  {
+    "controller": "ShipmentsController",
+    "action": "GetSellerShipments",
+    "method": "GET",
+    "route": "/api/shipments/seller",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "ShipmentsController.cs:24"
+  },
+  {
+    "controller": "ShippingController",
+    "action": "CalculateFee",
+    "method": "POST",
+    "route": "/api/shipping/calculate-fee",
+    "auth": "Anonymous",
+    "feature": "None",
+    "source": "ShippingController.cs:31"
+  },
+  {
+    "controller": "UsersController",
+    "action": "DeleteMyAccount",
+    "method": "DELETE",
+    "route": "/api/users/me",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:219"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyProfile",
+    "method": "GET",
+    "route": "/api/users/me",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:39"
+  },
+  {
+    "controller": "UsersController",
+    "action": "UpdateMyProfile",
+    "method": "PUT",
+    "route": "/api/users/me",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:51"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyAddresses",
+    "method": "GET",
+    "route": "/api/users/me/addresses",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:105"
+  },
+  {
+    "controller": "UsersController",
+    "action": "CreateMyAddress",
+    "method": "POST",
+    "route": "/api/users/me/addresses",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:129"
+  },
+  {
+    "controller": "UsersController",
+    "action": "DeleteMyAddress",
+    "method": "DELETE",
+    "route": "/api/users/me/addresses/{id:int}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:155"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyAddressById",
+    "method": "GET",
+    "route": "/api/users/me/addresses/{id:int}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:116"
+  },
+  {
+    "controller": "UsersController",
+    "action": "UpdateMyAddress",
+    "method": "PUT",
+    "route": "/api/users/me/addresses/{id:int}",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:141"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyBuyerDashboard",
+    "method": "GET",
+    "route": "/api/users/me/buyer-dashboard",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "UsersController.cs:194"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyBuyerStats",
+    "method": "GET",
+    "route": "/api/users/me/buyer-stats",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:170"
+  },
+  {
+    "controller": "UsersController",
+    "action": "ExportMyData",
+    "method": "GET",
+    "route": "/api/users/me/export-data",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:207"
+  },
+  {
+    "controller": "UsersController",
+    "action": "ChangePassword",
+    "method": "PUT",
+    "route": "/api/users/me/password",
+    "auth": "Authenticated",
+    "feature": "None",
+    "source": "UsersController.cs:90"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMySellerDashboard",
+    "method": "GET",
+    "route": "/api/users/me/seller-dashboard",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "UsersController.cs:181"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMySellerProfile",
+    "method": "GET",
+    "route": "/api/users/me/seller-profile",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "UsersController.cs:64"
+  },
+  {
+    "controller": "UsersController",
+    "action": "UpdateMySellerProfile",
+    "method": "PUT",
+    "route": "/api/users/me/seller-profile",
+    "auth": "Role:Seller",
+    "feature": "None",
+    "source": "UsersController.cs:76"
+  },
+  {
+    "controller": "UsersController",
+    "action": "GetMyWallet",
+    "method": "GET",
+    "route": "/api/users/me/wallet",
+    "auth": "Authenticated",
+    "feature": "Wallet",
+    "source": "UsersController.cs:26"
+  },
+  {
+    "controller": "WalletController",
+    "action": "GetMyWallet",
+    "method": "GET",
+    "route": "/api/wallet/me",
+    "auth": "Role:Seller",
+    "feature": "Wallet",
+    "source": "WalletController.cs:23"
+  },
+  {
+    "controller": "WalletController",
+    "action": "RequestPayout",
+    "method": "POST",
+    "route": "/api/wallet/payout-request",
+    "auth": "Role:Seller",
+    "feature": "VendorPayouts",
+    "source": "WalletController.cs:37"
+  },
+  {
+    "controller": "WalletController",
+    "action": "GetMyPayouts",
+    "method": "GET",
+    "route": "/api/wallet/payouts",
+    "auth": "Role:Seller",
+    "feature": "VendorPayouts",
+    "source": "WalletController.cs:52"
+  },
+  {
+    "controller": "WishlistController",
+    "action": "GetWishlist",
+    "method": "GET",
+    "route": "/api/wishlist",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "WishlistController.cs:22"
+  },
+  {
+    "controller": "WishlistController",
+    "action": "ToggleWishlist",
+    "method": "POST",
+    "route": "/api/wishlist/{productId:int}/toggle",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "WishlistController.cs:33"
+  },
+  {
+    "controller": "WishlistController",
+    "action": "GetWishlistedIds",
+    "method": "GET",
+    "route": "/api/wishlist/ids",
+    "auth": "Role:Buyer",
+    "feature": "None",
+    "source": "WishlistController.cs:45"
+  }
+]

@@ -1,4 +1,5 @@
 using Marketplace.API.Extensions;
+using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Auth;
 using Marketplace.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -122,6 +123,7 @@ public class AuthController : ControllerBase
     /// Log in or register with Google ID token. Returns a JWT.
     /// </summary>
     [HttpPost("google")]
+    [RequireFeature(FeatureFlag.GoogleAuth)]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -129,13 +131,25 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AuthResponse>> Google([FromBody] GoogleAuthRequest request, CancellationToken cancellationToken)
     {
-        var googleEnabled = _configuration.GetValue<bool>("Auth:GoogleEnabled", false);
-        if (!googleEnabled)
-        {
-            return NotFound(new { error = "Google authentication is disabled." });
-        }
-
         return Ok(await _authService.GoogleAuthAsync(request, cancellationToken));
+    }
+
+    /// <summary>
+    /// Link an authenticated account to a Google account subject.
+    /// </summary>
+    [HttpPost("google/link")]
+    [RequireFeature(FeatureFlag.GoogleAuth)]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> LinkGoogle([FromBody] GoogleAuthRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        await _authService.LinkGoogleAsync(userId, request, cancellationToken);
+        return Ok(new { message = "Google account linked successfully." });
     }
 
     /// <summary>
@@ -177,5 +191,79 @@ public class AuthController : ControllerBase
         var userId = User.GetUserId();
         await _authService.LogoutAllAsync(userId, cancellationToken);
         return Ok(new { message = "Logged out from all devices successfully." });
+    }
+
+    /// <summary>
+    /// Verify 2FA challenge code during login (or first-time setup activation during login).
+    /// </summary>
+    [HttpPost("2fa/verify-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthResponse>> VerifyTwoFactorLogin([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _authService.VerifyTwoFactorLoginAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get current 2FA status for the authenticated user.
+    /// </summary>
+    [HttpGet("2fa/status")]
+    [Authorize]
+    [ProducesResponseType(typeof(TwoFactorStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<TwoFactorStatusResponse>> GetTwoFactorStatus(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var response = await _authService.GetTwoFactorStatusAsync(userId, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Generate a fresh TOTP secret key and QR setup URI (Admin only).
+    /// </summary>
+    [HttpPost("2fa/setup")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(TwoFactorSetupResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<TwoFactorSetupResponse>> SetupTwoFactor(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var response = await _authService.SetupTwoFactorAsync(userId, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Confirm and enable 2FA with secret and 6-digit TOTP code (Admin only).
+    /// </summary>
+    [HttpPost("2fa/enable")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(TwoFactorStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<TwoFactorStatusResponse>> EnableTwoFactor([FromBody] TwoFactorEnableRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var response = await _authService.EnableTwoFactorAsync(userId, request, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Disable 2FA with password confirmation (Blocked if Admin:Require2FA is enforced).
+    /// </summary>
+    [HttpPost("2fa/disable")]
+    [Authorize]
+    [ProducesResponseType(typeof(TwoFactorStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<TwoFactorStatusResponse>> DisableTwoFactor([FromBody] TwoFactorDisableRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var response = await _authService.DisableTwoFactorAsync(userId, request.Password, cancellationToken);
+        return Ok(response);
     }
 }

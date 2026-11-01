@@ -18,24 +18,8 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHostEnvironment? environment = null)
     {
-        // Database (PostgreSQL only; TEST_DB environment variable overrides database name/connection string for testing)
+        // Database (PostgreSQL only - strictly from configuration)
         var connStr = configuration.GetConnectionString("DefaultConnection");
-        var testDb = Environment.GetEnvironmentVariable("TEST_DB");
-        if (!string.IsNullOrWhiteSpace(testDb))
-        {
-            if (testDb.Contains("="))
-            {
-                connStr = testDb;
-            }
-            else if (!string.IsNullOrWhiteSpace(connStr))
-            {
-                var csb = new Npgsql.NpgsqlConnectionStringBuilder(connStr)
-                {
-                    Database = testDb
-                };
-                connStr = csb.ConnectionString;
-            }
-        }
 
         services.AddDbContext<AppDbContext>(options =>
         {
@@ -43,6 +27,23 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Storage Services (Local file storage and S3/R2 abstraction)
+        services.Configure<Marketplace.Application.Common.StorageSettings>(
+            configuration.GetSection(Marketplace.Application.Common.StorageSettings.SectionName));
+        services.AddSingleton<Marketplace.Infrastructure.Storage.LocalFileStorageProvider>();
+        services.AddSingleton<Marketplace.Infrastructure.Storage.S3CompatibleStorageProvider>();
+        services.AddSingleton<IFileStorageProvider>(sp =>
+        {
+            var storageProvider = configuration["Storage:Provider"] ?? "Local";
+            if (string.Equals(storageProvider, "S3", StringComparison.OrdinalIgnoreCase))
+            {
+                return sp.GetRequiredService<Marketplace.Infrastructure.Storage.S3CompatibleStorageProvider>();
+            }
+            return sp.GetRequiredService<Marketplace.Infrastructure.Storage.LocalFileStorageProvider>();
+        });
+
+        services.AddScoped<IImageUploadService, Marketplace.Infrastructure.Storage.ImageUploadService>();
 
         // Auth
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
@@ -52,6 +53,8 @@ public static class DependencyInjection
 
         // Email and SMS Senders
         services.AddSingleton<IFakeMessageStore, FakeMessageStore>();
+        services.Configure<Marketplace.Application.Common.SmsSettings>(
+            configuration.GetSection(Marketplace.Application.Common.SmsSettings.SectionName));
 
         var isDev = environment?.IsDevelopment() ?? string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
@@ -63,7 +66,19 @@ public static class DependencyInjection
         else
         {
             services.AddHttpClient<IEmailSender, ResendEmailSender>();
-            services.AddSingleton<ISmsSender, NotConfiguredSmsSender>();
+            var smsProvider = configuration["Sms:Provider"] ?? "NotConfigured";
+            if (string.Equals(smsProvider, "HttpGateway", StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddHttpClient<ISmsSender, Marketplace.Infrastructure.Notifications.ConfigurableHttpSmsSender>();
+            }
+            else if (string.Equals(smsProvider, "Console", StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddSingleton<ISmsSender, ConsoleSmsSender>();
+            }
+            else
+            {
+                services.AddSingleton<ISmsSender, Marketplace.Infrastructure.Notifications.NotConfiguredSmsSender>();
+            }
         }
 
         // Delivery Provider (selected by configuration, defaults to "Fake")
@@ -76,11 +91,22 @@ public static class DependencyInjection
                 break;
         }
 
-        // Push Notifications (Expo / FCM)
+        // Push Notifications (Expo / FCM) & Bounded In-Memory Queue
         services.AddHttpClient<IPushNotificationProvider, Marketplace.Infrastructure.Notifications.ExpoPushNotificationProvider>();
+        services.AddSingleton<IPushNotificationQueue, Marketplace.Infrastructure.Notifications.PushNotificationQueue>();
+
+        // Google Maps & Shipping Calculation
+        services.Configure<Marketplace.Application.Common.GoogleMapsSettings>(
+            configuration.GetSection(Marketplace.Application.Common.GoogleMapsSettings.SectionName));
+        services.AddHttpClient<IShippingDistanceService, Marketplace.Infrastructure.Shipping.ShippingDistanceService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(8);
+        });
 
         // Background Services
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.VerificationCodeCleanupService>();
+        services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.NotificationCleanupService>();
+        services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.PushNotificationBackgroundWorker>();
 
         return services;
     }

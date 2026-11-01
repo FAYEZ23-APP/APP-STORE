@@ -107,6 +107,8 @@ async function runTests() {
             'Auth:CodeSecret': 'DedicatedVerificationCodeSecret_AtLeast32CharsLong!',
             'Admin__Email': 'admin@marketplace.eg',
             'Admin__Password': 'AdminSecurePassword123!',
+            'RateLimiting:AuthPermitLimit': '100',
+            'ConnectionStrings__DefaultConnection': `${process.env.TEST_DB};Minimum Pool Size=5;Maximum Pool Size=20;Timeout=45`,
             TEST_DB: process.env.TEST_DB
         };
 
@@ -398,9 +400,11 @@ async function runTests() {
             'JWT_SECRET': 'ProductionTestingSafeSecretKeyMustBe32CharsLong!',
             'Email:ApiKey': 're_test_dummy_key_12345',
             'Email__ApiKey': 're_test_dummy_key_12345',
-            TEST_DB: process.env.TEST_DB
+            'Admin:WebEnabled': 'false',
+            'ConnectionStrings__DefaultConnection': process.env.TEST_DB
         };
         delete prodEnv.UseInMemoryDatabase;
+        delete prodEnv.TEST_DB;
 
         prodProcess = spawn('dotnet', ['run', '--project', 'backend/Marketplace.API', '--no-build', '--no-launch-profile'], {
             env: prodEnv,
@@ -411,6 +415,9 @@ async function runTests() {
         prodProcess.stderr.on('data', d => { prodCapturedOutput += d.toString(); });
 
         const prodReady = await waitForServer(`http://localhost:${PROD_PORT}`);
+        if (!prodReady) {
+            console.error('[Production Startup Failed] Captured Output:\n', prodCapturedOutput);
+        }
         assert(prodReady, `Production instance started successfully on port ${PROD_PORT}`);
 
         // Dev endpoints must return 404 in Production
@@ -532,7 +539,7 @@ async function runTests() {
             target: unverifiedOverwriteEmail,
             code: newCodeRes.data.code
         });
-        assert(verifyOverwritten.status === 200, `Verification succeeds with updated code`);
+        assert(verifyOverwritten.status === 200, `Verification succeeds with updated code (Got ${verifyOverwritten.status}: ${JSON.stringify(verifyOverwritten.data)})`);
 
         // Login with old password MUST FAIL
         const oldPassLogin = await request('POST', '/api/auth/login', {
@@ -626,9 +633,10 @@ async function runTests() {
             'JWT_SECRET': 'StagingTestingSafeSecretKeyMustBe32CharsLong!',
             'Email:ApiKey': 're_test_dummy_key_12345',
             'Email__ApiKey': 're_test_dummy_key_12345',
-            TEST_DB: process.env.TEST_DB
+            'ConnectionStrings__DefaultConnection': process.env.TEST_DB
         };
         delete stagingEnv.UseInMemoryDatabase;
+        delete stagingEnv.TEST_DB;
 
         stagingProcess = spawn('dotnet', ['run', '--project', 'backend/Marketplace.API', '--no-build', '--no-launch-profile'], {
             env: stagingEnv,
@@ -730,15 +738,15 @@ async function runTests() {
         const buyerWalletRes = await request('GET', '/api/users/me/wallet', null, token2);
         assert(buyerWalletRes.status === 404, `GET /api/users/me/wallet returns 404 when WalletEnabled=false (Got ${buyerWalletRes.status})`);
 
-        const couponValidateRes = await request('GET', '/api/coupons/validate?code=TEST10&orderTotal=100', null, token2);
-        assert(couponValidateRes.status === 404, `GET /api/coupons/validate returns 404 when CouponsEnabled=false (Got ${couponValidateRes.status})`);
+        const couponValidateRes = await request('POST', '/api/coupons/validate', { code: 'TEST10', orderTotal: 100 }, token2);
+        assert(couponValidateRes.status === 404, `POST /api/coupons/validate returns 404 when CouponsEnabled=false (Got ${couponValidateRes.status})`);
 
         // ─────────────────────────────────────────────────────────────
         // TEST 18: Rotating spoofed X-Forwarded-For values still hit rate limit (429)
         // ─────────────────────────────────────────────────────────────
         console.log('\n--- TEST 18: Rotating spoofed X-Forwarded-For values still hit rate limit ---');
         let hitRateLimit = false;
-        for (let i = 1; i <= 15; i++) {
+        for (let i = 1; i <= 115; i++) {
             const spoofedRes = await new Promise((resolve, reject) => {
                 const url = new URL('/api/auth/login', API_BASE);
                 const payload = JSON.stringify({ identifier: `ratelimit_target_${rand}@example.com`, password: 'WrongPassword!' });

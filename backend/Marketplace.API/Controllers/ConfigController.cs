@@ -1,5 +1,7 @@
+using Marketplace.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Marketplace.API.Controllers;
 
@@ -8,15 +10,18 @@ namespace Marketplace.API.Controllers;
 [AllowAnonymous]
 public class ConfigController : ControllerBase
 {
+    private readonly FeatureFlags _featureFlags;
     private readonly IConfiguration _configuration;
 
-    public ConfigController(IConfiguration configuration)
+    public ConfigController(IOptions<FeatureFlags> featureFlags, IConfiguration configuration)
     {
+        _featureFlags = featureFlags.Value;
         _configuration = configuration;
     }
 
     /// <summary>
     /// Returns public, non-sensitive feature configuration flags for client apps.
+    /// Strictly filters out admin flags, CIDRs, origins, and internal operational settings.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PublicConfigResponse), StatusCodes.Status200OK)]
@@ -24,11 +29,12 @@ public class ConfigController : ControllerBase
     {
         var response = new PublicConfigResponse
         {
-            GoogleEnabled = _configuration.GetValue<bool>("Auth:GoogleEnabled", false),
-            PhoneSignupEnabled = _configuration.GetValue<bool>("Auth:PhoneSignupEnabled", false),
+            GoogleEnabled = _featureFlags.GoogleEnabled,
+            PhoneSignupEnabled = _featureFlags.PhoneSignupEnabled,
             VerificationRequired = _configuration.GetValue<bool>("Auth:RequireVerification", true),
-            WalletEnabled = _configuration.GetValue<bool>("Features:WalletEnabled", false) || _configuration.GetValue<bool>("Wallet:Enabled", false),
-            CouponsEnabled = _configuration.GetValue<bool>("Features:CouponsEnabled", false) || _configuration.GetValue<bool>("Coupons:Enabled", false)
+            WalletEnabled = _featureFlags.EnableWallet,
+            VendorPayoutsEnabled = _featureFlags.EnableVendorPayouts,
+            CouponsEnabled = _featureFlags.EnableCoupons
         };
 
         return Ok(response);
@@ -41,5 +47,6 @@ public class PublicConfigResponse
     public bool PhoneSignupEnabled { get; set; }
     public bool VerificationRequired { get; set; } = true;
     public bool WalletEnabled { get; set; }
+    public bool VendorPayoutsEnabled { get; set; }
     public bool CouponsEnabled { get; set; }
 }

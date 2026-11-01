@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthContext } from '../../context/AuthContext';
 import { resendCode as resendCodeApi } from '../../api/authApi';
 import { colors } from '../../theme/colors';
+import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 import OtpInput from '../../components/OtpInput';
 
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -26,12 +27,18 @@ const VerifyScreen = ({ route, navigation }) => {
   const { t } = useTranslation();
   const { verify } = useContext(AuthContext);
 
-  const { target = '', maskedTarget = '', purpose = 'Verify' } = route.params || {};
+  const {
+    target = '',
+    maskedTarget = '',
+    purpose = 'Verify',
+    initialCountdown = RESEND_COOLDOWN_SECONDS,
+  } = route.params || {};
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [countdown, setCountdown] = useState(RESEND_COOLDOWN_SECONDS);
+  const [countdown, setCountdown] = useState(initialCountdown);
+  const isSubmittingRef = useRef(false);
 
   // Animations
   const [fadeAnim] = useState(() => new Animated.Value(0));
@@ -68,15 +75,27 @@ const VerifyScreen = ({ route, navigation }) => {
       return;
     }
 
+    if (isSubmittingRef.current || loading) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
-      await verify(target, finalCode);
+      const cleanTarget = (target || '').trim();
+      const normalizedTarget = isValidEgyptianPhone(cleanTarget)
+        ? normalizeEgyptianPhone(cleanTarget)
+        : cleanTarget.toLowerCase();
+      await verify(normalizedTarget, finalCode);
       // Navigation is handled reactively by AuthContext when userRole is populated
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       Alert.alert(t('common.error'), msg);
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        isSubmittingRef.current = false;
+      }, 1000);
     }
   };
 
@@ -85,7 +104,11 @@ const VerifyScreen = ({ route, navigation }) => {
 
     setResending(true);
     try {
-      await resendCodeApi({ target, purpose });
+      const cleanTarget = (target || '').trim();
+      const normalizedTarget = isValidEgyptianPhone(cleanTarget)
+        ? normalizeEgyptianPhone(cleanTarget)
+        : cleanTarget.toLowerCase();
+      await resendCodeApi({ target: normalizedTarget, purpose: (purpose || 'Verify').trim() });
       setCountdown(RESEND_COOLDOWN_SECONDS);
       Alert.alert(t('common.success'), t('auth.codeResent'));
     } catch (err) {
@@ -143,7 +166,9 @@ const VerifyScreen = ({ route, navigation }) => {
             {/* Subtitle / Instructions */}
             <Text style={styles.title}>{t('auth.enterVerificationCode')}</Text>
             <Text style={styles.subtitle}>
-              {t('auth.verifySubtitle', { target: maskedTarget || target })}
+              {t('auth.verifySubtitle', {
+                target: `\u2066${maskedTarget || target}\u2069`,
+              })}
             </Text>
 
             {/* 6-box OTP Input */}

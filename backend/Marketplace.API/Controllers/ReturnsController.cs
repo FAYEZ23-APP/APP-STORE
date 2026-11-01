@@ -12,10 +12,46 @@ namespace Marketplace.API.Controllers;
 public class ReturnsController : ControllerBase
 {
     private readonly IReturnService _returnService;
+    private readonly IImageUploadService _imageUploadService;
 
-    public ReturnsController(IReturnService returnService)
+    public ReturnsController(
+        IReturnService returnService,
+        IImageUploadService imageUploadService)
     {
         _returnService = returnService;
+        _imageUploadService = imageUploadService;
+    }
+
+    /// <summary>Upload return defect evidence image (PDPL Law 151/2020 private storage).</summary>
+    [HttpPost("upload-evidence")]
+    [Authorize(Roles = "Buyer")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadEvidence(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "لم يتم إرفاق ملف صورة الإثبات." });
+        }
+
+        var buyerId = User.GetUserId();
+        await using var stream = file.OpenReadStream();
+        var result = await _imageUploadService.ProcessAndSavePrivateImageAsync(
+            buyerId,
+            stream,
+            file.FileName,
+            file.Length,
+            subFolder: "returns");
+
+        return Ok(new
+        {
+            url = result.Url,
+            fileName = result.FileName,
+            width = result.Width,
+            height = result.Height,
+            sizeBytes = result.SizeBytes
+        });
     }
 
     /// <summary>Submit a 14-day post-delivery return request under Egyptian Consumer Protection Law 181/2018.</summary>

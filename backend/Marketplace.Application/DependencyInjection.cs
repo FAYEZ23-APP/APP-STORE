@@ -1,6 +1,7 @@
 using FluentValidation;
 using Marketplace.Application.Interfaces;
 using Marketplace.Application.Services;
+using Marketplace.Application.Services.Search;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Marketplace.Application;
@@ -24,6 +25,9 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<ICouponService, CouponService>();
         services.AddScoped<IReturnService, ReturnService>();
+        services.AddScoped<ISearchService, SearchService>();
+        services.AddScoped<IWishlistService, WishlistService>();
+        services.AddSingleton<ITotpService, TotpService>();
 
         return services;
     }

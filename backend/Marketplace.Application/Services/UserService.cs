@@ -233,6 +233,13 @@ public class UserService : IUserService
             City = request.City.Trim(),
             Area = request.Area.Trim(),
             StreetBuilding = request.StreetBuilding.Trim(),
+            BuildingNumber = request.BuildingNumber.Trim(),
+            Floor = request.Floor?.Trim(),
+            Apartment = request.Apartment?.Trim(),
+            Landmark = request.Landmark?.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            FormattedAddress = request.FormattedAddress?.Trim(),
             IsDefault = shouldBeDefault,
             CreatedAt = DateTime.UtcNow
         };
@@ -284,6 +291,13 @@ public class UserService : IUserService
         address.City = request.City.Trim();
         address.Area = request.Area.Trim();
         address.StreetBuilding = request.StreetBuilding.Trim();
+        address.BuildingNumber = request.BuildingNumber.Trim();
+        address.Floor = request.Floor?.Trim();
+        address.Apartment = request.Apartment?.Trim();
+        address.Landmark = request.Landmark?.Trim();
+        address.Latitude = request.Latitude;
+        address.Longitude = request.Longitude;
+        address.FormattedAddress = request.FormattedAddress?.Trim();
 
         _uow.UserAddresses.Update(address);
         await _uow.SaveChangesAsync();
@@ -344,6 +358,9 @@ public class UserService : IUserService
         var consents = (await _uow.UserConsents.FindAsync(c => c.UserId == userId)).ToList();
         var reviews = (await _uow.Reviews.FindAsync(r => r.BuyerId == userId)).ToList();
         var refreshTokens = (await _uow.RefreshTokens.FindAsync(r => r.UserId == userId)).ToList();
+        var wishlist = (await _uow.WishlistItems.FindAsync(w => w.UserId == userId)).ToList();
+        var notifications = (await _uow.UserNotifications.FindAsync(n => n.UserId == userId)).ToList();
+        var userDeviceTokens = (await _uow.UserDeviceTokens.FindAsync(d => d.UserId == userId)).ToList();
 
         var orders = (await _uow.Orders.FindAsync(o => o.BuyerId == userId)).ToList();
         var orderIds = orders.Select(o => o.Id).ToList();
@@ -452,6 +469,29 @@ public class UserService : IUserService
                 RevokedAt = rt.RevokedAt,
                 IsActive = rt.RevokedAt == null && rt.ExpiresAt > now
             }).ToList(),
+            WishlistItems = wishlist.Select(w => new WishlistExportDto
+            {
+                ProductId = w.ProductId,
+                CreatedAt = w.CreatedAt
+            }).ToList(),
+            Notifications = notifications.Select(n => new NotificationExportDto
+            {
+                Id = n.Id,
+                TitleAr = n.TitleAr,
+                TitleEn = n.TitleEn,
+                BodyAr = n.BodyAr,
+                BodyEn = n.BodyEn,
+                Type = n.Type,
+                ReferenceId = n.ReferenceId,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt
+            }).ToList(),
+            DeviceTokens = userDeviceTokens.Select(d => new DeviceTokenExportDto
+            {
+                Platform = d.Platform,
+                UpdatedAt = d.UpdatedAt,
+                MaskedToken = d.DeviceToken.Length > 10 ? $"{d.DeviceToken[..4]}...{d.DeviceToken[^4..]}" : "***"
+            }).ToList(),
             Orders = orderExports
         };
     }
@@ -462,12 +502,19 @@ public class UserService : IUserService
         if (user == null || !user.IsActive || (user.Email != null && user.Email.StartsWith("deleted_", StringComparison.OrdinalIgnoreCase)) || (user.Email == null && user.Phone == null))
             throw new NotFoundException($"User with ID {userId} not found.");
 
-        if (!string.IsNullOrWhiteSpace(googleIdToken))
+        bool isGoogleOnly = string.IsNullOrWhiteSpace(user.PasswordHash);
+        if (isGoogleOnly)
         {
-            var googleUser = await _googleTokenValidator.ValidateTokenAsync(googleIdToken);
-            if (!string.Equals(googleUser.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(googleIdToken))
             {
-                throw new BadRequestException("Google account email does not match user account.");
+                throw new BadRequestException("Google-only accounts must re-authenticate with a fresh Google token to delete their account.");
+            }
+
+            var googleUser = await _googleTokenValidator.ValidateTokenAsync(googleIdToken);
+            var externalLogin = (await _uow.ExternalLogins.FindAsync(e => e.UserId == userId && e.Provider == "Google" && e.Subject == googleUser.GoogleId)).FirstOrDefault();
+            if (externalLogin == null)
+            {
+                throw new UnauthorizedException("Google token does not belong to this account.");
             }
         }
         else if (!string.IsNullOrWhiteSpace(currentPassword))
@@ -477,9 +524,18 @@ public class UserService : IUserService
                 throw new BadRequestException("كلمة المرور الحالية غير صحيحة.");
             }
         }
+        else if (!string.IsNullOrWhiteSpace(googleIdToken))
+        {
+            var googleUser = await _googleTokenValidator.ValidateTokenAsync(googleIdToken);
+            var externalLogin = (await _uow.ExternalLogins.FindAsync(e => e.UserId == userId && e.Provider == "Google" && e.Subject == googleUser.GoogleId)).FirstOrDefault();
+            if (externalLogin == null && !string.Equals(googleUser.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedException("Google token does not match user account.");
+            }
+        }
         else
         {
-            throw new BadRequestException("Either CurrentPassword or GoogleIdToken is required to delete account.");
+            throw new BadRequestException("Current password is required to delete account.");
         }
 
         // Check active buyer shipments & orders
@@ -607,6 +663,20 @@ public class UserService : IUserService
             _uow.UserDeviceTokens.Remove(pt);
         }
 
+        // Remove user wishlist items completely
+        var userWishlist = (await _uow.WishlistItems.FindAsync(w => w.UserId == userId)).ToList();
+        foreach (var w in userWishlist)
+        {
+            _uow.WishlistItems.Remove(w);
+        }
+
+        // Remove user notifications completely
+        var userNotes = (await _uow.UserNotifications.FindAsync(n => n.UserId == userId)).ToList();
+        foreach (var n in userNotes)
+        {
+            _uow.UserNotifications.Remove(n);
+        }
+
         // Remove user addresses completely
         var addresses = (await _uow.UserAddresses.FindAsync(a => a.UserId == userId)).ToList();
         foreach (var addr in addresses)
@@ -674,7 +744,7 @@ public class UserService : IUserService
         {
             var deliveredTxs = (await _uow.WalletTransactions.FindAsync(t =>
                 t.WalletId == wallet.Id &&
-                t.Type == WalletTransactionType.COD_Collection)).ToList();
+                (t.Type == WalletTransactionType.COD_Collection || t.Type == WalletTransactionType.OrderSettlement))).ToList();
 
             todayRevenue = deliveredTxs
                 .Where(t => t.CreatedAt.Date == today)
@@ -958,7 +1028,16 @@ public class UserService : IUserService
             City = address.City,
             Area = address.Area,
             StreetBuilding = address.StreetBuilding,
-            AddressLine = $"{address.Area}، {address.StreetBuilding}".Trim(),
+            BuildingNumber = address.BuildingNumber,
+            Floor = address.Floor,
+            Apartment = address.Apartment,
+            Landmark = address.Landmark,
+            Latitude = address.Latitude,
+            Longitude = address.Longitude,
+            FormattedAddress = address.FormattedAddress,
+            AddressLine = !string.IsNullOrWhiteSpace(address.FormattedAddress)
+                ? address.FormattedAddress
+                : $"{address.Area}، {address.StreetBuilding}".Trim(),
             IsDefault = address.IsDefault,
             CreatedAt = address.CreatedAt
         };

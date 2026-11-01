@@ -1,0 +1,37 @@
+================================================================
+   BATCH 1 GROUND TRUTH FIXES VERIFICATION SUITE
+================================================================
+Timestamp: 2026-10-30T02:12:04.699Z
+TEST_DB target: PostgreSQL confirmed.
+
+--- SUITE 1: CODE INTEGRITY & FILE LEVEL AUDITS ---
+  [PASS] Dead placeholder files BuyerPlaceholders.js and SellerPlaceholders.js confirmed permanently deleted
+  [PASS] mobile/src/screens/buyer/CheckoutScreen.js wrapped in KeyboardAvoidingView with platform-safe behavior
+  [PASS] mobile/src/screens/seller/AddEditProductScreen.js wrapped in KeyboardAvoidingView with platform-safe behavior
+  [PASS] mobile/src/api/usersApi.js deleteMyAccount accepts { currentPassword, googleIdToken }
+  [PASS] admin-web/src/pages/seller/SellerShipmentsPage.jsx status check supports Created status
+  [PASS] admin-web/src/api/client.js single-flight silent refresh implemented on 401
+
+--- SUITE 2: LIVE BACKEND API EXECUTION AGAINST POSTGRESQL ---
+Waiting for backend server to become healthy against PostgreSQL...
+Backend server healthy on http://localhost:5225 (status=Healthy, database=Connected)
+  [PASS] GET /health and GET /api/health verify PostgreSQL connectivity and return 200 Healthy
+  [PASS] GET /api/admin/stats successfully aggregated stats directly via EF Core (TotalOrders=405, TotalProducts=268)
+  [PASS] GET /api/products returns paged list using targeted seller query without OOM table dump (count=5)
+  [PASS] DELETE /api/products/311 on product with zero order items successfully hard-deletes row
+  [PASS] POST /api/orders with Idempotency-Key header is idempotent (returned same order #456 without double stock deduction)
+  [PASS] POST /api/orders/456/cancel successfully cancels order and all shipments in 'Created' status
+  [PASS] DELETE /api/products/310 with existing OrderItems safely soft-deletes (IsDeleted=true, 404 on public get, prevents FK 23503 error)
+  [PASS] Shipment #425 transitioned to 'Delivered' via carrier endpoint
+  [PASS] Seller VendorWallet credited with net shipment payout (2500 EGP, expected >= 900 EGP)
+  [PASS] Ledger transactions recorded: OrderSettlement and Platform Commission
+  [PASS] Shipment delivery settlement is idempotent (wallet balance remained exactly 2500 EGP after redundant call)
+  [PASS] POST /api/orders/457/cancel correctly rejected with 400 when shipment is Delivered
+  [PASS] Return #13 resolved with 'Approved' status
+  [PASS] BuyerWallet atomically credited with refund amount (500 EGP, expected >= 500 EGP)
+  [PASS] Seller VendorWallet atomically debited by refund amount (2000 EGP = previous 2500 - 500 EGP)
+  [PASS] Seller wallet transaction ledger recorded negative Refund transaction (-500 EGP)
+
+================================================================
+SUMMARY: Total: 22 | Passed: 22 | Failed: 0 | Skipped: 0
+================================================================

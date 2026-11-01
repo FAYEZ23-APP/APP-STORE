@@ -12,15 +12,18 @@ import {
 } from '../utils/storage';
 
 const getApiHost = () => {
-  if (Platform.OS === 'android') {
+  if (Platform?.OS === 'android') {
     return '10.0.2.2';
   }
   return 'localhost';
 };
 
 const getApiBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
   if (typeof __DEV__ !== 'undefined' && !__DEV__) {
-    return process.env.EXPO_PUBLIC_API_URL || 'https://api.marketplace.eg/api';
+    return 'https://api.marketplace.eg/api';
   }
   return `http://${getApiHost()}:5209/api`;
 };

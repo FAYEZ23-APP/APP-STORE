@@ -13,15 +13,20 @@ namespace Marketplace.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IProductService _productService;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IImageUploadService _imageUploadService;
+    private readonly IConfiguration _configuration;
 
-    public ProductsController(IProductService productService, IWebHostEnvironment environment)
+    public ProductsController(
+        IProductService productService,
+        IImageUploadService imageUploadService,
+        IConfiguration configuration)
     {
         _productService = productService;
-        _environment = environment;
+        _imageUploadService = imageUploadService;
+        _configuration = configuration;
     }
 
-    /// <summary>Upload a product image. (Seller only)</summary>
+    /// <summary>Upload a single product image (magic-byte verified, EXIF/GPS stripped, dimension-limited, ownership-tracked). (Seller only)</summary>
     [HttpPost("upload-image")]
     [Authorize(Roles = "Seller")]
     [EnableRateLimiting("upload-policy")]
@@ -37,61 +42,75 @@ public class ProductsController : ControllerBase
             return BadRequest(new { error = "No image file provided." });
         }
 
-        const long maxFileSize = 5 * 1024 * 1024; // 5 MB
-        if (file.Length > maxFileSize)
+        var sellerId = User.GetUserId();
+        await using var stream = file.OpenReadStream();
+        var result = await _imageUploadService.ProcessAndSaveImageAsync(
+            sellerId,
+            stream,
+            file.FileName,
+            file.Length);
+
+        return Ok(new
         {
-            return BadRequest(new { error = "File size exceeds 5MB limit." });
-        }
-
-        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-        var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant();
-        if (string.IsNullOrEmpty(extension) || !allowedExtensions.Contains(extension))
-        {
-            return BadRequest(new { error = "Invalid file type. Only jpg, jpeg, png, and webp are allowed." });
-        }
-
-        var uploadsFolder = Path.Combine(_environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
-        if (!Directory.Exists(uploadsFolder))
-        {
-            Directory.CreateDirectory(uploadsFolder);
-        }
-
-        await using var memoryStream = new MemoryStream();
-        await file.CopyToAsync(memoryStream);
-        var bytes = memoryStream.ToArray();
-
-        if (!IsValidImageHeader(bytes, extension))
-        {
-            return BadRequest(new { error = "Invalid image file header. Magic bytes do not match expected image signature." });
-        }
-
-        var fileName = $"{Guid.NewGuid()}{extension}";
-        var filePath = Path.Combine(uploadsFolder, fileName);
-
-        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
-
-        return Ok(new { url = $"/uploads/{fileName}" });
+            url = result.Url,
+            width = result.Width,
+            height = result.Height,
+            sizeBytes = result.SizeBytes
+        });
     }
 
-    private static bool IsValidImageHeader(byte[] bytes, string extension)
+    /// <summary>Upload multiple product images in a single request (up to MaxImagesPerProduct, default 8). (Seller only)</summary>
+    [HttpPost("upload-images")]
+    [Authorize(Roles = "Seller")]
+    [EnableRateLimiting("upload-policy")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UploadImages(List<IFormFile>? files)
     {
-        if (bytes.Length < 12) return false;
+        if (files == null || files.Count == 0)
+        {
+            return BadRequest(new { error = "No image files provided." });
+        }
 
-        // JPEG: FF D8 FF
-        if (extension is ".jpg" or ".jpeg")
-            return bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+        var maxImages = _configuration.GetValue<int>("Products:MaxImagesPerProduct", 8);
+        if (files.Count > maxImages)
+        {
+            return BadRequest(new { error = $"Cannot upload more than {maxImages} images at once." });
+        }
 
-        // PNG: 89 50 4E 47 0D 0A 1A 0A
-        if (extension == ".png")
-            return bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47 &&
-                   bytes[4] == 0x0D && bytes[5] == 0x0A && bytes[6] == 0x1A && bytes[7] == 0x0A;
+        var sellerId = User.GetUserId();
+        var results = new List<ImageUploadResult>(files.Count);
 
-        // WEBP: RIFF....WEBP (52 49 46 46 .... 57 45 42 50)
-        if (extension == ".webp")
-            return bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
-                   bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
+        foreach (var file in files)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "One or more image files are empty." });
+            }
 
-        return false;
+            await using var stream = file.OpenReadStream();
+            var result = await _imageUploadService.ProcessAndSaveImageAsync(
+                sellerId,
+                stream,
+                file.FileName,
+                file.Length);
+            results.Add(result);
+        }
+
+        return Ok(new
+        {
+            urls = results.Select(r => r.Url).ToList(),
+            files = results.Select(r => new
+            {
+                url = r.Url,
+                width = r.Width,
+                height = r.Height,
+                sizeBytes = r.SizeBytes
+            }).ToList()
+        });
     }
 
     /// <summary>Add a new product. (Seller only)</summary>
@@ -104,8 +123,7 @@ public class ProductsController : ControllerBase
     {
         var sellerId = User.GetUserId();
         var product = await _productService.CreateProductAsync(sellerId, request);
-        
-        // We will add GetProductById in Phase 5, so we just return the object for now
+
         return StatusCode(StatusCodes.Status201Created, product);
     }
 
@@ -173,10 +191,28 @@ public class ProductsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] int? page = null,
         [FromQuery] int? pageSize = null,
-        [FromQuery] bool? hasDiscount = null)
+        [FromQuery] bool? hasDiscount = null,
+        [FromQuery] int? sellerId = null)
     {
-        var products = await _productService.GetAllProductsAsync(categoryId, sort, search, page, pageSize, hasDiscount);
+        var products = await _productService.GetAllProductsAsync(categoryId, sort, search, page, pageSize, hasDiscount, sellerId);
         return Ok(products);
+    }
+
+    /// <summary>Get public storefront details and products for a seller. (Public)</summary>
+    [HttpGet("store/{sellerId:int}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(SellerStorefrontResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SellerStorefrontResponse>> GetSellerStorefront(
+        int sellerId,
+        [FromQuery] int? categoryId = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
+    {
+        var storefront = await _productService.GetSellerStorefrontAsync(sellerId, categoryId, sort, search, page, pageSize);
+        return Ok(storefront);
     }
 
     /// <summary>Get a product by ID. (Public)</summary>

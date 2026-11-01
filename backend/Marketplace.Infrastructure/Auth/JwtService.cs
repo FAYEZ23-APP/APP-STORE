@@ -64,4 +64,71 @@ public class JwtService : IJwtService
         var token = new JsonWebTokenHandler().CreateToken(descriptor);
         return new JwtToken(token, expiresAt);
     }
+
+    public string GenerateTwoFactorToken(User user, int expiryMinutes = 5)
+    {
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
+
+        var claims = new List<Claim>
+        {
+            new(ClaimNames.UserId, user.Id.ToString()),
+            new("purpose", "2fa_challenge"),
+            new(ClaimNames.Role, user.Role.ToString())
+        };
+
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = _settings.Issuer,
+            Audience = _settings.Audience,
+            Expires = expiresAt,
+            SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256),
+            Subject = new ClaimsIdentity(claims)
+        };
+
+        return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
+
+    public (int UserId, string Role)? ValidateTwoFactorToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
+        var handler = new JsonWebTokenHandler();
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = !string.IsNullOrWhiteSpace(_settings.Issuer),
+            ValidIssuer = _settings.Issuer,
+            ValidateAudience = !string.IsNullOrWhiteSpace(_settings.Audience),
+            ValidAudience = _settings.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = key,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+
+        var result = handler.ValidateToken(token, validationParameters);
+        if (!result.IsValid)
+            return null;
+
+        var jwt = result.SecurityToken as JsonWebToken;
+        if (jwt == null)
+            return null;
+
+        var purpose = jwt.Claims.FirstOrDefault(c => c.Type == "purpose")?.Value;
+        if (purpose != "2fa_challenge")
+            return null;
+
+        var sub = jwt.Claims.FirstOrDefault(c => c.Type == ClaimNames.UserId || c.Type == "sub")?.Value;
+        var role = jwt.Claims.FirstOrDefault(c => c.Type == ClaimNames.Role || c.Type == "role")?.Value;
+
+        if (int.TryParse(sub, out var userId))
+        {
+            return (userId, role ?? string.Empty);
+        }
+
+        return null;
+    }
 }

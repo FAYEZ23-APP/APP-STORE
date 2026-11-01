@@ -54,6 +54,14 @@ public class UserAddressResponse
     public string City { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
+    public string BuildingNumber { get; set; } = string.Empty;
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string? FormattedAddress { get; set; }
+    public string GoogleMapsLink => $"https://www.google.com/maps?q={Latitude},{Longitude}";
     public string AddressLine { get; set; } = string.Empty;
     public bool IsDefault { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -68,6 +76,13 @@ public class CreateUserAddressRequest
     public string City { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
+    public string BuildingNumber { get; set; } = string.Empty;
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string? FormattedAddress { get; set; }
     public string? AddressLine { get; set; }
     public bool IsDefault { get; set; }
 }
@@ -81,6 +96,13 @@ public class UpdateUserAddressRequest
     public string City { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
+    public string BuildingNumber { get; set; } = string.Empty;
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string? FormattedAddress { get; set; }
     public string? AddressLine { get; set; }
     public bool IsDefault { get; set; }
 }
@@ -99,7 +121,36 @@ public class UserDataExportDto
     public List<UserConsentExportDto> Consents { get; set; } = new();
     public List<ReviewExportDto> Reviews { get; set; } = new();
     public List<DeviceSessionExportDto> DeviceSessions { get; set; } = new();
+    public List<WishlistExportDto> WishlistItems { get; set; } = new();
+    public List<NotificationExportDto> Notifications { get; set; } = new();
+    public List<DeviceTokenExportDto> DeviceTokens { get; set; } = new();
     public List<OrderExportDto> Orders { get; set; } = new();
+}
+
+public class WishlistExportDto
+{
+    public int ProductId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class NotificationExportDto
+{
+    public int Id { get; set; }
+    public string TitleAr { get; set; } = string.Empty;
+    public string TitleEn { get; set; } = string.Empty;
+    public string BodyAr { get; set; } = string.Empty;
+    public string BodyEn { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string? ReferenceId { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class DeviceTokenExportDto
+{
+    public string Platform { get; set; } = string.Empty;
+    public DateTime UpdatedAt { get; set; }
+    public string MaskedToken { get; set; } = string.Empty;
 }
 
 public class ReviewExportDto

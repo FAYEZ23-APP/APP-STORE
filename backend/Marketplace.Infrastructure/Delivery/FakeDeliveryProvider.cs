@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Marketplace.Application.Common;
 using Marketplace.Application.DTOs.Delivery;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Enums;
@@ -6,121 +7,81 @@ using Marketplace.Domain.Enums;
 namespace Marketplace.Infrastructure.Delivery;
 
 /// <summary>
-/// Local deterministic fake delivery provider for Egypt (simulating Egyptian carriers like Bosta/Aramex).
-/// Does not call any external network service and never logs personal data.
+/// Deterministic fake delivery provider covering all 27 Egyptian Governorates (simulating carriers like Bosta/Aramex).
+/// Does not call external network services and logs zero personal data.
 /// </summary>
 public class FakeDeliveryProvider : IDeliveryProvider
 {
     private static long _trackingSequence = 100000;
 
-    private static readonly IReadOnlyList<DeliveryCityDto> Cities = new List<DeliveryCityDto>
-    {
-        new() { Name = "القاهرة", Region = "محافظة القاهرة" },
-        new() { Name = "الجيزة", Region = "محافظة الجيزة" },
-        new() { Name = "الإسكندرية", Region = "محافظة الإسكندرية" },
-        new() { Name = "المنصورة", Region = "محافظة الدقهلية" },
-        new() { Name = "طنطا", Region = "محافظة الغربية" }
-    };
+    private static readonly IReadOnlyList<DeliveryCityDto> Cities = EgyptianGovernorates.All
+        .Select(g => new DeliveryCityDto
+        {
+            Name = g.NameAr,
+            Region = $"محافظة {g.NameAr}"
+        })
+        .ToList();
 
     private static readonly IReadOnlyList<PickupPointDto> PickupPoints = new List<PickupPointDto>
     {
-        // القاهرة
-        new()
-        {
-            Id = "CAI-PVZ-1",
-            City = "القاهرة",
-            Name = "نقطة استلام تجريبية رقم ١ (بوسطة - مدينة نصر)",
-            Address = "شارع عباس العقاد، مدينة نصر، القاهرة",
-            WorkHours = "09:00–22:00"
-        },
-        new()
-        {
-            Id = "CAI-PVZ-2",
-            City = "القاهرة",
-            Name = "نقطة استلام تجريبية رقم ٢ (بوسطة - المعادي)",
-            Address = "شارع النصر، المعادي الجديدة، القاهرة",
-            WorkHours = "10:00–22:00"
-        },
-        new()
-        {
-            Id = "CAI-PVZ-3",
-            City = "القاهرة",
-            Name = "نقطة استلام تجريبية رقم ٣ (بوسطة - التجمع الخامس)",
-            Address = "شارع التسعين الشمالي، التجمع الخامس، القاهرة",
-            WorkHours = "09:00–22:00"
-        },
+        // 1. القاهرة
+        new() { Id = "CAI-PVZ-1", City = "القاهرة", Name = "نقطة استلام بوسطة - مدينة نصر", Address = "شارع عباس العقاد، مدينة نصر، القاهرة", WorkHours = "09:00–22:00" },
+        new() { Id = "CAI-PVZ-2", City = "القاهرة", Name = "نقطة استلام بوسطة - المعادي", Address = "شارع النصر، المعادي الجديدة، القاهرة", WorkHours = "10:00–22:00" },
+        new() { Id = "CAI-PVZ-3", City = "القاهرة", Name = "نقطة استلام بوسطة - التجمع الخامس", Address = "شارع التسعين الشمالي، القاهرة الجديدة", WorkHours = "09:00–22:00" },
 
-        // الجيزة
-        new()
-        {
-            Id = "GIZ-PVZ-1",
-            City = "الجيزة",
-            Name = "نقطة استلام تجريبية رقم ١ (بوسطة - المهندسين)",
-            Address = "شارع جامعة الدول العربية، المهندسين، الجيزة",
-            WorkHours = "09:00–22:00"
-        },
-        new()
-        {
-            Id = "GIZ-PVZ-2",
-            City = "الجيزة",
-            Name = "نقطة استلام تجريبية رقم ٢ (بوسطة - الدقي)",
-            Address = "شارع مصدق، الدقي، الجيزة",
-            WorkHours = "10:00–22:00"
-        },
-        new()
-        {
-            Id = "GIZ-PVZ-3",
-            City = "الجيزة",
-            Name = "نقطة استلام تجريبية رقم ٣ (بوسطة - 6 أكتوبر)",
-            Address = "المحور المركزي، الحي المتميز، 6 أكتوبر",
-            WorkHours = "09:00–22:00"
-        },
+        // 2. الجيزة
+        new() { Id = "GIZ-PVZ-1", City = "الجيزة", Name = "نقطة استلام بوسطة - المهندسين", Address = "شارع جامعة الدول العربية، المهندسين", WorkHours = "09:00–22:00" },
+        new() { Id = "GIZ-PVZ-2", City = "الجيزة", Name = "نقطة استلام بوسطة - الدقي", Address = "شارع مصدق، الدقي", WorkHours = "10:00–22:00" },
+        new() { Id = "GIZ-PVZ-3", City = "الجيزة", Name = "نقطة استلام بوسطة - 6 أكتوبر", Address = "المحور المركزي، الحي المتميز، 6 أكتوبر", WorkHours = "09:00–22:00" },
 
-        // الإسكندرية
-        new()
-        {
-            Id = "ALX-PVZ-1",
-            City = "الإسكندرية",
-            Name = "نقطة استلام تجريبية رقم ١ (بوسطة - سموحة)",
-            Address = "ميدان فيكتور عمانويل، سموحة، الإسكندرية",
-            WorkHours = "09:00–22:00"
-        },
-        new()
-        {
-            Id = "ALX-PVZ-2",
-            City = "الإسكندرية",
-            Name = "نقطة استلام تجريبية رقم ٢ (بوسطة - ميامي)",
-            Address = "شارع جمال عبد الناصر، ميامي، الإسكندرية",
-            WorkHours = "09:00–22:00"
-        },
-        new()
-        {
-            Id = "ALX-PVZ-3",
-            City = "الإسكندرية",
-            Name = "نقطة استلام تجريبية رقم ٣ (بوسطة - رشدي)",
-            Address = "شارع سوريا، رشدي، الإسكندرية",
-            WorkHours = "10:00–22:00"
-        },
+        // 3. القليوبية
+        new() { Id = "QAL-PVZ-1", City = "القليوبية", Name = "نقطة استلام بوسطة - بنها", Address = "شارع فريد ندا، بنها", WorkHours = "09:00–21:00" },
 
-        // المنصورة
-        new()
-        {
-            Id = "MNS-PVZ-1",
-            City = "المنصورة",
-            Name = "نقطة استلام تجريبية رقم ١ (بوسطة - المنصورة)",
-            Address = "شارع المشاية السفلية، المنصورة",
-            WorkHours = "09:00–21:00"
-        },
+        // 4. الإسكندرية
+        new() { Id = "ALX-PVZ-1", City = "الإسكندرية", Name = "نقطة استلام بوسطة - سموحة", Address = "ميدان فيكتور عمانويل، سموحة", WorkHours = "09:00–22:00" },
+        new() { Id = "ALX-PVZ-2", City = "الإسكندرية", Name = "نقطة استلام بوسطة - ميامي", Address = "شارع جمال عبد الناصر، ميامي", WorkHours = "09:00–22:00" },
 
-        // طنطا
-        new()
-        {
-            Id = "TNT-PVZ-1",
-            City = "طنطا",
-            Name = "نقطة استلام تجريبية رقم ١ (بوسطة - طنطا)",
-            Address = "شارع الجيش، طنطا",
-            WorkHours = "09:00–21:00"
-        }
+        // 5. الدقهلية
+        new() { Id = "DAK-PVZ-1", City = "الدقهلية", Name = "نقطة استلام بوسطة - المنصورة", Address = "شارع المشاية السفلية، المنصورة", WorkHours = "09:00–21:00" },
+
+        // 6. الغربية
+        new() { Id = "GHA-PVZ-1", City = "الغربية", Name = "نقطة استلام بوسطة - طنطا", Address = "شارع الجيش، طنطا", WorkHours = "09:00–21:00" },
+
+        // 7. الشرقية
+        new() { Id = "SHR-PVZ-1", City = "الشرقية", Name = "نقطة استلام بوسطة - الزقازيق", Address = "شارع المحافظة، الزقازيق", WorkHours = "09:00–21:00" },
+
+        // 8. البحيرة
+        new() { Id = "BEH-PVZ-1", City = "البحيرة", Name = "نقطة استلام بوسطة - دمنهور", Address = "شارع عبد السلام الشاذلي، دمنهور", WorkHours = "09:00–21:00" },
+
+        // 9. المنوفية
+        new() { Id = "MNF-PVZ-1", City = "المنوفية", Name = "نقطة استلام بوسطة - شبين الكوم", Address = "شارع الجلاء، شبين الكوم", WorkHours = "09:00–21:00" },
+
+        // 10. بورسعيد
+        new() { Id = "PTS-PVZ-1", City = "بورسعيد", Name = "نقطة استلام بوسطة - بورسعيد", Address = "شارع محمد علي، حي الشرق", WorkHours = "09:00–21:00" },
+
+        // 11. الإسماعيلية
+        new() { Id = "ISM-PVZ-1", City = "الإسماعيلية", Name = "نقطة استلام بوسطة - الإسماعيلية", Address = "ميدان الممر، الإسماعيلية", WorkHours = "09:00–21:00" },
+
+        // 12. السويس
+        new() { Id = "SUZ-PVZ-1", City = "السويس", Name = "نقطة استلام بوسطة - السويس", Address = "شارع الجيش، حي السويس", WorkHours = "09:00–21:00" },
+
+        // 13. أسيوط
+        new() { Id = "AST-PVZ-1", City = "أسيوط", Name = "نقطة استلام بوسطة - أسيوط", Address = "شارع الجمهورية، أسيوط", WorkHours = "09:00–21:00" },
+
+        // 14. سوهاج
+        new() { Id = "SHG-PVZ-1", City = "سوهاج", Name = "نقطة استلام بوسطة - سوهاج", Address = "شارع كورنيش النيل الشرقي، سوهاج", WorkHours = "09:00–21:00" },
+
+        // 15. قنا
+        new() { Id = "QNA-PVZ-1", City = "قنا", Name = "نقطة استلام بوسطة - قنا", Address = "ميدان المحطة، قنا", WorkHours = "09:00–21:00" },
+
+        // 16. الأقصر
+        new() { Id = "LXR-PVZ-1", City = "الأقصر", Name = "نقطة استلام بوسطة - الأقصر", Address = "شارع التلفزيون، الأقصر", WorkHours = "09:00–21:00" },
+
+        // 17. أسوان
+        new() { Id = "ASW-PVZ-1", City = "أسوان", Name = "نقطة استلام بوسطة - أسوان", Address = "شارع أبطال التحرير، أسوان", WorkHours = "09:00–21:00" },
+
+        // 18. البحر الأحمر
+        new() { Id = "RED-PVZ-1", City = "البحر الأحمر", Name = "نقطة استلام بوسطة - الغردقة", Address = "طريق شيراتون، الغردقة", WorkHours = "10:00–22:00" }
     };
 
     private static readonly ConcurrentDictionary<string, ShipmentStatus> ShipmentStatuses = new(StringComparer.OrdinalIgnoreCase);
@@ -133,7 +94,8 @@ public class FakeDeliveryProvider : IDeliveryProvider
         var q = query.Trim();
         var filtered = Cities
             .Where(c => c.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                        c.Region.Contains(q, StringComparison.OrdinalIgnoreCase))
+                        c.Region.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        (EgyptianGovernorates.Find(q)?.NameAr.Equals(c.Name, StringComparison.OrdinalIgnoreCase) == true))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<DeliveryCityDto>>(filtered);
@@ -144,9 +106,10 @@ public class FakeDeliveryProvider : IDeliveryProvider
         if (string.IsNullOrWhiteSpace(city))
             return Task.FromResult(PickupPoints);
 
-        var normalizedCity = city.Trim();
+        var normalizedCity = EgyptianGovernorates.NormalizeGovernorate(city);
         var filtered = PickupPoints
-            .Where(p => string.Equals(p.City, normalizedCity, StringComparison.OrdinalIgnoreCase))
+            .Where(p => string.Equals(p.City, normalizedCity, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.City, city.Trim(), StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<PickupPointDto>>(filtered);
@@ -168,48 +131,70 @@ public class FakeDeliveryProvider : IDeliveryProvider
         if (string.IsNullOrWhiteSpace(city))
             return Task.FromResult(false);
 
-        bool exists = Cities.Any(c => string.Equals(c.Name, city.Trim(), StringComparison.OrdinalIgnoreCase));
+        var trimmed = city.Trim();
+        if (EgyptianGovernorates.IsValid(trimmed))
+            return Task.FromResult(true);
+
+        bool exists = Cities.Any(c => string.Equals(c.Name, trimmed, StringComparison.OrdinalIgnoreCase)) ||
+                      PickupPoints.Any(p => string.Equals(p.City, trimmed, StringComparison.OrdinalIgnoreCase));
+
         return Task.FromResult(exists);
     }
 
     public Task<DeliveryTariffQuoteDto> CalculateTariffAsync(DeliveryTariffRequest request)
     {
-        var from = (request.FromCity ?? "القاهرة").Trim();
-        var to = (request.ToCity ?? "القاهرة").Trim();
+        var fromNorm = EgyptianGovernorates.NormalizeGovernorate(request.FromCity ?? "القاهرة");
+        var toNorm = EgyptianGovernorates.NormalizeGovernorate(request.ToCity ?? "القاهرة");
+
+        var fromZone = EgyptianGovernorates.GetZone(fromNorm);
+        var toZone = EgyptianGovernorates.GetZone(toNorm);
 
         decimal baseCost;
         int etaMin;
         int etaMax;
 
-        // Intra-city / Greater Cairo (القاهرة <-> الجيزة)
-        if (string.Equals(from, to, StringComparison.OrdinalIgnoreCase) ||
-            (IsCity(from, "القاهرة") && IsCity(to, "الجيزة")) ||
-            (IsCity(from, "الجيزة") && IsCity(to, "القاهرة")))
+        // 1. Intra-governorate or Intra-Greater Cairo
+        if (string.Equals(fromNorm, toNorm, StringComparison.OrdinalIgnoreCase) ||
+            (fromZone == EgyptianShippingZone.GreaterCairo && toZone == EgyptianShippingZone.GreaterCairo))
         {
             baseCost = 45m;
             etaMin = 1;
             etaMax = 2;
         }
-        else if ((IsGreaterCairo(from) && IsCity(to, "الإسكندرية")) ||
-                 (IsCity(from, "الإسكندرية") && IsGreaterCairo(to)))
+        // 2. Greater Cairo <-> Alexandria & Delta
+        else if ((fromZone == EgyptianShippingZone.GreaterCairo && toZone == EgyptianShippingZone.AlexandriaAndDelta) ||
+                 (fromZone == EgyptianShippingZone.AlexandriaAndDelta && toZone == EgyptianShippingZone.GreaterCairo) ||
+                 (fromZone == EgyptianShippingZone.AlexandriaAndDelta && toZone == EgyptianShippingZone.AlexandriaAndDelta))
         {
             baseCost = 60m;
             etaMin = 2;
             etaMax = 3;
         }
-        else if ((IsGreaterCairo(from) && (IsCity(to, "المنصورة") || IsCity(to, "طنطا"))) ||
-                 ((IsCity(from, "المنصورة") || IsCity(from, "طنطا")) && IsGreaterCairo(to)))
+        // 3. Canal Zone
+        else if (fromZone == EgyptianShippingZone.CanalZone || toZone == EgyptianShippingZone.CanalZone)
         {
             baseCost = 65m;
             etaMin = 2;
             etaMax = 3;
         }
-        else
+        // 4. Upper Egypt (الصعيد)
+        else if (fromZone == EgyptianShippingZone.UpperEgypt || toZone == EgyptianShippingZone.UpperEgypt)
         {
-            // Inter-governorate
-            baseCost = 75m;
+            // Tier based on distance to Deep Upper Egypt (Assiut/Sohag/Qena/Luxor/Aswan)
+            var deepUpperEgypt = new[] { "أسيوط", "سوهاج", "قنا", "الأقصر", "أسوان" };
+            bool isDeep = deepUpperEgypt.Contains(toNorm, StringComparer.OrdinalIgnoreCase) ||
+                          deepUpperEgypt.Contains(fromNorm, StringComparer.OrdinalIgnoreCase);
+
+            baseCost = isDeep ? 85m : 75m;
             etaMin = 3;
             etaMax = 4;
+        }
+        // 5. Border & Red Sea (المحافظات الحدودية والبحر الأحمر)
+        else
+        {
+            baseCost = 100m;
+            etaMin = 3;
+            etaMax = 5;
         }
 
         // Deterministic weight surcharge: +10 EGP per started kg above 1000g
@@ -272,19 +257,9 @@ public class FakeDeliveryProvider : IDeliveryProvider
         return Task.FromResult(true);
     }
 
-    private static bool IsCity(string actual, string expected) =>
-        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsGreaterCairo(string city) =>
-        IsCity(city, "القاهرة") || IsCity(city, "الجيزة");
-
     private static string GetCityCode(string city)
     {
-        if (IsCity(city, "القاهرة")) return "CAI";
-        if (IsCity(city, "الجيزة")) return "GIZ";
-        if (IsCity(city, "الإسكندرية")) return "ALX";
-        if (IsCity(city, "المنصورة")) return "MNS";
-        if (IsCity(city, "طنطا")) return "TNT";
-        return "EGY";
+        var match = EgyptianGovernorates.Find(city);
+        return match?.Code ?? "EGY";
     }
 }

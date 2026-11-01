@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Marketplace.API.Filters;
 using Marketplace.API.Middleware;
 using Marketplace.Application;
+using Marketplace.Application.Common;
 using Marketplace.Infrastructure;
 using Marketplace.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,12 +15,27 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Dynamic container port binding (e.g. Railway, Render, Cloud Run, Heroku)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // ─── Startup Validation (Fail-Fast) ───────────────────────────
+
+// Startup guard: refuse startup if ASPNETCORE_ENVIRONMENT is not Development/Testing and TEST_DB exists in environment
+var testDbEnv = Environment.GetEnvironmentVariable("TEST_DB");
+if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing") && !string.IsNullOrWhiteSpace(testDbEnv))
+{
+    throw new InvalidOperationException(
+        $"FATAL CONFIG ERROR: TEST_DB environment variable is present in non-Development/Testing environment ('{builder.Environment.EnvironmentName}'). " +
+        "TEST_DB is strictly prohibited outside Development/Testing environments to prevent accidental connection routing. Unset TEST_DB to proceed.");
+}
 
 // 1. Connection string validation
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var testDbEnv = Environment.GetEnvironmentVariable("TEST_DB");
-if (string.IsNullOrWhiteSpace(connectionString) && string.IsNullOrWhiteSpace(testDbEnv))
+if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("Startup failed: Database connection string 'DefaultConnection' is missing.");
 }
@@ -76,6 +92,30 @@ if (!requireVerification)
     Console.WriteLine("⚠️ WARNING: Auth:RequireVerification is set to FALSE! Account verification is bypassed. This setting MUST NEVER be used in production.");
     Console.ResetColor();
 }
+
+// 5. Feature Flags & Production Startup Guards
+var featureFlags = StartupGuards.LoadFeatureFlags(builder.Configuration, builder.Environment);
+StartupGuards.ValidateProductionGuards(featureFlags, builder.Environment, builder.Configuration);
+builder.Services.AddSingleton(featureFlags);
+builder.Services.Configure<FeatureFlags>(options =>
+{
+    var loaded = StartupGuards.LoadFeatureFlags(builder.Configuration, builder.Environment);
+    options.EnableWallet = loaded.EnableWallet;
+    options.EnableVendorPayouts = loaded.EnableVendorPayouts;
+    options.EnableCoupons = loaded.EnableCoupons;
+    options.AllowFinancialInProduction = loaded.AllowFinancialInProduction;
+    options.GoogleEnabled = loaded.GoogleEnabled;
+    options.PhoneSignupEnabled = loaded.PhoneSignupEnabled;
+    options.AllowFakeGoogleTokens = loaded.AllowFakeGoogleTokens;
+    options.GoogleClientId = loaded.GoogleClientId;
+    options.GoogleWebClientId = loaded.GoogleWebClientId;
+    options.GoogleAndroidClientId = loaded.GoogleAndroidClientId;
+    options.AdminWebEnabled = loaded.AdminWebEnabled;
+    options.AdminRequire2FA = loaded.AdminRequire2FA;
+    options.AdminAllowedCidrs = loaded.AdminAllowedCidrs;
+    options.AdminAllowedOrigins = loaded.AdminAllowedOrigins;
+    options.AdminRequireHttpsBehindProxy = loaded.AdminRequireHttpsBehindProxy;
+});
 
 // ─── Layers ─────────────────────────────────────────────────
 builder.Services.AddApplication();
@@ -295,12 +335,16 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    // Policy for upload operations
+    // Policy for upload operations (rate limited per authenticated user, falling back to IP)
     options.AddPolicy("upload-policy", httpContext =>
     {
         var isDev = builder.Environment.IsDevelopment();
         var permitLimit = builder.Configuration.GetValue<int>("RateLimiting:UploadPermitLimit", isDev ? 1000 : 10);
-        var key = GetPartitionKey(httpContext, "upload");
+        var userId = httpContext.User?.FindFirst(JwtService.ClaimNames.UserId)?.Value
+                     ?? httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var key = !string.IsNullOrWhiteSpace(userId)
+            ? $"upload:user:{userId}"
+            : GetPartitionKey(httpContext, "upload");
         return RateLimitPartition.GetFixedWindowLimiter(
             key,
             _ => new FixedWindowRateLimiterOptions
@@ -493,6 +537,20 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Block /admin and /api/admin/auth when Admin:WebEnabled is false
+app.Use(async (context, next) =>
+{
+    var flags = context.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<FeatureFlags>>().Value;
+    if (!flags.AdminWebEnabled &&
+        (context.Request.Path.StartsWithSegments("/admin", StringComparison.OrdinalIgnoreCase) ||
+         context.Request.Path.StartsWithSegments("/api/admin/auth", StringComparison.OrdinalIgnoreCase)))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+    await next();
+});
+
 app.UseCors("AllowAll");
 
 app.UseStaticFiles(new StaticFileOptions
@@ -539,7 +597,11 @@ app.Use(async (context, next) =>
     }
 
     var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    var ipLimit = app.Configuration.GetValue<int>("RateLimiting:IpPermitLimit", isDev ? 1000 : 60);
+    var configuredGeneralLimit = app.Configuration.GetValue<int?>("RateLimiting:GeneralRequestsPerMinute");
+    var ipLimit = configuredGeneralLimit
+        ?? app.Configuration.GetValue<int?>("RateLimiting:IpPermitLimit")
+        ?? (isDev ? 1000 : 180);
+
     if (!TryAcquireBucket($"ip:{remoteIp}", ipLimit))
     {
         context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -550,7 +612,10 @@ app.Use(async (context, next) =>
                  ?? context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     if (!string.IsNullOrWhiteSpace(userId))
     {
-        var userLimit = app.Configuration.GetValue<int>("RateLimiting:UserPermitLimit", isDev ? 1000 : 60);
+        var userLimit = configuredGeneralLimit
+            ?? app.Configuration.GetValue<int?>("RateLimiting:UserPermitLimit")
+            ?? (isDev ? 1000 : 180);
+
         if (!TryAcquireBucket($"user:{userId}", userLimit))
         {
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -618,29 +683,27 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-var getHealthResponse = () =>
+var getHealthResponse = async (Marketplace.Infrastructure.Data.AppDbContext dbContext) =>
 {
-    var commitSha = Environment.GetEnvironmentVariable("RAILWAY_GIT_COMMIT_SHA")
-        ?? Environment.GetEnvironmentVariable("GIT_COMMIT_SHA")
-        ?? Environment.GetEnvironmentVariable("COMMIT_SHA");
-
-    var assembly = typeof(Program).Assembly;
-    var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-    var buildDate = File.Exists(assembly.Location)
-        ? File.GetLastWriteTimeUtc(assembly.Location).ToString("yyyy-MM-ddTHH:mm:ssZ")
-        : DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-    var version = !string.IsNullOrEmpty(commitSha)
-        ? commitSha
-        : (!string.IsNullOrEmpty(infoVersion) ? infoVersion : buildDate);
-
-    return Results.Ok(new
+    bool canConnect = false;
+    try
     {
-        status = "Healthy",
-        version,
-        commit = commitSha,
-        buildDate
-    });
+        canConnect = await dbContext.Database.CanConnectAsync();
+    }
+    catch
+    {
+        canConnect = false;
+    }
+
+    var responseObj = new
+    {
+        status = canConnect ? "Healthy" : "Unhealthy",
+        database = canConnect ? "Connected" : "Disconnected"
+    };
+
+    return canConnect
+        ? Results.Ok(responseObj)
+        : Results.Json(responseObj, statusCode: StatusCodes.Status503ServiceUnavailable);
 };
 
 app.MapGet("/health", getHealthResponse).AllowAnonymous();

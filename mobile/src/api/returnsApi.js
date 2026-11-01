@@ -12,6 +12,16 @@ import client from './client';
 export const createReturnRequest = (data) => client.post('/returns', data);
 
 /**
+ * Upload defect evidence photo for a return request (PDPL 151/2020 private storage)
+ * @param {FormData} formData
+ */
+export const uploadReturnEvidence = (formData) => {
+  return client.post('/returns/upload-evidence', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+/**
  * Get return requests submitted by current buyer
  */
 export const getBuyerReturns = () => client.get('/returns/buyer');

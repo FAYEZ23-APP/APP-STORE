@@ -3,20 +3,35 @@ using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
+using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Services;
 
 public class CouponService : ICouponService
 {
     private readonly IUnitOfWork _uow;
+    private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-    public CouponService(IUnitOfWork uow)
+    public CouponService(IUnitOfWork uow, Microsoft.Extensions.Configuration.IConfiguration configuration)
     {
         _uow = uow;
+        _configuration = configuration;
+    }
+
+    private bool IsCouponsEnabled =>
+        _configuration.GetValue<bool?>("Features:EnableCoupons")
+        ?? _configuration.GetValue<bool?>("Features:CouponsEnabled")
+        ?? _configuration.GetValue<bool?>("Coupons:Enabled")
+        ?? false;
+
+    private void EnsureCouponsEnabled()
+    {
+        if (!IsCouponsEnabled) throw new NotFoundException("Coupons feature is currently disabled.");
     }
 
     public async Task<CouponValidationResponse> ValidateCouponAsync(int buyerId, ValidateCouponRequest request)
     {
+        EnsureCouponsEnabled();
         if (string.IsNullOrWhiteSpace(request.Code))
         {
             return new CouponValidationResponse
@@ -143,6 +158,7 @@ public class CouponService : ICouponService
 
     public async Task<CouponResponse> CreateCouponAsync(int? sellerId, CreateCouponRequest request)
     {
+        EnsureCouponsEnabled();
         var code = request.Code.Trim().ToUpperInvariant();
         var existing = (await _uow.Coupons.FindAsync(c => c.Code == code)).FirstOrDefault();
         if (existing != null)
@@ -174,6 +190,7 @@ public class CouponService : ICouponService
 
     public async Task<IEnumerable<CouponResponse>> GetSellerCouponsAsync(int sellerId)
     {
+        EnsureCouponsEnabled();
         var coupons = (await _uow.Coupons.FindAsync(c => c.SellerId == sellerId))
             .OrderByDescending(c => c.CreatedAt)
             .ToList();

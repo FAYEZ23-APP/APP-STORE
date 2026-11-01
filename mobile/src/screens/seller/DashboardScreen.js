@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import { getSellerDashboard } from '../../api/usersApi';
+import { fetchSafeAppConfig } from '../../api/configApi';
 import { quickUpdateProductStock } from '../../api/productsApi';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import { formatCurrency } from '../../utils/currency';
@@ -65,7 +66,8 @@ export default function DashboardScreen({ navigation }) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState('today'); // 'today' | 'month'
+  const [period, setPeriod] = useState('today');
+  const [features, setFeatures] = useState({ wallet: false, coupons: false }); // 'today' | 'month'
 
   const [dashboard, setDashboard] = useState({
     storeName: '',
@@ -97,7 +99,8 @@ export default function DashboardScreen({ navigation }) {
       if (isPull) setRefreshing(true);
       else setLoading(true);
 
-      const res = await getSellerDashboard();
+      const [res, cfg] = await Promise.all([getSellerDashboard(), fetchSafeAppConfig()]);
+      setFeatures({ wallet: Boolean(cfg.walletEnabled || cfg.vendorPayoutsEnabled), coupons: Boolean(cfg.couponsEnabled) });
       if (res?.data) {
         setDashboard(res.data);
       }
@@ -248,8 +251,17 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           {/* Revenue Amount */}
-          <View style={tw`flex-row items-baseline mb-3`}>
+          <View style={tw`flex-row items-baseline justify-between mb-3`}>
             <Text style={styles.financialBigAmount}>{formatCurrency(revenueDisplay)}</Text>
+            {features.wallet && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SellerWallet')}
+                style={tw`px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-xl flex-row items-center`}
+              >
+                <MaterialCommunityIcons name="wallet-outline" size={16} color="#FF8C33" style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                <Text style={tw`text-orange-400 font-bold text-xs`}>{t('seller.wallet')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Metrics Row: Pending Clearance & Delivery Success Rate */}
@@ -361,6 +373,42 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* Quick Tools: Wallet & Coupons */}
+        {(features.wallet || features.coupons) && (
+          <View style={tw`flex-row gap-3 mb-4`}>
+            {features.wallet && (
+              <TouchableOpacity
+                style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
+                onPress={() => navigation.navigate('SellerWallet')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.todoIconWrap, { backgroundColor: '#FFEDD5' }]}>
+                  <MaterialCommunityIcons name="wallet-outline" size={20} color="#EA580C" />
+                </View>
+                <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
+                  <Text style={tw`font-bold text-xs text-slate-900`}>{t('seller.wallet')}</Text>
+                  <Text style={tw`text-[10px] text-slate-500`}>{isRTL ? 'الأرباح وسحب الرصيد' : 'Earnings & Payouts'}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {features.coupons && (
+              <TouchableOpacity
+                style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
+                onPress={() => navigation.navigate('SellerCoupons')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.todoIconWrap, { backgroundColor: '#F3E8FF' }]}>
+                  <MaterialCommunityIcons name="ticket-percent-outline" size={20} color="#9333EA" />
+                </View>
+                <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
+                  <Text style={tw`font-bold text-xs text-slate-900`}>{t('coupons.title')}</Text>
+                  <Text style={tw`text-[10px] text-slate-500`}>{isRTL ? 'كوبونات الخصم' : 'Discounts & Codes'}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* ─── 3. Quick Stock & Price Manager Widget (Low Stock Alerts) ─── */}
         <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>

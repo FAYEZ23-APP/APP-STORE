@@ -24,7 +24,7 @@ public class CreatePayoutRequestValidator : AbstractValidator<CreatePayoutReques
         When(x => string.Equals(x.Method, nameof(PayoutMethod.VodafoneCash), StringComparison.OrdinalIgnoreCase), () =>
         {
             RuleFor(x => x.DestinationAccount)
-                .Matches(EgyptianPhoneValidation.PhoneRegex)
+                .Must(EgyptianPhoneValidation.IsValid)
                 .WithMessage("رقم محفظة فودافون كاش يجب أن يكون رقم هاتف مصري صحيح (مثال: 01012345678).");
         });
 

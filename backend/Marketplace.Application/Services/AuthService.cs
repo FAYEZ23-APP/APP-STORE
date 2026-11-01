@@ -19,6 +19,7 @@ public class AuthService : IAuthService
     private readonly IGoogleTokenValidator _googleValidator;
     private readonly IVerificationService _verificationService;
     private readonly IConfiguration _configuration;
+    private readonly ITotpService _totp;
 
     public AuthService(
         IUnitOfWork uow,
@@ -26,7 +27,8 @@ public class AuthService : IAuthService
         IJwtService jwt,
         IGoogleTokenValidator googleValidator,
         IVerificationService verificationService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ITotpService totp)
     {
         _uow = uow;
         _hasher = hasher;
@@ -34,6 +36,7 @@ public class AuthService : IAuthService
         _googleValidator = googleValidator;
         _verificationService = verificationService;
         _configuration = configuration;
+        _totp = totp;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, string? clientIp = null, CancellationToken cancellationToken = default)
@@ -64,12 +67,12 @@ public class AuthService : IAuthService
 
         if (hasPhone)
         {
-            if (!phoneSignupEnabled)
+            if (!hasEmail && !phoneSignupEnabled)
             {
                 throw new NotFoundException("Phone registration is currently disabled.");
             }
 
-            if (!EgyptianPhoneValidation.PhoneRegex.IsMatch(request.Phone!.Trim()))
+            if (!EgyptianPhoneValidation.IsValid(request.Phone))
             {
                 throw new BadRequestException("Phone must be a valid Egyptian mobile number (e.g. 01012345678 or +201012345678).");
             }
@@ -275,7 +278,7 @@ public class AuthService : IAuthService
             var email = NormalizeEmail(rawIdentifier);
             user = (await _uow.Users.FindAsync(u => u.Email == email)).FirstOrDefault();
         }
-        else if (EgyptianPhoneValidation.PhoneRegex.IsMatch(rawIdentifier.Trim()))
+        else if (EgyptianPhoneValidation.IsValid(rawIdentifier))
         {
             var phone = EgyptianPhoneNormalizer.Normalize(rawIdentifier);
             user = (await _uow.Users.FindAsync(u => u.Phone == phone)).FirstOrDefault();
@@ -286,7 +289,7 @@ public class AuthService : IAuthService
             user = (await _uow.Users.FindAsync(u => u.Email == email)).FirstOrDefault();
         }
 
-        if (user == null || !_hasher.Verify(request.Password, user.PasswordHash))
+        if (user == null || string.IsNullOrWhiteSpace(user.PasswordHash) || !_hasher.Verify(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedException("Invalid email or password.");
         }
@@ -308,6 +311,40 @@ public class AuthService : IAuthService
                 var masked = _verificationService.MaskTarget(target);
                 throw new NotVerifiedException(masked, "الحساب غير مؤكد. يرجى تأكيد البريد الإلكتروني أو رقم الهاتف.");
             }
+        }
+
+        // Two-Factor Authentication Check (Admins or users with 2FA enabled)
+        var adminRequire2FA = _configuration.GetValue<bool>("Admin:Require2FA", false);
+        var is2FAEnforced = user.Role == UserRole.Admin && adminRequire2FA;
+
+        if (user.IsTwoFactorEnabled || is2FAEnforced)
+        {
+            var twoFactorToken = _jwt.GenerateTwoFactorToken(user);
+            var setupRequired = !user.IsTwoFactorEnabled && is2FAEnforced;
+            string? qrCodeUri = null;
+            string? manualEntryKey = null;
+
+            if (setupRequired)
+            {
+                var secret = _totp.GenerateSecret();
+                var issuer = _configuration["Admin:TotpIssuer"] ?? "MarketplaceAdmin";
+                qrCodeUri = _totp.GenerateQrCodeUri(issuer, user.Email, secret);
+                manualEntryKey = secret;
+            }
+
+            return new AuthResponse
+            {
+                RequiresTwoFactor = true,
+                TwoFactorSetupRequired = setupRequired,
+                TwoFactorToken = twoFactorToken,
+                QrCodeUri = qrCodeUri,
+                ManualEntryKey = manualEntryKey,
+                UserId = user.Id,
+                Name = user.Name,
+                Email = user.Email,
+                Phone = user.Phone,
+                Role = user.Role.ToString()
+            };
         }
 
         return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
@@ -374,21 +411,55 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> GoogleAuthAsync(GoogleAuthRequest request, CancellationToken cancellationToken = default)
     {
+        var googleEnabled = _configuration.GetValue<bool>("Auth:GoogleEnabled", false);
+        if (!googleEnabled)
+        {
+            throw new NotFoundException("Google authentication is disabled.");
+        }
+
         var googleUser = await _googleValidator.ValidateTokenAsync(request.IdToken, cancellationToken);
+        var subject = googleUser.GoogleId;
         var email = NormalizeEmail(googleUser.Email);
 
-        var existing = await _uow.Users.FindAsync(u => u.Email == email);
-        var user = existing.FirstOrDefault();
+        // 1. Link by Subject, never by email alone
+        var externalLogin = (await _uow.ExternalLogins.FindAsync(e => e.Provider == "Google" && e.Subject == subject)).FirstOrDefault();
 
-        if (user is not null)
+        if (externalLogin != null)
         {
-            if (!user.IsActive)
-                throw new ForbiddenException("This account has been deactivated by an administrator.");
+            var user = await _uow.Users.GetByIdAsync(externalLogin.UserId);
+            if (user is null || !user.IsActive)
+            {
+                throw new ForbiddenException("This account has been deactivated or not found.");
+            }
 
             return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
         }
 
-        // New registration through Google OAuth
+        // 2. If subject is not yet linked, check if an account with this email exists
+        var existingUser = (await _uow.Users.FindAsync(u => u.Email == email)).FirstOrDefault();
+        if (existingUser != null)
+        {
+            // If a password account with that email exists, require a password login before linking
+            if (!string.IsNullOrWhiteSpace(existingUser.PasswordHash))
+            {
+                throw new ConflictException("A password account with this email already exists. Please log in with your email and password first to link your Google account.");
+            }
+
+            // Existing account has no password, link Google subject
+            var link = new ExternalLogin
+            {
+                Provider = "Google",
+                Subject = subject,
+                UserId = existingUser.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.ExternalLogins.AddAsync(link);
+            await _uow.SaveChangesAsync();
+
+            return await BuildResponseAsync(existingUser, request.DeviceId, request.DeviceName, cancellationToken);
+        }
+
+        // 3. New registration through Google OAuth
         if (!request.AcceptedTermsAndPrivacy)
         {
             throw new BadRequestException("الموافقة الصريحة على الشروط وسياسة الخصوصية مطلوبة لإنشاء حساب (وفقاً للقانون المصري رقم 151 لسنة 2020 لحماية البيانات الشخصية).");
@@ -404,11 +475,11 @@ public class AuthService : IAuthService
             ? email.Split('@')[0]
             : googleUser.Name.Trim();
 
-        user = new User
+        var newUser = new User
         {
             Name = userName,
             Email = email,
-            PasswordHash = _hasher.Hash(Guid.NewGuid().ToString("N")),
+            PasswordHash = null, // Google-only user, no password
             Role = role,
             EmailVerifiedAt = DateTime.UtcNow, // Google verifies email
             TokenVersion = 0,
@@ -416,12 +487,21 @@ public class AuthService : IAuthService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _uow.Users.AddAsync(user);
+        await _uow.Users.AddAsync(newUser);
         await _uow.SaveChangesAsync();
+
+        var externalLoginRecord = new ExternalLogin
+        {
+            Provider = "Google",
+            Subject = subject,
+            UserId = newUser.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _uow.ExternalLogins.AddAsync(externalLoginRecord);
 
         var consent = new UserConsent
         {
-            UserId = user.Id,
+            UserId = newUser.Id,
             PolicyVersion = string.IsNullOrWhiteSpace(request.PolicyVersion) ? "1.0" : request.PolicyVersion.Trim(),
             AcceptedAt = DateTime.UtcNow,
             MarketingConsent = request.MarketingConsent
@@ -429,7 +509,46 @@ public class AuthService : IAuthService
         await _uow.UserConsents.AddAsync(consent);
         await _uow.SaveChangesAsync();
 
-        return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+        return await BuildResponseAsync(newUser, request.DeviceId, request.DeviceName, cancellationToken);
+    }
+
+    public async Task LinkGoogleAsync(int userId, GoogleAuthRequest request, CancellationToken cancellationToken = default)
+    {
+        var googleEnabled = _configuration.GetValue<bool>("Auth:GoogleEnabled", false);
+        if (!googleEnabled)
+        {
+            throw new NotFoundException("Google authentication is disabled.");
+        }
+
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+        {
+            throw new NotFoundException("User not found or inactive.");
+        }
+
+        var googleUser = await _googleValidator.ValidateTokenAsync(request.IdToken, cancellationToken);
+        var subject = googleUser.GoogleId;
+
+        var existingWithSubject = (await _uow.ExternalLogins.FindAsync(e => e.Provider == "Google" && e.Subject == subject)).FirstOrDefault();
+        if (existingWithSubject != null)
+        {
+            if (existingWithSubject.UserId != userId)
+            {
+                throw new ConflictException("This Google account is already linked to another user.");
+            }
+            return; // Already linked to this user
+        }
+
+        var newLink = new ExternalLogin
+        {
+            Provider = "Google",
+            Subject = subject,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _uow.ExternalLogins.AddAsync(newLink);
+        await _uow.SaveChangesAsync();
     }
 
     public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default)
@@ -543,8 +662,21 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(request.DeviceToken))
+        {
+            var cleanDeviceToken = request.DeviceToken.Trim();
+            var deviceTokens = (await _uow.UserDeviceTokens.FindAsync(d => d.DeviceToken == cleanDeviceToken)).ToList();
+            foreach (var dt in deviceTokens)
+            {
+                _uow.UserDeviceTokens.Remove(dt);
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            await _uow.SaveChangesAsync();
             return;
+        }
 
         var hash = HashRefreshToken(request.RefreshToken.Trim());
         var tokenRecord = (await _uow.RefreshTokens.FindAsync(r => r.TokenHash == hash)).FirstOrDefault();
@@ -553,8 +685,9 @@ public class AuthService : IAuthService
         {
             tokenRecord.RevokedAt = DateTime.UtcNow;
             _uow.RefreshTokens.Update(tokenRecord);
-            await _uow.SaveChangesAsync();
         }
+
+        await _uow.SaveChangesAsync();
     }
 
     public async Task LogoutAllAsync(int userId, CancellationToken cancellationToken = default)
@@ -571,6 +704,13 @@ public class AuthService : IAuthService
         {
             t.RevokedAt = DateTime.UtcNow;
             _uow.RefreshTokens.Update(t);
+        }
+
+        // Delete all device tokens on logout-all
+        var deviceTokens = (await _uow.UserDeviceTokens.FindAsync(d => d.UserId == userId)).ToList();
+        foreach (var dt in deviceTokens)
+        {
+            _uow.UserDeviceTokens.Remove(dt);
         }
 
         await _uow.SaveChangesAsync();
@@ -675,4 +815,136 @@ public class AuthService : IAuthService
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    public async Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new NotFoundException("User not found.");
+
+        var adminRequire2FA = _configuration.GetValue<bool>("Admin:Require2FA", false);
+        return new TwoFactorStatusResponse
+        {
+            IsEnabled = user.IsTwoFactorEnabled,
+            IsEnforced = user.Role == UserRole.Admin && adminRequire2FA
+        };
+    }
+
+    public async Task<TwoFactorSetupResponse> SetupTwoFactorAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new NotFoundException("User not found.");
+
+        if (user.Role != UserRole.Admin)
+            throw new ForbiddenException("Two-factor authentication is currently only available for administrators.");
+
+        var secret = _totp.GenerateSecret();
+        var email = user.Email ?? user.Name;
+        var qrCodeUri = _totp.GenerateQrCodeUri("Marketplace", email, secret);
+
+        return new TwoFactorSetupResponse
+        {
+            Secret = secret,
+            QrCodeUri = qrCodeUri,
+            ManualEntryKey = secret
+        };
+    }
+
+    public async Task<TwoFactorStatusResponse> EnableTwoFactorAsync(int userId, TwoFactorEnableRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new NotFoundException("User not found.");
+
+        if (user.Role != UserRole.Admin)
+            throw new ForbiddenException("Two-factor authentication is currently only available for administrators.");
+
+        if (string.IsNullOrWhiteSpace(request.Secret) || string.IsNullOrWhiteSpace(request.Code))
+            throw new BadRequestException("Secret and verification code are required.");
+
+        var isValid = _totp.VerifyCode(request.Secret, request.Code);
+        if (!isValid)
+            throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+
+        user.TwoFactorSecret = request.Secret.Trim();
+        user.IsTwoFactorEnabled = true;
+        _uow.Users.Update(user);
+        await _uow.SaveChangesAsync();
+
+        var adminRequire2FA = _configuration.GetValue<bool>("Admin:Require2FA", false);
+        return new TwoFactorStatusResponse
+        {
+            IsEnabled = true,
+            IsEnforced = adminRequire2FA
+        };
+    }
+
+    public async Task<TwoFactorStatusResponse> DisableTwoFactorAsync(int userId, string password, CancellationToken cancellationToken = default)
+    {
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new NotFoundException("User not found.");
+
+        var adminRequire2FA = _configuration.GetValue<bool>("Admin:Require2FA", false);
+        if (user.Role == UserRole.Admin && adminRequire2FA)
+            throw new BadRequestException("Two-factor authentication is enforced for administrators and cannot be disabled.");
+
+        if (string.IsNullOrWhiteSpace(password) || !_hasher.Verify(password, user.PasswordHash ?? string.Empty))
+            throw new UnauthorizedException("Invalid password.");
+
+        user.IsTwoFactorEnabled = false;
+        user.TwoFactorSecret = null;
+        _uow.Users.Update(user);
+        await _uow.SaveChangesAsync();
+
+        return new TwoFactorStatusResponse
+        {
+            IsEnabled = false,
+            IsEnforced = false
+        };
+    }
+
+    public async Task<AuthResponse> VerifyTwoFactorLoginAsync(TwoFactorVerifyRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.TwoFactorToken))
+            throw new BadRequestException("Two-factor authentication ticket is required.");
+
+        var tokenValidation = _jwt.ValidateTwoFactorToken(request.TwoFactorToken);
+        if (tokenValidation == null)
+            throw new UnauthorizedException("Two-factor ticket has expired or is invalid. Please login again.");
+
+        var (userId, _) = tokenValidation.Value;
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null || !user.IsActive)
+            throw new UnauthorizedException("User not found or inactive.");
+
+        // First-time setup case (when 2FA is enforced but user hasn't completed setup yet)
+        if (!user.IsTwoFactorEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(request.Secret))
+                throw new BadRequestException("Two-factor setup secret is required for first-time activation.");
+
+            var isSetupValid = _totp.VerifyCode(request.Secret, request.Code);
+            if (!isSetupValid)
+                throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+
+            user.TwoFactorSecret = request.Secret.Trim();
+            user.IsTwoFactorEnabled = true;
+            _uow.Users.Update(user);
+            await _uow.SaveChangesAsync();
+
+            return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+        }
+
+        // Standard verification against saved secret
+        if (string.IsNullOrWhiteSpace(user.TwoFactorSecret))
+            throw new BadRequestException("Two-factor authentication is not configured for this user.");
+
+        var isValid = _totp.VerifyCode(user.TwoFactorSecret, request.Code);
+        if (!isValid)
+            throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+
+        return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+    }
 }

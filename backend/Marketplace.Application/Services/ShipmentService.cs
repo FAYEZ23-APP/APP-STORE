@@ -1,3 +1,4 @@
+using Marketplace.Application.Common;
 using Marketplace.Application.DTOs.Delivery;
 using Marketplace.Application.DTOs.Orders;
 using Marketplace.Application.DTOs.Shipments;
@@ -16,19 +17,22 @@ public class ShipmentService : IShipmentService
     private readonly IWalletService _walletService;
     private readonly INotificationService _notificationService;
     private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+    private readonly IShippingDistanceService? _shippingDistanceService;
 
     public ShipmentService(
         IUnitOfWork uow,
         IDeliveryProvider deliveryProvider,
         IWalletService walletService,
         INotificationService notificationService,
-        Microsoft.Extensions.Configuration.IConfiguration configuration)
+        Microsoft.Extensions.Configuration.IConfiguration configuration,
+        IShippingDistanceService? shippingDistanceService = null)
     {
         _uow = uow;
         _deliveryProvider = deliveryProvider;
         _walletService = walletService;
         _notificationService = notificationService;
         _configuration = configuration;
+        _shippingDistanceService = shippingDistanceService;
     }
 
     public async Task<DeliveryQuoteResponse> CalculateQuoteAsync(DeliveryQuoteRequest request)
@@ -59,6 +63,18 @@ public class ShipmentService : IShipmentService
         else
         {
             throw new BadRequestException("Either City or PickupPointId is required.");
+        }
+
+        double? destLat = request.Latitude;
+        double? destLng = request.Longitude;
+        if ((!destLat.HasValue || !destLng.HasValue || (destLat.Value == 0 && destLng.Value == 0)) && !string.IsNullOrWhiteSpace(destinationCity))
+        {
+            var destCoords = EgyptianGovernorates.GetCoordinates(destinationCity);
+            if (destCoords.HasValue)
+            {
+                destLat = destCoords.Value.Latitude;
+                destLng = destCoords.Value.Longitude;
+            }
         }
 
         var consolidatedItems = request.Items
@@ -103,6 +119,26 @@ public class ShipmentService : IShipmentService
                 ? profile.DispatchCity
                 : "القاهرة";
 
+            double? originLat = null;
+            double? originLng = null;
+            if (profile != null)
+            {
+                if (profile.DispatchLatitude.HasValue && profile.DispatchLongitude.HasValue && profile.DispatchLatitude.Value != 0)
+                {
+                    originLat = profile.DispatchLatitude.Value;
+                    originLng = profile.DispatchLongitude.Value;
+                }
+                else
+                {
+                    var originCoords = EgyptianGovernorates.GetCoordinates(dispatchCity);
+                    if (originCoords.HasValue)
+                    {
+                        originLat = originCoords.Value.Latitude;
+                        originLng = originCoords.Value.Longitude;
+                    }
+                }
+            }
+
             int totalWeightGrams = group.Sum(x => Math.Max(1, x.Product.WeightGrams) * x.Quantity);
             decimal parcelItemsSubtotal = group.Sum(x => x.UnitPrice * x.Quantity);
 
@@ -115,6 +151,28 @@ public class ShipmentService : IShipmentService
             });
 
             decimal deliveryCost = tariff.Cost;
+
+            if (_shippingDistanceService != null && destLat.HasValue && destLng.HasValue)
+            {
+                try
+                {
+                    var feeCalculation = await _shippingDistanceService.CalculateShippingFeeAsync(
+                        destLat.Value,
+                        destLng.Value,
+                        originLat,
+                        originLng
+                    );
+                    if (feeCalculation != null && feeCalculation.TotalShippingCost > 0)
+                    {
+                        deliveryCost = feeCalculation.TotalShippingCost;
+                    }
+                }
+                catch
+                {
+                    // Fall back cleanly to tariff.Cost
+                }
+            }
+
             if (parcelItemsSubtotal >= freeShippingThreshold || overallItemsSubtotal >= freeShippingThreshold)
             {
                 deliveryCost = 0m;
@@ -208,14 +266,33 @@ public class ShipmentService : IShipmentService
             throw new ForbiddenException("Sellers may only set 'HandedToCarrier' on their own shipments. Status updates such as 'Returned' or 'Delivered' must come from the carrier.");
         }
 
-        if (shipment.Status != ShipmentStatus.Created && shipment.Status != ShipmentStatus.HandedToCarrier)
-            throw new BadRequestException($"Cannot transition shipment from '{shipment.Status}' to 'HandedToCarrier'.");
+        // Concurrency (D-004): take the same order row lock as OrderService.CancelOrderAsync, then re-read the
+        // shipment so the status check sees the committed state (a concurrent cancel can no longer be overwritten).
+        var orderIdForLock = shipment.OrderId;
+        await _uow.BeginTransactionAsync();
+        try
+        {
+            await _uow.ExecuteSqlRawAsync(@"SELECT 1 FROM ""Orders"" WHERE ""Id"" = {0} FOR UPDATE", orderIdForLock);
+            _uow.ClearChangeTracker();
 
-        shipment.Status = ShipmentStatus.HandedToCarrier;
-        _uow.Shipments.Update(shipment);
+            shipment = await _uow.Shipments.GetByIdAsync(shipmentId)
+                ?? throw new NotFoundException("Shipment not found.");
 
-        await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.HandedToCarrier);
-        await _uow.SaveChangesAsync();
+            if (shipment.Status != ShipmentStatus.Created && shipment.Status != ShipmentStatus.HandedToCarrier)
+                throw new BadRequestException($"Cannot transition shipment from '{shipment.Status}' to 'HandedToCarrier'.");
+
+            shipment.Status = ShipmentStatus.HandedToCarrier;
+            _uow.Shipments.Update(shipment);
+
+            await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.HandedToCarrier);
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+        }
+        catch
+        {
+            await _uow.RollbackTransactionAsync();
+            throw;
+        }
 
         await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, ShipmentStatus.HandedToCarrier);
 
@@ -318,21 +395,50 @@ public class ShipmentService : IShipmentService
                 throw;
             }
         }
+        else if (targetStatus == ShipmentStatus.Delivered)
+        {
+            // Idempotent: If already Delivered, return current state without re-settling
+            if (shipment.Status == ShipmentStatus.Delivered)
+            {
+                var curItems = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
+                return MapBuyerShipment(shipment, curItems);
+            }
+
+            // Concurrency-safe: Atomic conditional SQL UPDATE ensuring only ONE parallel request can transition the row
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                var affected = await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""Shipments"" SET ""Status"" = 'Delivered', ""DeliveredAt"" = {0} WHERE ""Id"" = {1} AND ""Status"" != 'Delivered'",
+                    DateTime.UtcNow,
+                    shipment.Id);
+
+                if (affected > 0)
+                {
+                    await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.Delivered);
+                    await _uow.SaveChangesAsync();
+                    await _walletService.ProcessShipmentDeliveredAsync(shipment.Id);
+                }
+
+                await _uow.CommitTransactionAsync();
+
+                if (affected > 0)
+                {
+                    await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, ShipmentStatus.Delivered);
+                }
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
+        }
         else
         {
             shipment.Status = targetStatus;
-            if (targetStatus == ShipmentStatus.Delivered)
-            {
-                shipment.DeliveredAt = DateTime.UtcNow;
-            }
             _uow.Shipments.Update(shipment);
             await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, targetStatus);
             await _uow.SaveChangesAsync();
-
-            if (targetStatus == ShipmentStatus.Delivered)
-            {
-                await _walletService.ProcessShipmentDeliveredAsync(shipment.Id);
-            }
 
             await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, targetStatus);
         }
@@ -382,6 +488,11 @@ public class ShipmentService : IShipmentService
             DeliveryMethod = order?.DeliveryMethod.ToString() ?? nameof(DeliveryMethod.Pickup),
             DeliveryCost = shipment.DeliveryCost,
             CodAmount = shipment.CodAmount,
+            IsCodSettled = shipment.IsCodSettled,
+            CodSettledAt = shipment.CodSettledAt,
+            FlaggedForReview = shipment.FlaggedForReview,
+            ReceivedAmount = shipment.ReceivedAmount,
+            SettlementReference = shipment.SettlementReference,
             ReturnReason = shipment.ReturnReason?.ToString(),
             EtaMinDays = shipment.EtaMinDays,
             EtaMaxDays = shipment.EtaMaxDays,
@@ -414,6 +525,11 @@ public class ShipmentService : IShipmentService
             TrackingNumber = shipment.TrackingNumber,
             DeliveryCost = shipment.DeliveryCost,
             CodAmount = shipment.CodAmount,
+            IsCodSettled = shipment.IsCodSettled,
+            CodSettledAt = shipment.CodSettledAt,
+            FlaggedForReview = shipment.FlaggedForReview,
+            ReceivedAmount = shipment.ReceivedAmount,
+            SettlementReference = shipment.SettlementReference,
             ReturnReason = shipment.ReturnReason?.ToString(),
             EtaMinDays = shipment.EtaMinDays,
             EtaMaxDays = shipment.EtaMaxDays,

@@ -18,8 +18,12 @@ export const deleteMyAddress = (id) => client.delete(`/users/me/addresses/${id}`
 
 // PDPL 151/2020 Data Rights endpoints
 export const exportMyData = () => client.get('/users/me/export-data');
-export const deleteMyAccount = (currentPassword) => 
-  client.delete('/users/me', { data: { currentPassword } });
+export const deleteMyAccount = (passwordOrPayload, googleIdToken = null) => {
+  const data = typeof passwordOrPayload === 'object' && passwordOrPayload !== null
+    ? passwordOrPayload
+    : { currentPassword: passwordOrPayload, googleIdToken };
+  return client.delete('/users/me', { data });
+};
 
 // Dashboard Hub Endpoints
 export const getSellerDashboard = () => client.get('/users/me/seller-dashboard');

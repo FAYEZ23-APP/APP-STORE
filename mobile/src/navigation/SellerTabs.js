@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,9 @@ import { useTranslation } from 'react-i18next';
 import DashboardScreen from '../screens/seller/DashboardScreen';
 import MyProductsScreen from '../screens/seller/MyProductsScreen';
 import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
+import SellerWalletScreen from '../screens/seller/SellerWalletScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
+import { fetchSafeAppConfig } from '../api/configApi';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -15,6 +17,17 @@ const Tab = createBottomTabNavigator();
 export default function SellerTabs() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const [walletEnabled, setWalletEnabled] = useState(false);
+
+  useEffect(() => {
+    fetchSafeAppConfig()
+      .then((cfg) => {
+        setWalletEnabled(Boolean(cfg.walletEnabled || cfg.vendorPayoutsEnabled));
+      })
+      .catch(() => {
+        setWalletEnabled(false);
+      });
+  }, []);
 
   // Ensure plenty of bottom padding on Android navigation bar (3 buttons or gesture handle)
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 10);
@@ -22,8 +35,8 @@ export default function SellerTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: '#475569', // High contrast slate for sharp visibility
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.cardBg,
           borderTopColor: colors.border,
@@ -32,7 +45,7 @@ export default function SellerTabs() {
           paddingBottom: bottomInset,
           paddingTop: 8,
           elevation: 16,
-          shadowColor: '#000',
+          shadowColor: colors.shadow,
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.08,
           shadowRadius: 10,
@@ -43,7 +56,7 @@ export default function SellerTabs() {
           marginTop: 2,
         },
         headerStyle: {
-          backgroundColor: colors.primary,
+          backgroundColor: colors.secondary,
         },
         headerTintColor: colors.white,
         headerTitleStyle: {
@@ -95,6 +108,23 @@ export default function SellerTabs() {
           ),
         }}
       />
+      {walletEnabled && (
+        <Tab.Screen
+          name="SellerWalletTab"
+          component={SellerWalletScreen}
+          options={{
+            headerShown: false,
+            title: t('seller.wallet'),
+            tabBarIcon: ({ color, focused }) => (
+              <MaterialCommunityIcons
+                name={focused ? 'wallet' : 'wallet-outline'}
+                color={color}
+                size={26}
+              />
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}

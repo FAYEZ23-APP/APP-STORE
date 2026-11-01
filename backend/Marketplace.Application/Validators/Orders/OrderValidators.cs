@@ -32,7 +32,7 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 
         RuleFor(x => x.RecipientPhone)
             .NotEmpty().WithMessage("RecipientPhone is required.")
-            .Matches(EgyptianPhoneValidation.PhoneRegex)
+            .Must(EgyptianPhoneValidation.IsValid)
             .WithMessage("RecipientPhone must be a valid Egyptian mobile number (e.g. 01012345678 or +201012345678).");
 
         // Pickup rules: requires a valid PickupPointId

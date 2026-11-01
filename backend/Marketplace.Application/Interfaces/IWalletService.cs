@@ -11,4 +11,6 @@ public interface IWalletService
     Task<IEnumerable<PayoutRequestResponse>> GetAllPayoutRequestsAsync(string? status = null);
     Task<PayoutRequestResponse> ProcessPayoutAsync(int payoutRequestId, ProcessPayoutRequest request);
     Task ProcessShipmentDeliveredAsync(int shipmentId);
+    Task SettleCodShipmentAsync(int shipmentId, string? notes = null);
+    Task<SettleCodResultResponse> SettleCodByAdminAsync(int shipmentId, int adminId, AdminSettleCodRequest request);
 }

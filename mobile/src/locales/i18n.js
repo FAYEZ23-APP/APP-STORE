@@ -1,18 +1,33 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { I18nManager, DevSettings, Alert } from 'react-native';
-import * as Updates from 'expo-updates';
+import { I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import en from './en.json';
 import ar from './ar.json';
 
 const LANGUAGE_KEY = 'user_language';
 
-// Ensure RTL is enabled for Arabic on startup
-if (!I18nManager.isRTL) {
-  I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
-}
+// Restore persisted language on startup (or fallback to 'ar')
+AsyncStorage.getItem(LANGUAGE_KEY)
+  .then((savedLang) => {
+    if (savedLang && (savedLang === 'ar' || savedLang === 'en')) {
+      if (i18n.language !== savedLang) {
+        i18n.changeLanguage(savedLang);
+      }
+      const isArabic = savedLang === 'ar';
+      if (I18nManager.isRTL !== isArabic) {
+        I18nManager.allowRTL(isArabic);
+        I18nManager.forceRTL(isArabic);
+      }
+    } else if (!I18nManager.isRTL) {
+      // Default to Arabic RTL on fresh install
+      I18nManager.allowRTL(true);
+      I18nManager.forceRTL(true);
+    }
+  })
+  .catch((err) => {
+    console.warn('Failed to restore user language from storage:', err);
+  });
 
 i18n
   .use(initReactI18next)
@@ -33,42 +48,22 @@ i18n
   });
 
 /**
- * Changes app language and handles RTL layout switching with automatic app reload.
- * When switching between Arabic (RTL) and English (LTR), React Native requires a reload to mirror layouts.
+ * Changes app language dynamically and persists user preference.
+ * Re-renders all screens smoothly in real-time without crashing or exiting Expo.
  */
 export const changeAppLanguage = async (targetLang) => {
   try {
     const isArabic = targetLang === 'ar';
-    const currentRTL = I18nManager.isRTL;
-    const needsReload = currentRTL !== isArabic;
 
+    // 1. Persist user selection
     await AsyncStorage.setItem(LANGUAGE_KEY, targetLang);
+
+    // 2. Change active i18next language (triggers immediate re-render of all React components)
     await i18n.changeLanguage(targetLang);
 
-    if (needsReload) {
-      I18nManager.allowRTL(isArabic);
-      I18nManager.forceRTL(isArabic);
-
-      try {
-        if (Updates.reloadAsync) {
-          await Updates.reloadAsync();
-          return;
-        }
-      } catch (e) {
-        console.warn('Updates.reloadAsync not available:', e);
-      }
-
-      if (DevSettings.reload) {
-        DevSettings.reload();
-      } else {
-        Alert.alert(
-          isArabic ? 'تغيير اللغة' : 'Language Changed',
-          isArabic
-            ? 'تم تغيير لغة التطبيق إلى العربية. يُرجى إعادة تشغيل التطبيق لتطبيق الاتجاه من اليمين إلى اليسار.'
-            : 'Language changed to English. Please restart the app to apply the layout change.'
-        );
-      }
-    }
+    // 3. Update native layout direction for current and future sessions
+    I18nManager.allowRTL(isArabic);
+    I18nManager.forceRTL(isArabic);
   } catch (error) {
     console.error('Failed to change app language:', error);
   }

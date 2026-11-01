@@ -1,0 +1,119 @@
+Method,Path,Auth,FeatureFlag,MobileScreens,WebPages,RequestDto,Validator,ResponseDto,HasClientCaller
+"GET","/api/admin/audit-logs","Roles: Admin","None","None","pages/admin/AdminPortalPage.jsx","None","None","AdminAuditLogListResponse",true
+"POST","/api/admin/reviews/{id:int}/hide","Roles: Admin","None","screens/admin/AdminReviewsScreen.js","pages/admin/AdminPortalPage.jsx","ModerateReviewRequest","None","ReviewResponse",true
+"POST","/api/admin/reviews/{id:int}/unhide","Roles: Admin","None","screens/admin/AdminReviewsScreen.js","pages/admin/AdminPortalPage.jsx","None","None","ReviewResponse",true
+"GET","/api/admin/reviews/reported","Roles: Admin","None","screens/admin/AdminReviewsScreen.js","pages/admin/AdminPortalPage.jsx","None","None","List<AdminReportedReviewResponse>",true
+"POST","/api/admin/shipments/{id:int}/settle-cod","Roles: Admin","Wallet","None","None","AdminSettleCodRequest","None","SettleCodResultResponse",true
+"GET","/api/admin/stats","Roles: Admin","None","screens/admin/AdminStatsScreen.js","pages/admin/AdminPortalPage.jsx","None","None","AdminStatsResponse",true
+"GET","/api/admin/users","Roles: Admin","None","screens/admin/AdminUsersScreen.js","pages/admin/AdminPortalPage.jsx","None","None","IEnumerable<AdminUserResponse>",true
+"PUT","/api/admin/users/{id:int}/status","Roles: Admin","None","screens/admin/AdminUsersScreen.js","pages/admin/AdminPortalPage.jsx","UpdateUserStatusRequest","None","AdminUserResponse",true
+"GET","/api/admin/wallet/payouts","Roles: Admin","VendorPayouts","screens/admin/AdminPayoutsScreen.js","pages/admin/AdminPortalPage.jsx","None","None","IEnumerable<PayoutRequestResponse>",true
+"POST","/api/admin/wallet/payouts/{id:int}/process","Roles: Admin","VendorPayouts","screens/admin/AdminPayoutsScreen.js","pages/admin/AdminPortalPage.jsx","ProcessPayoutRequest","ProcessPayoutRequestValidator","PayoutRequestResponse",true
+"POST","/api/auth/2fa/disable","Authenticated","None","None","pages/admin/AdminPortalPage.jsx","TwoFactorDisableRequest","None","TwoFactorStatusResponse",true
+"POST","/api/auth/2fa/enable","Roles: Admin","None","None","pages/admin/AdminPortalPage.jsx","TwoFactorEnableRequest","None","TwoFactorStatusResponse",true
+"POST","/api/auth/2fa/setup","Roles: Admin","None","None","pages/admin/AdminPortalPage.jsx","None","None","TwoFactorSetupResponse",true
+"GET","/api/auth/2fa/status","Authenticated","None","None","pages/admin/AdminPortalPage.jsx","None","None","TwoFactorStatusResponse",true
+"POST","/api/auth/2fa/verify-login","Anonymous","None","None","context/AuthContext.jsx","TwoFactorVerifyRequest","None","AuthResponse",true
+"POST","/api/auth/forgot-password","Anonymous","None","None","None","ForgotPasswordRequest","ForgotPasswordRequestValidator","IActionResult",true
+"POST","/api/auth/google","Anonymous","GoogleAuth","None","None","GoogleAuthRequest","GoogleAuthRequestValidator","AuthResponse",true
+"POST","/api/auth/google/link","Authenticated","GoogleAuth","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","GoogleAuthRequest","GoogleAuthRequestValidator","IActionResult",true
+"POST","/api/auth/login","Anonymous","None","screens/auth/LoginScreen.js","pages/LoginPage.jsx","LoginRequest","LoginRequestValidator","AuthResponse",true
+"POST","/api/auth/logout","Anonymous","None","screens/common/ProfileScreen.js","components/Navbar.jsx; pages/ProfilePage.jsx","LogoutRequest","None","IActionResult",true
+"POST","/api/auth/logout-all","Authenticated","None","None","None","None","None","IActionResult",true
+"POST","/api/auth/refresh","Anonymous","None","None","None","RefreshTokenRequest","RefreshTokenRequestValidator","AuthResponse",true
+"POST","/api/auth/register","Anonymous","None","screens/auth/RegisterScreen.js","pages/RegisterPage.jsx","RegisterRequest","RegisterRequestValidator","RegisterResponse",true
+"POST","/api/auth/resend","Anonymous","None","None","None","ResendCodeRequest","ResendCodeRequestValidator","IActionResult",true
+"POST","/api/auth/reset-password","Anonymous","None","None","None","ResetPasswordRequest","ResetPasswordRequestValidator","IActionResult",true
+"POST","/api/auth/verify","Anonymous","None","screens/auth/VerifyScreen.js","pages/VerifyPage.jsx","VerifyRequest","VerifyRequestValidator","AuthResponse",true
+"GET","/api/categories","Anonymous","None","screens/admin/AdminCategoriesScreen.js; screens/buyer/CatalogScreen.js; screens/buyer/CategoriesScreen.js; screens/buyer/MobileSearchScreen.js; screens/seller/AddEditProductScreen.js","components/Navbar.jsx; pages/admin/AdminPortalPage.jsx; pages/CategoriesPage.jsx; pages/HomePage.jsx; pages/SearchResultsPage.jsx; pages/seller/SellerProductsPage.jsx","None","None","IEnumerable<CategoryResponse>",true
+"POST","/api/categories","Roles: Admin","None","screens/admin/AdminCategoriesScreen.js","pages/admin/AdminPortalPage.jsx","CreateCategoryRequest","None","CategoryResponse",true
+"DELETE","/api/categories/{id:int}","Roles: Admin","None","screens/admin/AdminCategoriesScreen.js","pages/admin/AdminPortalPage.jsx","None","None","void",true
+"GET","/api/categories/{id:int}","Anonymous","None","None","None","None","None","CategoryResponse",true
+"PUT","/api/categories/{id:int}","Roles: Admin","None","screens/admin/AdminCategoriesScreen.js","pages/admin/AdminPortalPage.jsx","UpdateCategoryRequest","None","CategoryResponse",true
+"GET","/api/config","Anonymous","None","api/configApi.js; navigation/AdminTabs.js; screens/auth/LoginScreen.js; screens/auth/RegisterScreen.js; screens/buyer/CheckoutScreen.js; screens/common/ProfileScreen.js","api/configApi.js","None","None","PublicConfigResponse",true
+"POST","/api/coupons","Roles: Seller,Admin","Coupons","screens/seller/SellerCouponsScreen.js","pages/seller/SellerCouponsPage.jsx","CreateCouponRequest","CreateCouponRequestValidator","CouponResponse",true
+"GET","/api/coupons/my","Roles: Seller","Coupons","screens/seller/SellerCouponsScreen.js","pages/seller/SellerCouponsPage.jsx","None","None","IEnumerable<CouponResponse>",true
+"POST","/api/coupons/validate","Authenticated","Coupons","screens/buyer/CheckoutScreen.js","pages/CheckoutPage.jsx","ValidateCouponRequest","ValidateCouponRequestValidator","CouponValidationResponse",true
+"GET","/api/delivery/cities","Anonymous","None","screens/buyer/CheckoutScreen.js","pages/CheckoutPage.jsx; pages/ProductDetailsPage.jsx; pages/seller/SellerProfilePage.jsx","None","None","IReadOnlyList<DeliveryCityDto>",true
+"GET","/api/delivery/pickup-points","Anonymous","None","screens/buyer/CheckoutScreen.js","pages/CheckoutPage.jsx","None","None","IReadOnlyList<PickupPointDto>",true
+"POST","/api/delivery/quote","Anonymous","None","screens/buyer/CheckoutScreen.js","pages/CheckoutPage.jsx; pages/ProductDetailsPage.jsx","DeliveryQuoteRequest","DeliveryQuoteRequestValidator","DeliveryQuoteResponse",true
+"POST","/api/dev/auth/clear","Anonymous","None","None","None","None","None","IActionResult",false
+"GET","/api/dev/auth/codes","Anonymous","None","None","None","None","None","IActionResult",false
+"POST","/api/dev/auth/expire-code","Anonymous","None","None","None","None","None","IActionResult",false
+"GET","/api/dev/auth/last-code","Anonymous","None","None","None","None","None","IActionResult",false
+"GET","/api/dev/auth/token","Anonymous","None","None","None","None","None","IActionResult",false
+"POST","/api/dev/carrier/shipments/{id:int}/settle-cod","Anonymous","Wallet","None","None","None","None","IActionResult",false
+"PUT","/api/dev/carrier/shipments/{id:int}/status","Anonymous","None","None","None","UpdateShipmentStatusRequest","UpdateShipmentStatusRequestValidator","BuyerShipmentResponse",false
+"GET","/api/files/private/{fileName}","Authenticated","None","None","None","None","None","IActionResult",false
+"POST","/api/files/private/return-evidence","Roles: Buyer","None","None","None","IFormFile","None","IActionResult",false
+"GET","/api/health","Anonymous","None","None","None","None","None","{ status: string, database: string }",false
+"GET","/api/notifications","Authenticated","None","screens/common/NotificationsScreen.js","components/Navbar.jsx","None","None","NotificationsListResponse",true
+"PUT","/api/notifications/{id:int}/read","Authenticated","None","screens/common/NotificationsScreen.js","components/Navbar.jsx","None","None","void",true
+"DELETE","/api/notifications/devices","Authenticated","None","None","None","UnregisterDeviceTokenRequest","None","IActionResult",false
+"PUT","/api/notifications/read-all","Authenticated","None","screens/common/NotificationsScreen.js","components/Navbar.jsx","None","None","void",true
+"POST","/api/notifications/register-token","Authenticated","None","utils/notifications.js","None","RegisterDeviceTokenRequest","RegisterDeviceTokenRequestValidator","IActionResult",true
+"GET","/api/notifications/unread-count","Authenticated","None","screens/common/NotificationsScreen.js","components/Navbar.jsx","None","None","void",true
+"POST","/api/notifications/unregister-token","Authenticated","None","utils/notifications.js","context/AuthContext.jsx","UnregisterDeviceTokenRequest","None","IActionResult",true
+"POST","/api/orders","Roles: Buyer","None","screens/buyer/CheckoutScreen.js","pages/CheckoutPage.jsx","CreateOrderRequest","CreateOrderRequestValidator","OrderResponse",true
+"GET","/api/orders/{id:int}","Roles: Buyer,Admin","None","screens/buyer/MyOrdersScreen.js","pages/BuyerOrdersPage.jsx","None","None","OrderResponse",true
+"POST","/api/orders/{id:int}/cancel","Roles: Buyer","None","screens/buyer/MyOrdersScreen.js","pages/BuyerOrdersPage.jsx","None","None","OrderResponse",true
+"PUT","/api/orders/{id:int}/status","Roles: Admin","None","None","None","UpdateOrderStatusRequest","UpdateOrderStatusRequestValidator","void",true
+"GET","/api/orders/mine","Roles: Buyer","None","screens/buyer/MyOrdersScreen.js","pages/BuyerOrdersPage.jsx","None","None","IEnumerable<OrderResponse>",true
+"GET","/api/orders/seller","Roles: Seller","None","None","None","None","None","IEnumerable<SellerOrderResponse>",true
+"GET","/api/products","Anonymous","None","screens/buyer/CatalogScreen.js; screens/buyer/ProductDetailsScreen.js","pages/HomePage.jsx","None","None","IEnumerable<ProductResponse>",true
+"POST","/api/products","Roles: Seller","None","screens/seller/AddEditProductScreen.js","pages/seller/SellerProductsPage.jsx","CreateProductRequest","CreateProductRequestValidator","ProductResponse",true
+"DELETE","/api/products/{id:int}","Roles: Seller","None","screens/seller/MyProductsScreen.js","pages/seller/SellerProductsPage.jsx","None","None","void",true
+"GET","/api/products/{id:int}","Anonymous","None","screens/buyer/CartScreen.js; screens/buyer/ProductDetailsScreen.js","pages/ProductDetailsPage.jsx","None","None","ProductResponse",true
+"PUT","/api/products/{id:int}","Roles: Seller","None","screens/seller/AddEditProductScreen.js","pages/seller/SellerProductsPage.jsx","UpdateProductRequest","UpdateProductRequestValidator","ProductResponse",true
+"PATCH","/api/products/{id:int}/quick-stock","Roles: Seller","None","screens/seller/DashboardScreen.js","pages/seller/SellerDashboardPage.jsx","QuickStockUpdateRequest","None","ProductResponse",true
+"GET","/api/products/{id:int}/review-eligibility","Authenticated","None","screens/buyer/ProductDetailsScreen.js","None","None","None","CanReviewResponse",true
+"GET","/api/products/{productId:int}/reviews","Anonymous","None","screens/buyer/ProductDetailsScreen.js","pages/ProductDetailsPage.jsx","None","None","ProductReviewsSummaryResponse",true
+"POST","/api/products/{productId:int}/reviews","Authenticated","None","None","None","CreateReviewRequest","CreateReviewRequestValidator","ReviewResponse",false
+"GET","/api/products/my-products","Roles: Seller","None","screens/seller/MyProductsScreen.js","pages/seller/SellerProductsPage.jsx","None","None","IEnumerable<ProductResponse>",true
+"GET","/api/products/search","Anonymous","None","screens/buyer/MobileSearchScreen.js","pages/SearchResultsPage.jsx","None","None","IEnumerable<ProductResponse>",true
+"GET","/api/products/store/{sellerId:int}","Anonymous","None","screens/buyer/SellerStoreScreen.js","pages/SellerStorePage.jsx","None","None","SellerStorefrontResponse",true
+"POST","/api/products/upload-image","Roles: Seller","None","screens/seller/AddEditProductScreen.js","pages/seller/SellerProductsPage.jsx","IFormFile","None","IActionResult",true
+"POST","/api/products/upload-images","Roles: Seller","None","None","None","List<IFormFile>","None","IActionResult",true
+"POST","/api/returns","Roles: Buyer","None","components/buyer/ReturnRequestModal.js","pages/BuyerOrdersPage.jsx","CreateReturnRequest","CreateReturnRequestValidator","ReturnResponse",true
+"PUT","/api/returns/{id:int}/resolve","Roles: Seller","None","screens/seller/SellerOrdersScreen.js","pages/seller/SellerReturnsPage.jsx","ResolveReturnRequest","ResolveReturnRequestValidator","ReturnResponse",true
+"GET","/api/returns/buyer","Roles: Buyer","None","screens/buyer/MyOrdersScreen.js","pages/BuyerOrdersPage.jsx","None","None","IEnumerable<ReturnResponse>",true
+"GET","/api/returns/seller","Roles: Seller","None","screens/seller/SellerOrdersScreen.js","pages/seller/SellerReturnsPage.jsx","None","None","IEnumerable<ReturnResponse>",true
+"POST","/api/returns/upload-evidence","Roles: Buyer","None","None","None","IFormFile","None","IActionResult",true
+"POST","/api/reviews","Authenticated","None","components/ReviewModal.js","pages/BuyerOrdersPage.jsx; pages/ProductDetailsPage.jsx","CreateReviewRequest","CreateReviewRequestValidator","ReviewResponse",true
+"DELETE","/api/reviews/{id:int}","Authenticated","None","screens/buyer/ProductDetailsScreen.js","None","None","None","IActionResult",true
+"PUT","/api/reviews/{id:int}","Roles: Buyer","None","components/ReviewModal.js","None","UpdateReviewRequest","UpdateReviewRequestValidator","ReviewResponse",true
+"POST","/api/reviews/{id:int}/reply","Roles: Seller","None","screens/seller/MyProductsScreen.js","None","SellerReplyRequest","SellerReplyRequestValidator","ReviewResponse",true
+"POST","/api/reviews/{id:int}/report","Authenticated","None","screens/buyer/ProductDetailsScreen.js","None","ReportReviewRequest","ReportReviewRequestValidator","IActionResult",true
+"GET","/api/reviews/can-review/{productId:int}","Authenticated","None","None","pages/ProductDetailsPage.jsx","None","None","CanReviewResponse",true
+"POST","/api/reviews/upload-photo","Roles: Buyer","None","components/ReviewModal.js","None","IFormFile","None","IActionResult",true
+"POST","/api/reviews/upload-photos","Roles: Buyer","None","None","None","List<IFormFile>","None","IActionResult",false
+"GET","/api/search/products","Anonymous","None","screens/buyer/MobileSearchScreen.js","pages/SearchResultsPage.jsx","ProductSearchRequest","None","ProductSearchResponse",true
+"POST","/api/search/reindex","Roles: Admin","None","None","None","None","None","object",false
+"GET","/api/search/suggestions","Anonymous","None","hooks/useSmartSearch.js","hooks/useSmartSearch.js","None","None","SearchSuggestionResponse",true
+"GET","/api/seller/reviews","Roles: Seller","None","screens/seller/MyProductsScreen.js","None","None","None","List<ReviewResponse>",true
+"PUT","/api/shipments/{id:int}/status","Roles: Seller","None","screens/seller/SellerOrdersScreen.js","pages/seller/SellerShipmentsPage.jsx","UpdateShipmentStatusRequest","UpdateShipmentStatusRequestValidator","SellerShipmentResponse",true
+"GET","/api/shipments/seller","Roles: Seller","None","screens/seller/SellerOrdersScreen.js","pages/seller/SellerShipmentsPage.jsx","None","None","IEnumerable<SellerShipmentResponse>",true
+"POST","/api/shipping/calculate-fee","Anonymous","None","components/MobileLocationPicker.js","components/MapAddressPicker.jsx","CalculateShippingFeeRequest","None","ShippingFeeCalculationResponse",true
+"DELETE","/api/users/me","Authenticated","None","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","DeleteAccountRequest","DeleteAccountRequestValidator","IActionResult",true
+"GET","/api/users/me","Authenticated","None","screens/common/ProfileScreen.js","None","None","None","UserProfileResponse",true
+"PUT","/api/users/me","Authenticated","None","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","UpdateProfileRequest","UpdateProfileRequestValidator","UserProfileResponse",true
+"GET","/api/users/me/addresses","Authenticated","None","screens/buyer/CheckoutScreen.js; screens/common/ProfileScreen.js","pages/CheckoutPage.jsx; pages/ProfilePage.jsx","None","None","IEnumerable<UserAddressResponse>",true
+"POST","/api/users/me/addresses","Authenticated","None","screens/common/ProfileScreen.js","pages/CheckoutPage.jsx; pages/ProfilePage.jsx","CreateUserAddressRequest","CreateUserAddressRequestValidator","UserAddressResponse",true
+"DELETE","/api/users/me/addresses/{id:int}","Authenticated","None","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","None","None","IActionResult",true
+"GET","/api/users/me/addresses/{id:int}","Authenticated","None","None","None","None","None","UserAddressResponse",true
+"PUT","/api/users/me/addresses/{id:int}","Authenticated","None","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","UpdateUserAddressRequest","UpdateUserAddressRequestValidator","UserAddressResponse",true
+"GET","/api/users/me/buyer-dashboard","Roles: Buyer","None","screens/common/ProfileScreen.js","pages/BuyerOrdersPage.jsx; pages/ProfilePage.jsx","None","None","BuyerDashboardResponse",true
+"GET","/api/users/me/buyer-stats","Authenticated","None","None","pages/ProfilePage.jsx","None","None","BuyerStatsResponse",true
+"GET","/api/users/me/export-data","Authenticated","None","screens/common/ProfileScreen.js","None","None","None","UserDataExportDto",true
+"PUT","/api/users/me/password","Authenticated","None","screens/common/ProfileScreen.js","pages/ProfilePage.jsx","ChangePasswordRequest","ChangePasswordRequestValidator","IActionResult",true
+"GET","/api/users/me/seller-dashboard","Roles: Seller","None","screens/seller/DashboardScreen.js","pages/seller/SellerDashboardPage.jsx","None","None","SellerDashboardResponse",true
+"GET","/api/users/me/seller-profile","Roles: Seller","None","screens/common/ProfileScreen.js; screens/seller/AddEditProductScreen.js","pages/seller/SellerProfilePage.jsx","None","None","SellerProfileDto",true
+"PUT","/api/users/me/seller-profile","Roles: Seller","None","screens/common/ProfileScreen.js","pages/seller/SellerProfilePage.jsx","SellerProfileDto","SellerProfileDtoValidator","SellerProfileDto",true
+"GET","/api/users/me/wallet","Authenticated","Wallet","screens/buyer/CheckoutScreen.js; screens/common/ProfileScreen.js","pages/CheckoutPage.jsx; pages/ProfilePage.jsx","None","None","BuyerWalletResponse",true
+"GET","/api/wallet/me","Roles: Seller","Wallet","screens/seller/SellerWalletScreen.js","pages/seller/SellerWalletPage.jsx","None","None","VendorWalletResponse",true
+"POST","/api/wallet/payout-request","Roles: Seller","VendorPayouts","screens/seller/SellerWalletScreen.js","pages/seller/SellerWalletPage.jsx","CreatePayoutRequest","CreatePayoutRequestValidator","PayoutRequestResponse",true
+"GET","/api/wallet/payouts","Roles: Seller","VendorPayouts","screens/seller/SellerWalletScreen.js","pages/seller/SellerWalletPage.jsx","None","None","IEnumerable<PayoutRequestResponse>",true
+"GET","/api/wishlist","Roles: Buyer","None","screens/buyer/WishlistScreen.js","pages/WishlistPage.jsx","None","None","IEnumerable<WishlistItemResponse>",true
+"POST","/api/wishlist/{productId:int}/toggle","Roles: Buyer","None","components/ProductCard.js; screens/buyer/ProductDetailsScreen.js; screens/buyer/WishlistScreen.js","components/ProductCard.jsx; pages/ProductDetailsPage.jsx; pages/WishlistPage.jsx","None","None","WishlistToggleResponse",true
+"GET","/api/wishlist/ids","Roles: Buyer","None","context/WishlistContext.js","context/WishlistContext.jsx","None","None","List<int>",true
+"GET","/health","Anonymous","None","None","None","None","None","{ status: string, database: string }",false

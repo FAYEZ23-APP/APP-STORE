@@ -9,10 +9,12 @@ namespace Marketplace.Application.Services;
 public class ReturnService : IReturnService
 {
     private readonly IUnitOfWork _uow;
+    private readonly INotificationService _notificationService;
 
-    public ReturnService(IUnitOfWork uow)
+    public ReturnService(IUnitOfWork uow, INotificationService notificationService)
     {
         _uow = uow;
+        _notificationService = notificationService;
     }
 
     public async Task<ReturnResponse> CreateReturnAsync(int buyerId, CreateReturnRequest request)
@@ -149,7 +151,62 @@ public class ReturnService : IReturnService
                 };
                 await _uow.BuyerWalletTransactions.AddAsync(tx);
 
-                // 5. Update return status
+                // 5. Ensure seller vendor wallet exists & atomically debit refund amount
+                var vendorWallets = (await _uow.VendorWallets.FindAsync(w => w.SellerId == returnReq.SellerId)).ToList();
+                VendorWallet vendorWallet;
+                if (!vendorWallets.Any())
+                {
+                    vendorWallet = new VendorWallet
+                    {
+                        SellerId = returnReq.SellerId,
+                        Balance = 0m,
+                        PendingBalance = 0m,
+                        TotalEarned = 0m,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _uow.VendorWallets.AddAsync(vendorWallet);
+                    await _uow.SaveChangesAsync();
+                }
+                else
+                {
+                    vendorWallet = vendorWallets.First();
+                }
+
+                // Check if shipment was already settled or released (post-settlement refund)
+                var returnShipment = await _uow.Shipments.GetByIdAsync(returnReq.ShipmentId);
+                bool isPostSettlement = returnShipment != null && (returnShipment.IsCodSettled || returnShipment.CodSettledAt != null);
+
+                // Anti-overdraft guard: refund cannot make seller Balance negative without an explicit AdminOverride
+                if (vendorWallet.Balance < returnReq.RefundAmount && !request.AdminOverride)
+                {
+                    throw new BadRequestException($"رصيد البائع المتاح ({vendorWallet.Balance} ج.م) غير كافٍ لتغطية الاسترداد بقيمة {returnReq.RefundAmount} ج.م. يتطلب الاسترداد بالسالب موافقة استثنائية (Admin Override).");
+                }
+
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""VendorWallets"" SET ""Balance"" = ""Balance"" - {0}, ""TotalEarned"" = ""TotalEarned"" - {0}, ""UpdatedAt"" = {1} WHERE ""SellerId"" = {2}",
+                    returnReq.RefundAmount,
+                    DateTime.UtcNow,
+                    returnReq.SellerId);
+
+                // 6. Record seller vendor wallet transaction (Clawback if post-settlement, otherwise Refund)
+                var txType = isPostSettlement ? WalletTransactionType.Clawback : WalletTransactionType.Refund;
+                var txDesc = isPostSettlement
+                    ? $"استرداد مستردات بعد التسوية (Clawback) بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})"
+                    : $"خصم استرداد مرتجع بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})";
+
+                var sellerRefundTx = new WalletTransaction
+                {
+                    WalletId = vendorWallet.Id,
+                    OrderId = returnReq.OrderId,
+                    ShipmentId = returnReq.ShipmentId,
+                    Amount = -returnReq.RefundAmount,
+                    Type = txType,
+                    Description = txDesc,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.WalletTransactions.AddAsync(sellerRefundTx);
+
+                // 7. Update return status
                 returnReq.Status = newStatus;
                 returnReq.ResolvedAt = DateTime.UtcNow;
                 _uow.ReturnRequests.Update(returnReq);
@@ -170,6 +227,8 @@ public class ReturnService : IReturnService
             _uow.ReturnRequests.Update(returnReq);
             await _uow.SaveChangesAsync();
         }
+
+        await _notificationService.NotifyReturnResolvedAsync(returnReq.Id, newStatus);
 
         var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
         var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);

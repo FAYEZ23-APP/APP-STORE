@@ -1,5 +1,5 @@
 import tw from 'twrnc';
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,25 @@ import {
   useWindowDimensions,
   Platform,
   ToastAndroid,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProductById, getAllProducts } from '../../api/productsApi';
-import { getProductReviews, canReviewProduct } from '../../api/reviewsApi';
+import {
+  getProductReviews,
+  getReviewEligibility,
+  deleteReview,
+  reportReview,
+} from '../../api/reviewsApi';
 import ReviewModal from '../../components/ReviewModal';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
 import { getCategoryIconName } from '../../utils/categoryIcons';
 import { CartContext } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import ProductCard from '../../components/ProductCard';
 import { colors } from '../../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,64 +56,143 @@ const cardShadow = Platform.select({
 });
 
 export default function ProductDetailsScreen({ route, navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n?.language === 'ar';
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const galleryHeight = Math.round(screenWidth * 1.1);
 
   const { getQuantity, setQuantity } = useContext(CartContext);
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   const initialProduct = route?.params?.product || null;
   const productId = route?.params?.productId || initialProduct?.id;
+  const isFav = isWishlisted(productId);
+
+  const handleToggleWishlist = async () => {
+    try {
+      await toggleWishlist(productId);
+    } catch (err) {
+      console.warn('Failed to toggle wishlist:', err);
+    }
+  };
 
   const [product, setProduct] = useState(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState(false);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const galleryListRef = useRef(null);
   const [selectedQty, setSelectedQty] = useState(1);
   const [descExpanded, setDescExpanded] = useState(false);
   const [isDescTruncated, setIsDescTruncated] = useState(false);
   const [similarProducts, setSimilarProducts] = useState([]);
   const [reviewsData, setReviewsData] = useState(null);
-  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [, setLoadingReviews] = useState(false);
   const [canReview, setCanReview] = useState(false);
+  const [eligibilityData, setEligibilityData] = useState(null);
+  const [editingReview, setEditingReview] = useState(null);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewSort, setReviewSort] = useState('newest');
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
 
-  const fetchReviews = useCallback(async () => {
+  const fetchReviews = useCallback(async (pageOverride, sortOverride) => {
     if (!productId) return;
     try {
       setLoadingReviews(true);
-      const res = await getProductReviews(productId);
+      const targetPage = pageOverride ?? reviewPage;
+      const targetSort = sortOverride ?? reviewSort;
+      const res = await getProductReviews(productId, targetPage, 5, targetSort);
       setReviewsData(res?.data);
-    } catch (err) {
+    } catch (_err) {
       // ignore
     } finally {
       setLoadingReviews(false);
     }
-  }, [productId]);
+  }, [productId, reviewPage, reviewSort]);
 
   const checkCanReview = useCallback(async () => {
     if (!productId) return;
     try {
-      const res = await canReviewProduct(productId);
+      const res = await getReviewEligibility(productId);
+      setEligibilityData(res?.data || null);
       setCanReview(res?.data?.canReview === true);
-    } catch (err) {
+    } catch (_err) {
+      setEligibilityData(null);
       setCanReview(false);
     }
   }, [productId]);
 
+  const handleDeleteOwnReview = (reviewId) => {
+    Alert.alert(t('product.deleteReview'), t('product.deleteReviewConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteReview(reviewId);
+            Alert.alert(t('common.completed'), t('product.reviewDeletedSuccess'));
+            setReviewPage(1);
+            fetchReviews(1, reviewSort);
+            checkCanReview();
+            fetchDetails();
+          } catch (err) {
+            Alert.alert(
+              t('common.error'),
+              err?.response?.data?.error || t('common.error')
+            );
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleReportReview = (reviewId) => {
+    const submitReport = async (reason) => {
+      try {
+        await reportReview(reviewId, { reason });
+        Alert.alert(t('common.completed'), t('product.reportSubmitSuccess'));
+      } catch (err) {
+        Alert.alert(
+          t('common.error'),
+          err?.response?.data?.error || t('common.error')
+        );
+      }
+    };
+
+    Alert.alert(t('product.reportReviewTitle'), '', [
+      {
+        text: t('product.reportReasonSpam'),
+        onPress: () => submitReport(t('product.reportReasonSpam')),
+      },
+      {
+        text: t('product.reportReasonAbuse'),
+        onPress: () => submitReport(t('product.reportReasonAbuse')),
+      },
+      {
+        text: t('product.reportReasonFake'),
+        onPress: () => submitReport(t('product.reportReasonFake')),
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
   useEffect(() => {
-    fetchReviews();
-    checkCanReview();
+    Promise.resolve().then(() => {
+      fetchReviews();
+      checkCanReview();
+    });
   }, [fetchReviews, checkCanReview]);
 
   // Initialize selected variant when product variants load
   useEffect(() => {
     if (product?.variants && product.variants.length > 0) {
       const available = product.variants.find((v) => (v.stock || 0) > 0) || product.variants[0];
-      setSelectedVariant((prev) => (prev ? prev : available));
+      Promise.resolve().then(() => {
+        setSelectedVariant((prev) => (prev ? prev : available));
+      });
     }
   }, [product?.variants]);
 
@@ -114,12 +200,14 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   // Keep selectedQty synced when item is already in cart
   useEffect(() => {
-    if (cartQty > 0) {
-      setSelectedQty(cartQty);
-    } else if ((selectedVariant ? selectedVariant.stock : product?.stock) > 0 && selectedQty < 1) {
-      setSelectedQty(1);
-    }
-  }, [cartQty, product?.stock, selectedVariant]);
+    Promise.resolve().then(() => {
+      if (cartQty > 0) {
+        setSelectedQty(cartQty);
+      } else if ((selectedVariant ? selectedVariant.stock : product?.stock) > 0 && selectedQty < 1) {
+        setSelectedQty(1);
+      }
+    });
+  }, [cartQty, product?.stock, selectedVariant, selectedQty]);
 
   const fetchDetails = useCallback(async () => {
     if (!productId) {
@@ -135,6 +223,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
       const res = await getProductById(productId);
       if (res.data) {
         setProduct(res.data);
+        setActiveImageIndex(0);
       }
     } catch (err) {
       console.error('Failed to load product details', err);
@@ -379,11 +468,17 @@ export default function ProductDetailsScreen({ route, navigation }) {
           {rawImages.length > 0 ? (
             <>
               <FlatList
+                ref={galleryListRef}
                 data={rawImages}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(uri, idx) => `${uri}-${idx}`}
+                getItemLayout={(_, index) => ({
+                  length: screenWidth,
+                  offset: screenWidth * index,
+                  index,
+                })}
                 onMomentumScrollEnd={(e) => {
                   const offsetX = e.nativeEvent.contentOffset.x;
                   const idx = Math.round(offsetX / screenWidth);
@@ -456,6 +551,46 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </View>
           )}
         </View>
+
+        {/* Interactive Thumbnail Strip when multiple images exist */}
+        {rawImages.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 }}
+          >
+            {rawImages.map((uri, idx) => {
+              const isSelected = idx === activeImageIndex;
+              return (
+                <TouchableOpacity
+                  key={`thumb-${uri}-${idx}`}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setActiveImageIndex(idx);
+                    galleryListRef.current?.scrollToIndex?.({ index: idx, animated: true });
+                  }}
+                  style={[
+                    tw`rounded-xl overflow-hidden mr-2`,
+                    {
+                      width: 56,
+                      height: 56,
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: isSelected ? colors.accent : colors.border,
+                      backgroundColor: colors.placeholderBg,
+                    },
+                  ]}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={tw`w-full h-full`}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* Main Info Card */}
         <View
@@ -609,32 +744,56 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
           {/* Seller row: "Продавец: <sellerName>" */}
           {product.sellerName ? (
-            <View
+            <TouchableOpacity
+              activeOpacity={product.sellerId ? 0.75 : 1}
+              disabled={!product.sellerId}
+              onPress={() => {
+                if (product.sellerId) {
+                  navigation.navigate('SellerStore', {
+                    sellerId: product.sellerId,
+                    sellerName: product.sellerName,
+                  });
+                }
+              }}
               style={[
-                tw`flex-row items-center border-t`,
+                tw`flex-row items-center justify-between border-t`,
                 {
                   paddingTop: 12,
                   borderColor: colors.border,
                 },
               ]}
             >
-              <MaterialCommunityIcons
-                name="storefront-outline"
-                size={18}
-                color={colors.textSecondary}
-              />
-              <Text
-                style={[
-                  tw`text-sm`,
-                  { marginLeft: 8, color: colors.textSecondary },
-                ]}
-              >
-                {`${t('product.seller')}: `}
-                <Text style={[tw`font-semibold`, { color: colors.textPrimary }]}>
-                  {product.sellerName}
+              <View style={tw`flex-row items-center flex-1`}>
+                <MaterialCommunityIcons
+                  name="storefront-outline"
+                  size={18}
+                  color={colors.accent}
+                />
+                <Text
+                  style={[
+                    tw`text-sm`,
+                    { marginLeft: 8, color: colors.textSecondary },
+                  ]}
+                >
+                  {`${t('product.seller')}: `}
+                  <Text style={[tw`font-bold`, { color: colors.accent }]}>
+                    {product.sellerName}
+                  </Text>
                 </Text>
-              </Text>
-            </View>
+              </View>
+              {product.sellerId ? (
+                <View style={tw`flex-row items-center`}>
+                  <Text style={[tw`text-xs font-semibold mr-1`, { color: colors.accent }]}>
+                    {t('store.visitStore')}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={isRTL ? 'chevron-left' : 'chevron-right'}
+                    size={16}
+                    color={colors.accent}
+                  />
+                </View>
+              ) : null}
+            </TouchableOpacity>
           ) : null}
         </View>
 
@@ -886,9 +1045,12 @@ export default function ProductDetailsScreen({ route, navigation }) {
               </Text>
             </View>
 
-            {canReview && (
+            {canReview ? (
               <TouchableOpacity
-                onPress={() => setShowReviewModal(true)}
+                onPress={() => {
+                  setEditingReview(null);
+                  setShowReviewModal(true);
+                }}
                 activeOpacity={0.8}
                 style={[
                   tw`px-3 py-1.5 rounded-lg border flex-row items-center`,
@@ -900,21 +1062,55 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   {t('product.writeReview')}
                 </Text>
               </TouchableOpacity>
-            )}
+            ) : eligibilityData?.alreadyReviewed && eligibilityData?.existingReview ? (
+              <View style={tw`flex-row items-center`}>
+                {eligibilityData.canEditExisting && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingReview(eligibilityData.existingReview);
+                      setShowReviewModal(true);
+                    }}
+                    style={[
+                      tw`px-2.5 py-1.5 rounded-lg border flex-row items-center mr-1.5`,
+                      { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={14} color={colors.primary} />
+                    <Text style={[tw`text-xs font-bold ml-1`, { color: colors.primary }]}>
+                      {t('product.editReview')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => handleDeleteOwnReview(eligibilityData.existingReview.id)}
+                  style={[
+                    tw`p-1.5 rounded-lg border`,
+                    { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
+                  ]}
+                  accessibilityLabel={t('product.deleteReview')}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.discount} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
 
           {/* Average Rating Score Box */}
-          {reviewsData && reviewsData.totalReviews > 0 && (
-            <View style={[tw`flex-row items-center p-3 rounded-xl mb-4`, { backgroundColor: colors.screenBg }]}>
+          {reviewsData && (reviewsData.ratingCount > 0 || reviewsData.totalReviews > 0) && (
+            <View style={[tw`flex-row items-center p-3 rounded-xl mb-3`, { backgroundColor: colors.screenBg }]}>
               <View style={tw`items-center justify-center pr-4 border-r border-gray-200`}>
                 <Text style={[tw`text-3xl font-bold`, { color: colors.textPrimary }]}>
-                  {Number(reviewsData.averageRating).toFixed(1)}
+                  {Number(reviewsData.ratingAverage ?? reviewsData.averageRating ?? 0).toFixed(1)}
                 </Text>
                 <View style={tw`flex-row mt-1`}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <MaterialCommunityIcons
                       key={`avg-s-${s}`}
-                      name={s <= Math.round(reviewsData.averageRating) ? 'star' : 'star-outline'}
+                      name={
+                        s <= Math.round(reviewsData.ratingAverage ?? reviewsData.averageRating ?? 0)
+                          ? 'star'
+                          : 'star-outline'
+                      }
                       size={14}
                       color="#F59E0B"
                     />
@@ -925,7 +1121,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
               <View style={tw`flex-1 pl-4`}>
                 {[5, 4, 3, 2, 1].map((starNum) => {
                   const count = reviewsData.starDistribution?.[starNum] || 0;
-                  const pct = reviewsData.totalReviews > 0 ? (count / reviewsData.totalReviews) * 100 : 0;
+                  const totalCount = reviewsData.ratingCount || reviewsData.totalReviews || 0;
+                  const pct = totalCount > 0 ? (count / totalCount) * 100 : 0;
                   return (
                     <View key={`dist-${starNum}`} style={tw`flex-row items-center my-0.5`}>
                       <Text style={[tw`text-[11px] w-4 font-mono`, { color: colors.textSecondary }]}>
@@ -945,36 +1142,209 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Individual Reviews List */}
+          {/* Sort Selector Pills (Newest / Highest / Lowest) */}
+          {reviewsData && (reviewsData.ratingCount > 0 || reviewsData.totalReviews > 0) && (
+            <View style={tw`flex-row items-center mb-3`}>
+              {[
+                { key: 'newest', label: t('product.sortNewest') },
+                { key: 'highest', label: t('product.sortHighest') },
+                { key: 'lowest', label: t('product.sortLowest') },
+              ].map((opt) => {
+                const active = reviewSort === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={`sort-${opt.key}`}
+                    onPress={() => {
+                      setReviewSort(opt.key);
+                      setReviewPage(1);
+                    }}
+                    style={[
+                      tw`px-3 py-1 rounded-full mr-2 border`,
+                      {
+                        backgroundColor: active ? colors.primary : colors.screenBg,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        tw`text-xs font-semibold`,
+                        { color: active ? colors.white : colors.textSecondary },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Individual Reviews List (Paginated) */}
           {reviewsData?.reviews && reviewsData.reviews.length > 0 ? (
             <View>
-              {reviewsData.reviews.slice(0, 5).map((rev) => (
-                <View
-                  key={`rev-${rev.id}`}
-                  style={tw`py-2.5 border-t border-gray-100`}
-                >
-                  <View style={tw`flex-row items-center justify-between mb-1`}>
-                    <Text style={[tw`text-xs font-bold`, { color: colors.textPrimary }]}>
-                      {rev.buyerName || t('product.verifiedBuyer')}
-                    </Text>
-                    <View style={tw`flex-row`}>
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <MaterialCommunityIcons
-                          key={`rv-s-${s}`}
-                          name={s <= rev.rating ? 'star' : 'star-outline'}
-                          size={12}
-                          color="#F59E0B"
-                        />
-                      ))}
+              {reviewsData.reviews.map((rev) => {
+                const isOwnReview = eligibilityData?.existingReview?.id === rev.id;
+                const reviewPhotos = Array.isArray(rev.imageUrls)
+                  ? rev.imageUrls.map((u) => getImageUrl(u)).filter(Boolean)
+                  : [];
+
+                return (
+                  <View
+                    key={`rev-${rev.id}`}
+                    style={tw`py-3 border-t border-gray-100`}
+                  >
+                    <View style={tw`flex-row items-center justify-between mb-1`}>
+                      <View style={tw`flex-row items-center`}>
+                        <Text style={[tw`text-xs font-bold`, { color: colors.textPrimary }]}>
+                          {rev.reviewerName || rev.buyerName || t('product.verifiedBuyer')}
+                        </Text>
+                        {rev.updatedAt ? (
+                          <Text style={[tw`text-[10px] ml-1.5`, { color: colors.textSecondary }]}>
+                            {t('product.editedTag')}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <View style={tw`flex-row items-center`}>
+                        <View style={tw`flex-row mr-2`}>
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <MaterialCommunityIcons
+                              key={`rv-s-${s}`}
+                              name={s <= rev.rating ? 'star' : 'star-outline'}
+                              size={13}
+                              color="#F59E0B"
+                            />
+                          ))}
+                        </View>
+
+                        {!isOwnReview && (
+                          <TouchableOpacity
+                            onPress={() => handleReportReview(rev.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={tw`flex-row items-center`}
+                          >
+                            <MaterialCommunityIcons
+                              name="flag-outline"
+                              size={13}
+                              color={colors.textSecondary}
+                            />
+                            <Text style={[tw`text-[10px] ml-0.5`, { color: colors.textSecondary }]}>
+                              {t('product.reportReview')}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
+
+                    {rev.comment ? (
+                      <Text style={[tw`text-xs leading-4 mt-0.5`, { color: colors.textSecondary }]}>
+                        {rev.comment}
+                      </Text>
+                    ) : null}
+
+                    {/* Review Photos (up to 3) */}
+                    {reviewPhotos.length > 0 && (
+                      <View style={tw`flex-row items-center mt-2`}>
+                        {reviewPhotos.map((pUri, pIdx) => (
+                          <View
+                            key={`rev-photo-${rev.id}-${pIdx}`}
+                            style={[
+                              tw`rounded-lg overflow-hidden border mr-2`,
+                              {
+                                width: 64,
+                                height: 64,
+                                borderColor: colors.border,
+                                backgroundColor: colors.placeholderBg,
+                              },
+                            ]}
+                          >
+                            <Image
+                              source={{ uri: pUri }}
+                              style={tw`w-full h-full`}
+                              contentFit="cover"
+                              cachePolicy="memory-disk"
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Seller Reply Box */}
+                    {rev.sellerReply ? (
+                      <View
+                        style={[
+                          tw`mt-2.5 p-2.5 rounded-xl border-l-4`,
+                          {
+                            backgroundColor: colors.screenBg,
+                            borderLeftColor: colors.accent,
+                          },
+                        ]}
+                      >
+                        <View style={tw`flex-row items-center mb-1`}>
+                          <MaterialCommunityIcons
+                            name="storefront-outline"
+                            size={13}
+                            color={colors.accent}
+                          />
+                          <Text style={[tw`text-[11px] font-bold ml-1`, { color: colors.accent }]}>
+                            {t('product.sellerReplyLabel')}
+                          </Text>
+                        </View>
+                        <Text style={[tw`text-xs`, { color: colors.textPrimary }]}>
+                          {rev.sellerReply}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
-                  {rev.comment ? (
-                    <Text style={[tw`text-xs leading-4`, { color: colors.textSecondary }]}>
-                      {rev.comment}
+                );
+              })}
+
+              {/* Pagination Controls */}
+              {(reviewsData.totalPages || 1) > 1 && (
+                <View style={tw`flex-row items-center justify-between pt-3 mt-1 border-t border-gray-100`}>
+                  <TouchableOpacity
+                    disabled={reviewPage <= 1}
+                    onPress={() => setReviewPage((p) => Math.max(1, p - 1))}
+                    style={[
+                      tw`px-3 py-1.5 rounded-lg border`,
+                      {
+                        borderColor: colors.border,
+                        opacity: reviewPage <= 1 ? 0.4 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={[tw`text-xs font-bold`, { color: colors.textPrimary }]}>
+                      {t('product.prevPage')}
                     </Text>
-                  ) : null}
+                  </TouchableOpacity>
+
+                  <Text style={[tw`text-xs font-semibold`, { color: colors.textSecondary }]}>
+                    {t('product.pageCounter', {
+                      page: reviewPage,
+                      total: reviewsData.totalPages || 1,
+                    })}
+                  </Text>
+
+                  <TouchableOpacity
+                    disabled={reviewPage >= (reviewsData.totalPages || 1)}
+                    onPress={() =>
+                      setReviewPage((p) => Math.min(reviewsData.totalPages || 1, p + 1))
+                    }
+                    style={[
+                      tw`px-3 py-1.5 rounded-lg border`,
+                      {
+                        borderColor: colors.border,
+                        opacity: reviewPage >= (reviewsData.totalPages || 1) ? 0.4 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={[tw`text-xs font-bold`, { color: colors.textPrimary }]}>
+                      {t('product.nextPage')}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
+              )}
             </View>
           ) : (
             <Text style={[tw`text-xs text-center py-2`, { color: colors.textSecondary }]}>
@@ -1065,6 +1435,24 @@ export default function ProductDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         ) : (
           <View style={tw`flex-1 flex-row items-center justify-between`}>
+            {/* Wishlist Heart Button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleToggleWishlist}
+              style={[
+                tw`w-12 h-12 rounded-xl items-center justify-center mr-2 border`,
+                isFav
+                  ? { backgroundColor: '#FFE4E6', borderColor: '#FDA4AF' }
+                  : { backgroundColor: colors.screenBg, borderColor: colors.border },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={isFav ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isFav ? '#E11D48' : colors.textMuted}
+              />
+            </TouchableOpacity>
+
             {/* 1. "В корзину" button */}
             <TouchableOpacity
               activeOpacity={0.85}
@@ -1127,12 +1515,18 @@ export default function ProductDetailsScreen({ route, navigation }) {
       </View>
 
       <ReviewModal
+        key={`review_modal_${editingReview?.id || 'new'}_${showReviewModal ? 'open' : 'closed'}`}
         visible={showReviewModal}
         productId={productId}
         productName={product?.name || t('nav.catalog')}
-        onClose={() => setShowReviewModal(false)}
+        editingReview={editingReview}
+        onClose={() => {
+          setShowReviewModal(false);
+          setEditingReview(null);
+        }}
         onReviewSubmitted={() => {
           fetchReviews();
+          checkCanReview();
           fetchDetails();
         }}
       />

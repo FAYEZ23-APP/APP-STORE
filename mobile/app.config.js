@@ -9,6 +9,9 @@ const PHOTOS_PERMISSION_TEXT =
 const CAMERA_PERMISSION_TEXT =
   'يحتاج التطبيق للوصول إلى الكاميرا لالتقاط صور المنتجات وصور طلبات الاسترجاع / Allow access to your camera to take product and return defect photos.';
 
+const LOCATION_PERMISSION_TEXT =
+  'يحتاج التطبيق للوصول إلى موقعك لتحديد عنوان التوصيل بدقة وحساب تكلفة الشحن / Allow location access to pinpoint your delivery address and calculate shipping fees accurately.';
+
 module.exports = {
   expo: {
     name: 'MarketplaceMobile',
@@ -29,6 +32,7 @@ module.exports = {
         NSFaceIDUsageDescription: FACE_ID_PERMISSION_TEXT,
         NSPhotoLibraryUsageDescription: PHOTOS_PERMISSION_TEXT,
         NSCameraUsageDescription: CAMERA_PERMISSION_TEXT,
+        NSLocationWhenInUseUsageDescription: LOCATION_PERMISSION_TEXT,
       },
     },
     android: {
@@ -37,7 +41,14 @@ module.exports = {
       permissions: [
         'android.permission.INTERNET',
         'android.permission.CAMERA',
+        'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.ACCESS_COARSE_LOCATION',
       ],
+      config: {
+        googleMaps: {
+          apiKey: process.env.GOOGLE_MAPS_API_KEY_ANDROID || 'YOUR_ANDROID_GOOGLE_MAPS_API_KEY',
+        },
+      },
       blockedPermissions: [
         'android.permission.READ_EXTERNAL_STORAGE',
         'android.permission.WRITE_EXTERNAL_STORAGE',
@@ -59,6 +70,7 @@ module.exports = {
       'expo-image',
       'expo-web-browser',
       'expo-font',
+      'expo-status-bar',
       [
         'expo-local-authentication',
         {
@@ -77,6 +89,12 @@ module.exports = {
           photosPermission: PHOTOS_PERMISSION_TEXT,
           cameraPermission: CAMERA_PERMISSION_TEXT,
           microphonePermission: false,
+        },
+      ],
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission: LOCATION_PERMISSION_TEXT,
         },
       ],
     ],

@@ -27,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
         WalletTransactions = new Repository<WalletTransaction>(context);
         PayoutRequests = new Repository<PayoutRequest>(context);
         Reviews = new Repository<Review>(context);
+        ReviewReports = new Repository<ReviewReport>(context);
         UserDeviceTokens = new Repository<UserDeviceToken>(context);
         ProductVariants = new Repository<ProductVariant>(context);
         Coupons = new Repository<Coupon>(context);
@@ -36,6 +37,11 @@ public class UnitOfWork : IUnitOfWork
         BuyerWalletTransactions = new Repository<BuyerWalletTransaction>(context);
         VerificationCodes = new Repository<VerificationCode>(context);
         RefreshTokens = new Repository<RefreshToken>(context);
+        UploadedFiles = new Repository<UploadedFile>(context);
+        ExternalLogins = new Repository<ExternalLogin>(context);
+        WishlistItems = new Repository<WishlistItem>(context);
+        UserNotifications = new Repository<UserNotification>(context);
+        AdminAuditLogs = new Repository<AdminAuditLog>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -51,6 +57,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WalletTransaction> WalletTransactions { get; }
     public IRepository<PayoutRequest> PayoutRequests { get; }
     public IRepository<Review> Reviews { get; }
+    public IRepository<ReviewReport> ReviewReports { get; }
     public IRepository<UserDeviceToken> UserDeviceTokens { get; }
     public IRepository<ProductVariant> ProductVariants { get; }
     public IRepository<Coupon> Coupons { get; }
@@ -60,6 +67,11 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<BuyerWalletTransaction> BuyerWalletTransactions { get; }
     public IRepository<VerificationCode> VerificationCodes { get; }
     public IRepository<RefreshToken> RefreshTokens { get; }
+    public IRepository<UploadedFile> UploadedFiles { get; }
+    public IRepository<ExternalLogin> ExternalLogins { get; }
+    public IRepository<WishlistItem> WishlistItems { get; }
+    public IRepository<UserNotification> UserNotifications { get; }
+    public IRepository<AdminAuditLog> AdminAuditLogs { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();
@@ -92,6 +104,8 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
+    public void ClearChangeTracker() => _context.ChangeTracker.Clear();
+
     public async Task<int> ExecuteSqlRawAsync(string sql, params object[] parameters)
     {
         if (_context.Database.IsRelational())
@@ -99,6 +113,48 @@ public class UnitOfWork : IUnitOfWork
             return await _context.Database.ExecuteSqlRawAsync(sql, parameters);
         }
         return 1;
+    }
+
+    public async Task RecomputeProductRatingAsync(int productId)
+    {
+        if (_context.Database.IsRelational())
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE ""Products""
+                SET ""ReviewsCount"" = (
+                        SELECT COUNT(*)::int
+                        FROM ""Reviews""
+                        WHERE ""ProductId"" = {productId} AND ""IsHidden"" = FALSE
+                    ),
+                    ""AverageRating"" = COALESCE((
+                        SELECT ROUND(AVG(""Rating""::numeric), 1)
+                        FROM ""Reviews""
+                        WHERE ""ProductId"" = {productId} AND ""IsHidden"" = FALSE
+                    ), 0.0)
+                WHERE ""Id"" = {productId};");
+
+            var tracked = _context.ChangeTracker.Entries<Product>()
+                .FirstOrDefault(e => e.Entity.Id == productId);
+            if (tracked != null)
+            {
+                await tracked.ReloadAsync();
+            }
+        }
+        else
+        {
+            var visibleReviews = await _context.Reviews
+                .Where(r => r.ProductId == productId && !r.IsHidden)
+                .ToListAsync();
+            var product = await _context.Products.FindAsync(productId);
+            if (product != null)
+            {
+                product.ReviewsCount = visibleReviews.Count;
+                product.AverageRating = visibleReviews.Count > 0
+                    ? Math.Round((decimal)visibleReviews.Average(r => r.Rating), 1)
+                    : 0m;
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 
     public void Dispose()

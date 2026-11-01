@@ -1,5 +1,5 @@
 import tw from 'twrnc';
-import React, { useState, useEffect, useMemo, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   I18nManager,
   Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -103,6 +104,7 @@ export default function CheckoutScreen({ route, navigation }) {
 
   // Submission State
   const [submitting, setSubmitting] = useState(false);
+  const idempotencyKeyRef = useRef(null);
 
   // Calculate items total
   const itemsSubtotal = useMemo(() => {
@@ -330,6 +332,10 @@ export default function CheckoutScreen({ route, navigation }) {
       }
     }
 
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = 'ord_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+    }
+
     setSubmitting(true);
 
     const payload = {
@@ -346,13 +352,15 @@ export default function CheckoutScreen({ route, navigation }) {
       city: deliveryMethod === 'Courier' ? city.trim() : pickupCity,
       area: deliveryMethod === 'Courier' ? area.trim() : (isRTL ? 'نقطة استلام' : 'Pickup Point'),
       streetBuilding: deliveryMethod === 'Courier' ? streetBuilding.trim() : (isRTL ? 'استلام من الفرع' : 'Branch Pickup'),
-      paymentMethod: 'CashOnDelivery',
+      paymentMethod: 'OnReceipt',
+      idempotencyKey: idempotencyKeyRef.current,
       couponCode: (couponsEnabled && appliedCoupon?.code) ? appliedCoupon.code : null,
       useWalletBalance: walletEnabled ? useWalletBalance : false,
     };
 
     try {
-      const res = await createOrder(payload);
+      const res = await createOrder(payload, idempotencyKeyRef.current);
+      idempotencyKeyRef.current = null;
       const createdOrder = res?.data;
 
       // Clean cart
@@ -421,7 +429,10 @@ export default function CheckoutScreen({ route, navigation }) {
   }
 
   return (
-    <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.screenBg }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <ScrollView
         style={tw`flex-1`}
         contentContainerStyle={{ padding: 14, paddingBottom: 36 }}
@@ -1244,6 +1255,6 @@ export default function CheckoutScreen({ route, navigation }) {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

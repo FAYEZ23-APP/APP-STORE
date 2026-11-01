@@ -1,0 +1,46 @@
+================================================================
+PART 1: FEATURE GATING INTEGRATION & STARTUP DRILL TESTS
+Timestamp: 2026-10-25T00:37:49.579Z
+================================================================
+Provider: PostgreSQL (TEST_DB verified)
+
+--- SUITE 1: PRODUCTION STARTUP GUARDS (FAIL-FAST) ---
+[PASS] Startup guard refused unsafe combo: EnableWallet without AllowFinancialInProduction (exited with non-zero code)
+[PASS] Startup guard refused unsafe combo: EnableVendorPayouts without AllowFinancialInProduction (exited with non-zero code)
+[PASS] Startup guard refused unsafe combo: GoogleEnabled with AllowFakeGoogleTokens=true (exited with non-zero code)
+[PASS] Startup guard refused unsafe combo: GoogleEnabled without any configured Client IDs (exited with non-zero code)
+[PASS] Startup guard refused unsafe combo: Admin:WebEnabled with Require2FA=false (exited with non-zero code)
+[PASS] Startup guard refused unsafe combo: Admin:WebEnabled with RequireHttpsBehindProxy=false (exited with non-zero code)
+
+--- SUITE 2: LAUNCH SERVER WITH ALL FEATURE FLAGS OFF ---
+Waiting for backend server to become healthy...
+Backend server healthy on http://localhost:5218
+
+--- SUITE 3: GET /api/config VERIFICATION ---
+Config response: {"googleEnabled":false,"phoneSignupEnabled":false,"verificationRequired":true,"walletEnabled":false,"vendorPayoutsEnabled":false,"couponsEnabled":false}
+[PASS] GET /api/config returns all flags false and exposes only public non-sensitive fields
+[PASS] GET /api/config strictly omits sensitive/admin configuration
+
+--- SUITE 4: TABLE-DRIVEN GATED ROUTE 404 TESTS ---
+[PASS] [404] GET /api/users/me/wallet correctly blocked behind Features:EnableWallet
+[PASS] [404] GET /api/wallet/me correctly blocked behind Features:EnableWallet
+[PASS] [404] POST /api/wallet/payout-request correctly blocked behind Features:EnableVendorPayouts
+[PASS] [404] GET /api/wallet/payouts correctly blocked behind Features:EnableVendorPayouts
+[PASS] [404] GET /api/admin/wallet/payouts correctly blocked behind Features:EnableVendorPayouts
+[PASS] [404] POST /api/admin/wallet/payouts/1/process correctly blocked behind Features:EnableVendorPayouts
+[PASS] [404] POST /api/coupons/validate correctly blocked behind Features:EnableCoupons
+[PASS] [404] POST /api/coupons correctly blocked behind Features:EnableCoupons
+[PASS] [404] GET /api/coupons/my correctly blocked behind Features:EnableCoupons
+[PASS] [404] POST /api/auth/google correctly blocked behind Auth:GoogleEnabled
+[PASS] [404] POST /api/auth/google/link correctly blocked behind Auth:GoogleEnabled
+[PASS] [404] GET /admin correctly blocked behind Admin:WebEnabled
+[PASS] [404] POST /api/admin/auth/login correctly blocked behind Admin:WebEnabled
+
+--- SUITE 5: CHECKOUT GATED FIELDS (WALLET & COUPON -> 400) ---
+[PASS] POST /api/orders with useWalletBalance=true rejected with 400
+[PASS] POST /api/orders with couponCode rejected with 400
+[PASS] POST /api/auth/register with phone when PhoneSignupEnabled=false returns 404
+
+================================================================
+SUMMARY: Total: 24 | Passed: 24 | Failed: 0 | Skipped: 0
+================================================================

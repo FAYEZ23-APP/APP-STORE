@@ -12,6 +12,11 @@ public class BuyerShipmentResponse
     public string TrackingNumber { get; set; } = string.Empty;
     public decimal DeliveryCost { get; set; }
     public decimal CodAmount { get; set; }
+    public bool IsCodSettled { get; set; }
+    public DateTime? CodSettledAt { get; set; }
+    public bool FlaggedForReview { get; set; }
+    public decimal? ReceivedAmount { get; set; }
+    public string? SettlementReference { get; set; }
     public string? ReturnReason { get; set; }
     public int EtaMinDays { get; set; }
     public int EtaMaxDays { get; set; }
@@ -32,6 +37,11 @@ public class SellerShipmentResponse
     public string DeliveryMethod { get; set; } = string.Empty;
     public decimal DeliveryCost { get; set; }
     public decimal CodAmount { get; set; }
+    public bool IsCodSettled { get; set; }
+    public DateTime? CodSettledAt { get; set; }
+    public bool FlaggedForReview { get; set; }
+    public decimal? ReceivedAmount { get; set; }
+    public string? SettlementReference { get; set; }
     public string? ReturnReason { get; set; }
     public int EtaMinDays { get; set; }
     public int EtaMaxDays { get; set; }

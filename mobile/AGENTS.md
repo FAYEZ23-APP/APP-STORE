@@ -4,14 +4,17 @@
 - **Repository Root**: `D:\Backend\marketplace`
 - **Backend Project Folder**: `D:\Backend\marketplace\backend`
 - **Mobile Project Folder**: `D:\Backend\marketplace\mobile`
+- **Admin Web Project Folder**: `D:\Backend\marketplace\admin-web`
 
 ## Global Rules
-1. Work only in the single unified project folders (`D:\Backend\marketplace\backend` and `D:\Backend\marketplace\mobile`).
-2. NEVER run database commands (no `dotnet ef database update/drop`, `psql`, `pg_dump`). Generate migrations only, show the SQL for the user to apply.
-3. Tests run only against the database named in the env var `TEST_DB` (or InMemory).
+1. Work only in the single unified project folders (`D:\Backend\marketplace\backend`, `D:\Backend\marketplace\mobile`, and `D:\Backend\marketplace\admin-web`).
+2. NEVER run database commands against real databases (no `dotnet ef database update/drop`, `psql`, `pg_dump`). Generate migrations only, show the SQL for the user to apply.
+3. Tests run only against PostgreSQL through `TEST_DB`. If unset or not PostgreSQL, mark tests NOT RUN. Never switch to InMemory.
 4. Do NOT deploy anything; the hosting platform is paused. Local work only.
-5. Never print or commit secrets. Secrets come from environment variables.
-6. Execute ONE stage at a time. After each stage report: files changed, endpoints added, raw test output, and what could NOT be verified. Then STOP and wait for confirmation.
+5. Never print or commit secrets. Secrets come from environment variables. Every number or output in a report must come from a command just run and saved under tests/ or reports/. Never retype output.
+6. New dependencies: state package, version and licence before adding; prefer none. Run the package vulnerability audit and report it.
+7. Mobile and web: i18n only (ar primary, en fallback), RTL-safe logical styles (start/end), theme tokens, the i18n check must pass.
+8. Execute ONE stage/part at a time. After each stage report: files changed, endpoints added, migration SQL, tests (provider, pass/fail/skipped), and what could NOT be verified. Then STOP and wait for confirmation.
 
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 

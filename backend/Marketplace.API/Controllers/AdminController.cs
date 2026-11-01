@@ -1,4 +1,5 @@
 using Marketplace.API.Extensions;
+using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Admin;
 using Marketplace.Application.DTOs.Wallet;
 using Marketplace.Application.Interfaces;
@@ -14,21 +15,14 @@ public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
     private readonly IWalletService _walletService;
-    private readonly IConfiguration _configuration;
 
     public AdminController(
         IAdminService adminService,
-        IWalletService walletService,
-        IConfiguration configuration)
+        IWalletService walletService)
     {
         _adminService = adminService;
         _walletService = walletService;
-        _configuration = configuration;
     }
-
-    private bool IsWalletEnabled =>
-        _configuration.GetValue<bool>("Features:WalletEnabled", false) ||
-        _configuration.GetValue<bool>("Wallet:Enabled", false);
 
     /// <summary>List platform users with optional role and status filters. (Admin only)</summary>
     [HttpGet("users")]
@@ -70,20 +64,20 @@ public class AdminController : ControllerBase
 
     /// <summary>List vendor payout requests with optional status filter. (Admin only)</summary>
     [HttpGet("wallet/payouts")]
+    [RequireFeature(FeatureFlag.VendorPayouts)]
     [ProducesResponseType(typeof(IEnumerable<PayoutRequestResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IEnumerable<PayoutRequestResponse>>> GetPayouts([FromQuery] string? status = null)
     {
-        if (!IsWalletEnabled) return NotFound(new { error = "Wallet feature is disabled." });
-
         var payouts = await _walletService.GetAllPayoutRequestsAsync(status);
         return Ok(payouts);
     }
 
     /// <summary>Process a vendor payout request (Completed or Rejected). (Admin only)</summary>
     [HttpPost("wallet/payouts/{id:int}/process")]
+    [RequireFeature(FeatureFlag.VendorPayouts)]
     [ProducesResponseType(typeof(PayoutRequestResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -91,9 +85,37 @@ public class AdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PayoutRequestResponse>> ProcessPayout(int id, [FromBody] ProcessPayoutRequest request)
     {
-        if (!IsWalletEnabled) return NotFound(new { error = "Wallet feature is disabled." });
-
         var processed = await _walletService.ProcessPayoutAsync(id, request);
         return Ok(processed);
+    }
+
+    /// <summary>Confirm COD cash remittance from carrier and release seller escrow hold to available balance with step-up authentication. (Admin only)</summary>
+    [HttpPost("shipments/{id:int}/settle-cod")]
+    [RequireFeature(FeatureFlag.Wallet)]
+    [ProducesResponseType(typeof(SettleCodResultResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SettleCodResultResponse>> SettleCod(int id, [FromBody] AdminSettleCodRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _walletService.SettleCodByAdminAsync(id, adminId, request);
+        return Ok(result);
+    }
+
+    /// <summary>List platform administrative audit logs with pagination and filters. (Admin only)</summary>
+    [HttpGet("audit-logs")]
+    [ProducesResponseType(typeof(AdminAuditLogListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<AdminAuditLogListResponse>> GetAuditLogs(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? entityType = null,
+        [FromQuery] string? action = null)
+    {
+        var logs = await _adminService.GetAuditLogsAsync(page, pageSize, entityType, action);
+        return Ok(logs);
     }
 }

@@ -17,6 +17,9 @@ public class CreateOrderRequest
     public string PaymentMethod { get; set; } = "OnReceipt";
     public string? CouponCode { get; set; }
     public bool UseWalletBalance { get; set; } = false;
+    public string? IdempotencyKey { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 public class OrderItemRequest
@@ -46,6 +49,7 @@ public class OrderResponse
     public string StreetBuilding { get; set; } = string.Empty;
     public string? AddressLine { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
+    public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<BuyerShipmentResponse> Shipments { get; set; } = new();
     public List<OrderItemResponse> Items { get; set; } = new();

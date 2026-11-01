@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { colors } from '../theme/colors';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -24,7 +25,7 @@ export class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <SafeAreaView style={styles.safeArea}>
-          <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+          <StatusBar barStyle="dark-content" backgroundColor={colors.screenBg} />
           <View style={styles.container}>
             <View style={styles.header}>
               <Text style={styles.icon}>⚠️</Text>
@@ -49,7 +50,7 @@ export class ErrorBoundary extends React.Component {
               )}
             </ScrollView>
 
-            <TouchableOpacity style={styles.retryButton} onPress={this.resetError} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.retryButton} onPress={this.resetError} activeOpacity={0.85}>
               <Text style={styles.retryText}>إعادة المحاولة</Text>
             </TouchableOpacity>
           </View>
@@ -64,7 +65,7 @@ export class ErrorBoundary extends React.Component {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.screenBg,
   },
   container: {
     flex: 1,
@@ -82,48 +83,53 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   errorBox: {
     maxHeight: 280,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    backgroundColor: colors.cardBg,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     marginBottom: 20,
   },
   errorLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   errorText: {
     fontSize: 13,
-    color: '#DC2626',
+    color: colors.primary,
     fontFamily: 'monospace',
   },
   stackText: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontFamily: 'monospace',
   },
   retryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   retryText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '700',
   },

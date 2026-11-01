@@ -17,6 +17,7 @@ public interface IUnitOfWork : IDisposable
     IRepository<WalletTransaction> WalletTransactions { get; }
     IRepository<PayoutRequest> PayoutRequests { get; }
     IRepository<Review> Reviews { get; }
+    IRepository<ReviewReport> ReviewReports { get; }
     IRepository<UserDeviceToken> UserDeviceTokens { get; }
     IRepository<ProductVariant> ProductVariants { get; }
     IRepository<Coupon> Coupons { get; }
@@ -26,10 +27,18 @@ public interface IUnitOfWork : IDisposable
     IRepository<BuyerWalletTransaction> BuyerWalletTransactions { get; }
     IRepository<VerificationCode> VerificationCodes { get; }
     IRepository<RefreshToken> RefreshTokens { get; }
+    IRepository<UploadedFile> UploadedFiles { get; }
+    IRepository<ExternalLogin> ExternalLogins { get; }
+    IRepository<WishlistItem> WishlistItems { get; }
+    IRepository<UserNotification> UserNotifications { get; }
+    IRepository<AdminAuditLog> AdminAuditLogs { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();
     Task CommitTransactionAsync();
     Task RollbackTransactionAsync();
+    /// <summary>Discards all tracked entities (used after a rolled-back failed save).</summary>
+    void ClearChangeTracker();
     Task<int> ExecuteSqlRawAsync(string sql, params object[] parameters);
+    Task RecomputeProductRatingAsync(int productId);
 }

@@ -17,7 +17,15 @@ public interface IProductService
         string? search = null,
         int? page = null,
         int? pageSize = null,
-        bool? hasDiscount = null);
+        bool? hasDiscount = null,
+        int? sellerId = null);
     Task<ProductResponse> GetProductByIdAsync(int id);
     Task<IEnumerable<ProductResponse>> SearchProductsAsync(string query);
+    Task<SellerStorefrontResponse> GetSellerStorefrontAsync(
+        int sellerId,
+        int? categoryId = null,
+        string? sort = null,
+        string? search = null,
+        int? page = null,
+        int? pageSize = null);
 }

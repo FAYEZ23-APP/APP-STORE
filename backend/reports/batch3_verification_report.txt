@@ -1,0 +1,35 @@
+================================================================
+   BATCH 3 TIER-1 E-COMMERCE FEATURES VERIFICATION SUITE
+================================================================
+Timestamp: 2026-10-28T00:43:23.748Z
+TEST_DB target: PostgreSQL confirmed.
+
+--- SUITE 1: CODE INTEGRITY & ARTIFACT AUDIT ---
+  [PASS] Generated EF Core migration SQL script verified with Wishlist, Notifications, and Categories schema
+  [PASS] admin-web WishlistPage.jsx and WishlistContext.jsx verified
+  [PASS] mobile WishlistScreen.js, NotificationsScreen.js, and AdminCategoriesScreen.js verified
+  [PASS] admin-web BuyerOrdersPage and SellerShipmentsPage implement printable Invoice & Waybill with window.print()
+  [PASS] mobile MyOrdersScreen and SellerOrdersScreen implement shareable Invoice & Waybill with native Share.share()
+
+--- SUITE 2: LIVE BACKEND API EXECUTION AGAINST POSTGRESQL (TEST_DB) ---
+Waiting for backend server to become healthy against PostgreSQL...
+Backend server healthy on http://localhost:5227 (status=Healthy, database=Connected)
+
+[Feature 1] Persistent Wishlist System API:
+  [PASS] GET /api/wishlist returned 200 OK (0 items)
+  [PASS] POST /api/wishlist/1/toggle returned 200 OK (isWishlisted=true)
+  [PASS] GET /api/wishlist/ids returned 200 OK with IDs array (1 items)
+  [PASS] POST /api/wishlist/1/toggle toggled off item successfully (isWishlisted=false)
+
+[Feature 2] Persistent In-App Notifications API:
+  [PASS] GET /api/notifications returned 200 OK (items=0, unreadCount=0)
+  [PASS] GET /api/notifications/unread-count returned 200 OK (unreadCount=0)
+  [PASS] PUT /api/notifications/read-all returned 200 OK
+  [PASS] POST /api/notifications/register-token returned 200 OK
+
+[Feature 3] Dynamic Admin Category Management CRUD API:
+  [PASS] GET /api/categories?includeInactive=true returned categories with IsActive and DisplayOrder fields (total=9)
+  [PASS] POST /api/categories strictly enforces Admin authorization (Buyer received 403 Forbidden)
+  [PASS] POST /api/categories created new category successfully (ID=#10, name=TestCat_1793148213433)
+  [PASS] PUT /api/categories/10 updated category successfully (displayOrder=16, isActive=false)
+  [PASS] DELETE /api/categories/10 deleted category successfully

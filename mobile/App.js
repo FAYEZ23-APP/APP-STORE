@@ -4,9 +4,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './src/locales/i18n'; // Initialize i18next
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
+import { WishlistProvider } from './src/context/WishlistContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import UnlockScreen from './src/screens/auth/UnlockScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { colors } from './src/theme/colors';
 
 function AppContent() {
   const { isLocked, userName, userEmail, unlockWithBiometrics, unlockWithPassword } = useContext(AuthContext);
@@ -31,7 +33,9 @@ export default function App() {
       <SafeAreaProvider style={styles.root}>
         <AuthProvider>
           <CartProvider>
-            <AppContent />
+            <WishlistProvider>
+              <AppContent />
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </SafeAreaProvider>
@@ -42,6 +46,6 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.screenBg,
   },
 });

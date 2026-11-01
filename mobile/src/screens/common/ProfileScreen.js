@@ -39,6 +39,7 @@ import {
   getMyWallet,
 } from '../../api/usersApi';
 import { changeAppLanguage } from '../../locales/i18n';
+import { linkGoogle } from '../../api/authApi';
 import { isValidEgyptianPhone, formatEgyptianPhone } from '../../utils/egyptianPhone';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
@@ -149,12 +150,63 @@ export default function ProfileScreen({ navigation }) {
   const [exportingData, setExportingData] = useState(false);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deletePasswordInput, setDeletePasswordInput] = useState('');
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [deleteAuthMethod, setDeleteAuthMethod] = useState('password'); // 'password' | 'google'
+  const [deleteGoogleTokenInput, setDeleteGoogleTokenInput] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Buyer Wallet (Store Credit) State
   const [walletData, setWalletData] = useState({ balance: 0, transactions: [] });
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletEnabled, setWalletEnabled] = useState(false);
+
+  // Google Account Linking State
+  const [linkGoogleToken, setLinkGoogleToken] = useState('');
+  const [linkGoogleLoading, setLinkGoogleLoading] = useState(false);
+
+  const handleLinkGoogle = async () => {
+    if (!linkGoogleToken.trim()) {
+      Alert.alert(
+        t('common.error'),
+        t('profile.linkGoogleTokenRequired')
+      );
+      return;
+    }
+    setLinkGoogleLoading(true);
+    try {
+      await linkGoogle(linkGoogleToken.trim());
+      setLinkGoogleToken('');
+      Alert.alert(
+        t('common.success'),
+        t('profile.linkGoogleSuccess')
+      );
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        t('profile.linkGoogleError');
+      Alert.alert(t('common.error'), msg);
+    } finally {
+      setLinkGoogleLoading(false);
+    }
+  };
+
+  const loadSellerProfile = useCallback(async () => {
+    try {
+      setLoadingSellerProfile(true);
+      const res = await getMySellerProfile();
+      if (res?.data) {
+        setSellerProfile({
+          dispatchCity: res.data.dispatchCity || '',
+          dispatchAddress: res.data.dispatchAddress || '',
+          contactPhone: res.data.contactPhone || '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load seller profile', err);
+    } finally {
+      setLoadingSellerProfile(false);
+    }
+  }, []);
 
   const loadData = useCallback(async (isPull = false) => {
     try {
@@ -173,7 +225,7 @@ export default function ProfileScreen({ navigation }) {
 
         if (u.role === 'Seller') {
           loadSellerProfile();
-        } else {
+        } else if (u.role !== 'Admin') {
           // Fetch Buyer Dashboard & Config/Wallet
           try {
             const [bDashRes, configRes] = await Promise.allSettled([
@@ -182,6 +234,9 @@ export default function ProfileScreen({ navigation }) {
             ]);
             if (bDashRes.status === 'fulfilled' && bDashRes.value?.data) {
               setBuyerDashboard(bDashRes.value.data);
+            }
+            if (configRes.status === 'fulfilled') {
+              if (configRes.value?.data?.googleEnabled) setGoogleEnabled(true);
             }
             if (configRes.status === 'fulfilled' && configRes.value?.data?.walletEnabled) {
               setWalletEnabled(true);
@@ -209,29 +264,14 @@ export default function ProfileScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadSellerProfile]);
 
-  const loadSellerProfile = async () => {
-    try {
-      setLoadingSellerProfile(true);
-      const res = await getMySellerProfile();
-      if (res?.data) {
-        setSellerProfile({
-          dispatchCity: res.data.dispatchCity || '',
-          dispatchAddress: res.data.dispatchAddress || '',
-          contactPhone: res.data.contactPhone || '',
-        });
-      }
-    } catch (err) {
-      console.error('Failed to load seller profile', err);
-    } finally {
-      setLoadingSellerProfile(false);
-    }
-  };
 
   useEffect(() => {
     if (isFocused) {
-      loadData();
+      Promise.resolve().then(() => {
+        loadData();
+      });
     }
   }, [isFocused, loadData]);
 
@@ -493,14 +533,25 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleDeleteAccountConfirm = async () => {
-    if (!deletePasswordInput) {
-      Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال كلمة المرور لتأكيد حذف الحساب' : 'Please enter your password to confirm account deletion');
-      return;
+    if (deleteAuthMethod === 'password') {
+      if (!deletePasswordInput) {
+        Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال كلمة المرور لتأكيد حذف الحساب' : 'Please enter your password to confirm account deletion');
+        return;
+      }
+    } else {
+      if (!deleteGoogleTokenInput.trim()) {
+        Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال رمز Google ID Token لتأكيد حذف الحساب' : 'Please enter your Google ID token to confirm account deletion');
+        return;
+      }
     }
 
     try {
       setDeletingAccount(true);
-      await deleteMyAccount(deletePasswordInput);
+      if (deleteAuthMethod === 'password') {
+        await deleteMyAccount(deletePasswordInput);
+      } else {
+        await deleteMyAccount(null, deleteGoogleTokenInput.trim());
+      }
       if (userId) {
         await removeRefreshToken(userId);
       }
@@ -511,7 +562,7 @@ export default function ProfileScreen({ navigation }) {
         [{ text: isRTL ? 'حسناً' : 'OK', onPress: () => logout() }]
       );
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || (isRTL ? 'تعذر حذف الحساب، تأكد من كلمة المرور' : 'Failed to delete account, check your password');
+      const msg = err?.response?.data?.error || err?.message || (isRTL ? 'تعذر حذف الحساب' : 'Failed to delete account');
       Alert.alert(isRTL ? 'خطأ في الحذف' : 'Deletion Error', msg);
     } finally {
       setDeletingAccount(false);
@@ -533,7 +584,8 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  const isBuyer = profile?.role !== 'Seller';
+  const isSeller = profile?.role === 'Seller';
+  const isBuyer = profile?.role !== 'Seller' && profile?.role !== 'Admin';
   const activeShipment = buyerDashboard.activeShipment;
 
   return (
@@ -1007,64 +1059,8 @@ export default function ProfileScreen({ navigation }) {
           )}
         </View>
 
-        {/* 2. Egyptian PDPL 151/2020 Privacy & Security Center */}
-        <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
-          <View style={tw`flex-row items-center mb-2.5`}>
-            <View style={[styles.serviceIconWrap, { backgroundColor: '#F0FDF4' }]}>
-              <MaterialCommunityIcons name="shield-check-outline" size={22} color="#16A34A" />
-            </View>
-            <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
-              <Text style={styles.serviceTitle}>{t('profile.privacyCenter')}</Text>
-              <Text style={styles.serviceSubtitle}>
-                {t('profile.dataPrivacySubtitle')}
-              </Text>
-            </View>
-          </View>
-
-          {/* 1-Click JSON Export */}
-          <TouchableOpacity
-            style={styles.pdplActionRow}
-            onPress={handleExportData}
-            disabled={exportingData}
-            activeOpacity={0.75}
-          >
-            <View style={tw`flex-row items-center flex-1`}>
-              <MaterialCommunityIcons name="file-download-outline" size={20} color={colors.primary} />
-              <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
-                <Text style={styles.pdplRowTitle}>{t('profile.exportJson')}</Text>
-                <Text style={styles.pdplRowSub}>{t('profile.exportJsonSub')}</Text>
-              </View>
-            </View>
-            {exportingData ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.textSecondary} />
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.pdplDivider} />
-
-          {/* Account Erasure */}
-          <TouchableOpacity
-            style={styles.pdplActionRow}
-            onPress={() => setDeleteAccountModalVisible(true)}
-            activeOpacity={0.75}
-          >
-            <View style={tw`flex-row items-center flex-1`}>
-              <MaterialCommunityIcons name="account-remove-outline" size={20} color="#DC2626" />
-              <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
-                <Text style={[styles.pdplRowTitle, { color: '#DC2626' }]}>
-                  {t('profile.deleteAccountTitle')}
-                </Text>
-                <Text style={styles.pdplRowSub}>{t('profile.deleteAccountSub')}</Text>
-              </View>
-            </View>
-            <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
         {/* 3. Seller Dispatch Settings (Only if Seller) */}
-        {!isBuyer && (
+        {isSeller && (
           <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
             <View style={tw`flex-row items-center mb-3`}>
               <View style={[styles.serviceIconWrap, { backgroundColor: '#FFF7ED' }]}>
@@ -1227,39 +1223,88 @@ export default function ProfileScreen({ navigation }) {
           )}
         </View>
 
-        {/* 5. Language Switcher (Arabic RTL / English LTR) */}
-        <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
-          <View style={tw`flex-row items-center mb-3`}>
-            <View style={[styles.serviceIconWrap, { backgroundColor: '#F3E8FF' }]}>
-              <MaterialCommunityIcons name="translate" size={22} color="#7C3AED" />
+        {/* Google SSO Linking Card */}
+        {googleEnabled && (
+          <View style={[styles.serviceCard, cardShadow, tw`mt-3 p-4`]}>
+            <View style={tw`flex-row items-center mb-2`}>
+              <View style={[styles.serviceIconWrap, { backgroundColor: '#EFF6FF', width: 36, height: 36 }]}>
+                <MaterialCommunityIcons name="google" size={18} color="#2563EB" />
+              </View>
+              <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`, { fontSize: 14 }]}>
+                {t('profile.googleLinkingTitle')}
+              </Text>
             </View>
-            <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`]}>{t('profile.appLanguageAndDir')}</Text>
+            <Text style={[tw`text-xs text-gray-500 mb-3 leading-5`, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {t('profile.googleLinkingDesc')}
+            </Text>
+
+            <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {t('profile.googleIdTokenLabel')} *
+            </Text>
+            <TextInput
+              style={[styles.fieldInput, tw`font-mono text-xs`, { textAlign: isRTL ? 'right' : 'left' }]}
+              value={linkGoogleToken}
+              onChangeText={setLinkGoogleToken}
+              placeholder={t('profile.googleIdTokenPlaceholder')}
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TouchableOpacity
+              onPress={handleLinkGoogle}
+              disabled={linkGoogleLoading}
+              style={[styles.saveBtn, { backgroundColor: colors.primary, marginTop: 10 }]}
+            >
+              {linkGoogleLoading ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <View style={tw`flex-row items-center justify-center`}>
+                  <MaterialCommunityIcons name="link-variant" size={16} color={colors.white} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
+                  <Text style={styles.saveBtnText}>
+                    {t('profile.linkGoogleBtn')}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 5. Language Switcher (Compact Segmented Pill) */}
+        <View style={[styles.serviceCard, cardShadow, tw`mt-3 flex-row items-center justify-between py-3.5 px-4`]}>
+          <View style={tw`flex-row items-center flex-1`}>
+            <View style={[styles.serviceIconWrap, { backgroundColor: '#F3E8FF', width: 36, height: 36 }]}>
+              <MaterialCommunityIcons name="translate" size={18} color="#7C3AED" />
+            </View>
+            <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`, { fontSize: 14 }]}>
+              {t('profile.appLanguageAndDir')}
+            </Text>
           </View>
 
-          <View style={tw`flex-row justify-between`}>
+          <View style={[tw`flex-row p-1 rounded-xl`, { backgroundColor: '#F1F5F9' }]}>
             <TouchableOpacity
               onPress={() => handleLanguageChange('ar')}
               style={[
-                styles.langBtn,
-                isArabicActive ? styles.langBtnActive : styles.langBtnInactive,
+                tw`px-3 py-1.5 rounded-lg`,
+                isArabicActive ? { backgroundColor: colors.primary } : tw`bg-transparent`
               ]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.langBtnText, isArabicActive && styles.langBtnTextActive]}>
-                العربية (RTL) 🇪🇬
+              <Text style={[tw`text-xs font-bold`, isArabicActive ? { color: colors.white } : { color: colors.textSecondary }]}>
+                العربية 🇪🇬
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleLanguageChange('en')}
               style={[
-                styles.langBtn,
-                !isArabicActive ? styles.langBtnActive : styles.langBtnInactive,
+                tw`px-3 py-1.5 rounded-lg`,
+                !isArabicActive ? { backgroundColor: colors.primary } : tw`bg-transparent`
               ]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.langBtnText, !isArabicActive && styles.langBtnTextActive]}>
-                English (LTR)
+              <Text style={[tw`text-xs font-bold`, !isArabicActive ? { color: colors.white } : { color: colors.textSecondary }]}>
+                English
               </Text>
             </TouchableOpacity>
           </View>
@@ -1273,6 +1318,17 @@ export default function ProfileScreen({ navigation }) {
         >
           <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
           <Text style={[styles.logoutBtnText, isRTL ? tw`mr-2` : tw`ml-2`]}>{t('profile.logoutAccount')}</Text>
+        </TouchableOpacity>
+
+        {/* 7. Discreet Delete Account Action */}
+        <TouchableOpacity
+          onPress={() => setDeleteAccountModalVisible(true)}
+          style={tw`items-center py-3 mt-1 mb-6`}
+          activeOpacity={0.7}
+        >
+          <Text style={[tw`text-xs font-semibold text-red-500`, { opacity: 0.85 }]}>
+            {t('profile.deleteAccountTitle')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -1409,15 +1465,64 @@ export default function ProfileScreen({ navigation }) {
               {t('profile.deleteWarning')}
             </Text>
 
-            <Text style={[styles.fieldLabel, tw`mt-3`, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.deleteConfirmText')}</Text>
-            <TextInput
-              secureTextEntry
-              style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-              value={deletePasswordInput}
-              onChangeText={setDeletePasswordInput}
-              placeholder={isRTL ? 'أدخل كلمة المرور الحالية' : 'Enter current password'}
-              placeholderTextColor="#94A3B8"
-            />
+            {googleEnabled && (
+              <View style={tw`flex-row gap-2 mt-3 mb-2`}>
+                <TouchableOpacity
+                  onPress={() => setDeleteAuthMethod('password')}
+                  style={[
+                    tw`flex-1 py-2 rounded-xl items-center border`,
+                    deleteAuthMethod === 'password'
+                      ? tw`bg-slate-900 border-slate-900`
+                      : tw`bg-slate-100 border-slate-200`,
+                  ]}
+                >
+                  <Text style={[tw`text-xs font-bold`, deleteAuthMethod === 'password' ? tw`text-white` : tw`text-slate-700`]}>
+                    {isRTL ? 'كلمة المرور' : 'Password'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setDeleteAuthMethod('google')}
+                  style={[
+                    tw`flex-1 py-2 rounded-xl items-center border`,
+                    deleteAuthMethod === 'google'
+                      ? tw`bg-slate-900 border-slate-900`
+                      : tw`bg-slate-100 border-slate-200`,
+                  ]}
+                >
+                  <Text style={[tw`text-xs font-bold`, deleteAuthMethod === 'google' ? tw`text-white` : tw`text-slate-700`]}>
+                    {isRTL ? 'حساب Google' : 'Google Token'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {deleteAuthMethod === 'password' ? (
+              <>
+                <Text style={[styles.fieldLabel, tw`mt-2`, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.deleteConfirmText')}</Text>
+                <TextInput
+                  secureTextEntry
+                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                  value={deletePasswordInput}
+                  onChangeText={setDeletePasswordInput}
+                  placeholder={isRTL ? 'أدخل كلمة المرور الحالية' : 'Enter current password'}
+                  placeholderTextColor="#94A3B8"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.fieldLabel, tw`mt-2`, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {isRTL ? 'رمز Google ID Token لتأكيد الهوية' : 'Google ID Token for Verification'}
+                </Text>
+                <TextInput
+                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }, tw`font-mono text-xs`]}
+                  value={deleteGoogleTokenInput}
+                  onChangeText={setDeleteGoogleTokenInput}
+                  placeholder={isRTL ? 'ألصق رمز Google ID Token' : 'Paste Google ID Token'}
+                  placeholderTextColor="#94A3B8"
+                />
+              </>
+            )}
 
             <View style={tw`flex-row justify-end mt-4`}>
               <TouchableOpacity

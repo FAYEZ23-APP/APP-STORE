@@ -47,3 +47,28 @@ public class ProcessPayoutRequest
     public string Status { get; set; } = string.Empty;
     public string? AdminNotes { get; set; }
 }
+
+public class SettleCodRequest
+{
+    public string? Notes { get; set; }
+}
+
+public class AdminSettleCodRequest
+{
+    public string Password { get; set; } = string.Empty;
+    public string TotpCode { get; set; } = string.Empty;
+    public string SettlementReference { get; set; } = string.Empty;
+    public decimal ReceivedAmount { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class SettleCodResultResponse
+{
+    public bool Success { get; set; }
+    public bool FlaggedForReview { get; set; }
+    public bool Released { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public decimal ExpectedAmount { get; set; }
+    public decimal? ReceivedAmount { get; set; }
+    public string? SettlementReference { get; set; }
+}

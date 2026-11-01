@@ -1,0 +1,98 @@
+﻿
+===============================================================
+   Seller & Role Shopping Isolation Test Suite (admin-web)
+===============================================================
+
+  Ô£ö PASS: Seller home path resolves to /seller/dashboard
+  Ô£ö PASS: Admin home path resolves to /admin
+  Ô£ö PASS: Buyer home path resolves to /
+  Ô£ö PASS: Guest home path resolves to /
+  Ô£ö PASS: Unauthenticated guests can browse storefront
+  Ô£ö PASS: Authenticated Buyers can browse and shop
+  Ô£ö PASS: Authenticated Sellers are blocked from shopping mode
+  Ô£ö PASS: Authenticated Admins are blocked from shopping mode
+  Ô£ö PASS: Seller login with no return path redirects to /seller/dashboard
+  Ô£ö PASS: Seller login coming from buyer /cart ignores /cart and redirects to /seller/dashboard
+  Ô£ö PASS: Seller login coming from /product/42 redirects to /seller/dashboard
+  Ô£ö PASS: Seller login preserves deep link inside /seller/*
+  Ô£ö PASS: Admin login coming from / redirects to /admin
+  Ô£ö PASS: Buyer login coming from /seller/products redirects safely to /
+  Ô£ö PASS: Buyer login preserves /checkout return path
+  Ô£ö PASS: App.jsx guards '/' with <StorefrontRoute>
+  Ô£ö PASS: App.jsx guards '/categories' with <StorefrontRoute>
+  Ô£ö PASS: App.jsx guards '/search' with <StorefrontRoute>
+  Ô£ö PASS: App.jsx guards '/product/:id' with <StorefrontRoute>
+  Ô£ö PASS: App.jsx guards '/store/:sellerId' with <StorefrontRoute>
+  Ô£ö PASS: Navbar.jsx computes isShoppingMode via isShoppingAllowedForRole
+  Ô£ö PASS: Navbar.jsx hides Sell With Us link for all authenticated users
+  Ô£ö PASS: Zero missing t('...') keys across all src/ JS/JSX files (checked against ar.json & en.json)
+
+===============================================================
+SUMMARY: Total Tests: 23 | Passed: 23 | Failed: 0
+===============================================================
+
+
+===============================================================
+   admin-web Real Router Gating Test (matchRoutes)
+===============================================================
+
+[34m--- Scenario A: VITE_STOREFRONT_WEB_ENABLED=false (Admin-Only Hardened Surface) ---[0m
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/cart' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/checkout' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/orders' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/wishlist' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/categories' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/search' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/product/123' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller/dashboard' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller/products' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller/shipments' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller/wallet' is UNREACHABLE and resolves to admin fallback wildcard (got: admin-wildcard-redirect)
+  [32mÔ£ö PASS[0m [ROUTER]: Admin route '/admin' resolves strictly to admin-portal
+  [32mÔ£ö PASS[0m [ROUTER]: Login route '/login' resolves to admin authentication page
+  [32mÔ£ö PASS[0m [ROUTER]: Root route '/' redirects strictly to admin
+
+[34m--- Scenario B: VITE_STOREFRONT_WEB_ENABLED=true (Dual Surface) ---[0m
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/cart' resolves to buyer-cart when enabled
+  [32mÔ£ö PASS[0m [ROUTER]: Buyer route '/wishlist' resolves to buyer-wishlist when enabled
+  [32mÔ£ö PASS[0m [ROUTER]: Seller route '/seller/dashboard' resolves to seller-dashboard when enabled
+  [32mÔ£ö PASS[0m [ROUTER]: Admin route '/admin' resolves to admin-portal
+
+===============================================================
+SUMMARY: Total Tests: 19 | Passed: 19 | Failed: 0
+===============================================================
+
+
+[36m=======================================================
+   MarketplaceWeb Frontend Security & Integrity Audit  
+=======================================================[0m
+
+[35m[1/4] Static Source Code Security Scan (src/)[0m
+  [32mÔ£ö PASS[0m: Zero usage of dangerouslySetInnerHTML across entire codebase
+  [32mÔ£ö PASS[0m: Zero usage of javascript: protocol in href/src attributes
+  [32mÔ£ö PASS[0m: DevCarrierDrawer strictly gated behind import.meta.env.DEV for dead-code elimination
+  [32mÔ£ö PASS[0m: All <img> tags define infinite-loop-proof onError fallback handlers
+
+[35m[2/4] i18n Translation Key Parity Audit[0m
+  [32mÔ£ö PASS[0m: All 1003 Arabic keys exist in English locale (0 missing)
+  [32mÔ£ö PASS[0m: All 1003 English keys exist in Arabic locale (0 missing)
+
+[35m[3/4] Cart State & Compound Key Sanitizer Unit Tests[0m
+  [32mÔ£ö PASS[0m: getCartItemKey handles variants correctly (42_red-xl)
+  [32mÔ£ö PASS[0m: getCartItemKey defaults null variant to base (42_base)
+  [32mÔ£ö PASS[0m: sanitizeCartItems preserves valid compound cart items and prices
+  [32mÔ£ö PASS[0m: sanitizeCartItems strictly eliminates negative quantities, NaN prices, and ID mismatches
+
+[35m[4/4] Production Build & Secret Tree-Shaking Audit[0m
+  Running "npm run build"...
+  [32mÔ£ö PASS[0m: npm run build completed successfully with exit code 0
+  [32mÔ£ö PASS[0m: dist/assets directory exists
+  [32mÔ£ö PASS[0m: Production sourcemaps disabled (0 *.map files generated)
+  [32mÔ£ö PASS[0m: Compiled JavaScript assets present (4 bundles)
+  [32mÔ£ö PASS[0m: Zero development secrets (dev-carrier-secret) in compiled production bundle
+
+[36m=======================================================
+   Audit Complete: 15 Passed, 0 Failed
+=======================================================[0m
+

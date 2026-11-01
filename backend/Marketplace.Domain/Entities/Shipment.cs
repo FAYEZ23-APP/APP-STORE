@@ -16,8 +16,15 @@ public class Shipment
     public int EtaMaxDays { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DeliveredAt { get; set; }
+    public bool IsCodSettled { get; set; } = false;
+    public DateTime? CodSettledAt { get; set; }
+    public decimal? ReceivedAmount { get; set; }
+    public string? SettlementReference { get; set; }
+    public int? SettledByAdminId { get; set; }
+    public bool FlaggedForReview { get; set; } = false;
 
     public Order Order { get; set; } = null!;
     public User Seller { get; set; } = null!;
+    public User? SettledByAdmin { get; set; }
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }

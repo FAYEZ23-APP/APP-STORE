@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/currency';
 import { getImageUrl } from '../utils/imageUrl';
+import { useWishlist } from '../context/WishlistContext';
 import { getCategoryIconName } from '../utils/categoryIcons';
 import { CartContext } from '../context/CartContext';
 import { colors } from '../theme/colors';
@@ -49,7 +50,8 @@ export default function ProductCard({
   const { t } = useTranslation();
   const navigation = useNavigation();
   const { getQuantity, add } = useContext(CartContext);
-  const [isFavorite, setIsFavorite] = useState(Boolean(product?.isFavorite ?? initialFavorite));
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const isFavorite = isWishlisted(product?.id) || Boolean(product?.isFavorite ?? initialFavorite);
 
   if (!product) return null;
 
@@ -74,19 +76,27 @@ export default function ProductCard({
     : null;
 
   // Only show rating row when real rating data exists in the response
-  const hasRealRating = typeof product.rating === 'number' && product.rating > 0;
+  const ratingValue =
+    typeof product.ratingAverage === 'number' && product.ratingAverage > 0
+      ? product.ratingAverage
+      : typeof product.rating === 'number' && product.rating > 0
+        ? product.rating
+        : 0;
+  const hasRealRating = ratingValue > 0;
   const reviewCount =
-    typeof product.reviewCount === 'number'
-      ? product.reviewCount
-      : typeof product.reviewsCount === 'number'
-        ? product.reviewsCount
-        : null;
+    typeof product.ratingCount === 'number'
+      ? product.ratingCount
+      : typeof product.reviewCount === 'number'
+        ? product.reviewCount
+        : typeof product.reviewsCount === 'number'
+          ? product.reviewsCount
+          : null;
 
   const categoryKey = product.categoryKey || '';
 
   const handleFavoritePress = () => {
     const next = !isFavorite;
-    setIsFavorite(next);
+    toggleWishlist(product.id).catch((err) => console.warn(err));
     if (onToggleFavorite) {
       onToggleFavorite(product, next);
     }
@@ -106,7 +116,7 @@ export default function ProductCard({
   const handleOpenCart = () => {
     try {
       navigation.navigate('Cart');
-    } catch (e) {
+    } catch (_e) {
       navigation.navigate('BuyerRoot', { screen: 'Cart' });
     }
   };
@@ -216,6 +226,27 @@ export default function ProductCard({
               </View>
             </TouchableOpacity>
           )}
+
+          {/* Bottom-right: Multi-image count badge when more than 1 image */}
+          {Array.isArray(product.imageUrls) && product.imageUrls.length > 1 && (
+            <View
+              style={[
+                tw`absolute rounded-full flex-row items-center`,
+                {
+                  bottom: 6,
+                  right: 6,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  backgroundColor: colors.counterOverlayBg,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons name="image-multiple-outline" size={11} color={colors.white} />
+              <Text style={[tw`text-[10px] font-bold ml-1`, { color: colors.white }]}>
+                {product.imageUrls.length}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* 2. Price row (most prominent element): ~17sp bold + optional oldPrice & red discount badge */}
@@ -314,7 +345,7 @@ export default function ProductCard({
                 { marginLeft: 4, color: colors.textPrimary },
               ]}
             >
-              {Number(product.rating).toFixed(1)}
+              {Number(ratingValue).toFixed(1)}
             </Text>
             {typeof reviewCount === 'number' && reviewCount > 0 && (
               <Text

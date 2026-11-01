@@ -2,16 +2,20 @@ using Marketplace.Application.DTOs.Products;
 using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
+using Marketplace.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace Marketplace.Application.Services;
 
 public class ProductService : IProductService
 {
     private readonly IUnitOfWork _uow;
+    private readonly IImageUploadService _imageUploadService;
 
-    public ProductService(IUnitOfWork uow)
+    public ProductService(IUnitOfWork uow, IImageUploadService imageUploadService)
     {
         _uow = uow;
+        _imageUploadService = imageUploadService;
     }
 
     public async Task<ProductResponse> CreateProductAsync(int sellerId, CreateProductRequest request)
@@ -29,10 +33,44 @@ public class ProductService : IProductService
         if (category is null)
             throw new NotFoundException("Category not found.");
 
+        var normalizedImageUrls = (request.ImageUrls ?? new List<string>())
+            .Select(u => u?.Trim() ?? string.Empty)
+            .ToList();
+        var variantImageUrls = request.Variants?.Select(v => v.ImageUrl?.Trim()).ToList();
+
+        await _imageUploadService.ValidateSellerOwnedImagesAsync(sellerId, normalizedImageUrls, variantImageUrls);
+
+        var nameAr = !string.IsNullOrWhiteSpace(request.NameAr) ? request.NameAr.Trim() : request.Name.Trim();
+        var nameEn = !string.IsNullOrWhiteSpace(request.NameEn) ? request.NameEn.Trim() : request.Name.Trim();
+        var brandNameAr = request.BrandNameAr?.Trim();
+        var brandNameEn = request.BrandNameEn?.Trim();
+        var keywords = request.Keywords?.Trim();
+        var description = request.Description.Trim();
+        var descAr = !string.IsNullOrWhiteSpace(request.DescriptionAr) ? request.DescriptionAr.Trim() : description;
+        var descEn = !string.IsNullOrWhiteSpace(request.DescriptionEn) ? request.DescriptionEn.Trim() : description;
+
+        var searchVector = BuildSearchVector(
+            nameAr,
+            nameEn,
+            brandNameAr,
+            brandNameEn,
+            category.NameAr ?? category.Key,
+            category.NameEn ?? category.Key,
+            keywords,
+            description);
+
         var product = new Product
         {
             Name = request.Name.Trim(),
-            Description = request.Description.Trim(),
+            NameAr = nameAr,
+            NameEn = nameEn,
+            BrandNameAr = brandNameAr,
+            BrandNameEn = brandNameEn,
+            Keywords = keywords,
+            SearchVector = searchVector,
+            Description = description,
+            DescriptionAr = descAr,
+            DescriptionEn = descEn,
             Price = request.Price,
             OldPrice = request.OldPrice,
             Stock = request.Stock,
@@ -40,7 +78,7 @@ public class ProductService : IProductService
             LengthCm = request.LengthCm,
             WidthCm = request.WidthCm,
             HeightCm = request.HeightCm,
-            ImageUrls = request.ImageUrls,
+            ImageUrls = normalizedImageUrls,
             CategoryId = request.CategoryId,
             SellerId = sellerId,
             CreatedAt = DateTime.UtcNow
@@ -83,8 +121,31 @@ public class ProductService : IProductService
         if (category is null)
             throw new NotFoundException("Category not found.");
 
+        var normalizedImageUrls = (request.ImageUrls ?? new List<string>())
+            .Select(u => u?.Trim() ?? string.Empty)
+            .ToList();
+        var variantImageUrls = request.Variants?.Select(v => v.ImageUrl?.Trim()).ToList();
+
+        await _imageUploadService.ValidateSellerOwnedImagesAsync(sellerId, normalizedImageUrls, variantImageUrls);
+
+        var nameAr = !string.IsNullOrWhiteSpace(request.NameAr) ? request.NameAr.Trim() : request.Name.Trim();
+        var nameEn = !string.IsNullOrWhiteSpace(request.NameEn) ? request.NameEn.Trim() : request.Name.Trim();
+        var brandNameAr = request.BrandNameAr?.Trim();
+        var brandNameEn = request.BrandNameEn?.Trim();
+        var keywords = request.Keywords?.Trim();
+        var description = request.Description.Trim();
+        var descAr = !string.IsNullOrWhiteSpace(request.DescriptionAr) ? request.DescriptionAr.Trim() : description;
+        var descEn = !string.IsNullOrWhiteSpace(request.DescriptionEn) ? request.DescriptionEn.Trim() : description;
+
         product.Name = request.Name.Trim();
-        product.Description = request.Description.Trim();
+        product.NameAr = nameAr;
+        product.NameEn = nameEn;
+        product.BrandNameAr = brandNameAr;
+        product.BrandNameEn = brandNameEn;
+        product.Keywords = keywords;
+        product.Description = description;
+        product.DescriptionAr = descAr;
+        product.DescriptionEn = descEn;
         product.Price = request.Price;
         product.OldPrice = request.OldPrice;
         product.Stock = request.Stock;
@@ -92,8 +153,17 @@ public class ProductService : IProductService
         product.LengthCm = request.LengthCm;
         product.WidthCm = request.WidthCm;
         product.HeightCm = request.HeightCm;
-        product.ImageUrls = request.ImageUrls;
+        product.ImageUrls = normalizedImageUrls;
         product.CategoryId = request.CategoryId;
+        product.SearchVector = BuildSearchVector(
+            nameAr,
+            nameEn,
+            brandNameAr,
+            brandNameEn,
+            category.NameAr ?? category.Key,
+            category.NameEn ?? category.Key,
+            keywords,
+            description);
 
         if (request.Variants != null)
         {
@@ -186,14 +256,40 @@ public class ProductService : IProductService
     public async Task DeleteProductAsync(int sellerId, int productId)
     {
         var product = await _uow.Products.GetByIdAsync(productId);
-        if (product is null)
+        if (product is null || product.IsDeleted)
             throw new NotFoundException("Product not found.");
 
         if (product.SellerId != sellerId)
             throw new ForbiddenException("You do not have permission to delete this product.");
 
-        _uow.Products.Remove(product);
-        await _uow.SaveChangesAsync();
+        // Check if product is referenced by existing order items
+        var hasOrderItems = await _uow.OrderItems.Query().AnyAsync(oi => oi.ProductId == productId);
+        if (hasOrderItems)
+        {
+            // Safe Soft Delete: preserve order history integrity, zero out stock, hide from catalog/search
+            product.IsDeleted = true;
+            product.Stock = 0;
+            _uow.Products.Update(product);
+
+            var variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == productId)).ToList();
+            foreach (var v in variants)
+            {
+                v.Stock = 0;
+                _uow.ProductVariants.Update(v);
+            }
+            await _uow.SaveChangesAsync();
+        }
+        else
+        {
+            // Safe Hard Delete: product has zero order items, can be removed cleanly
+            var variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == productId)).ToList();
+            foreach (var v in variants)
+            {
+                _uow.ProductVariants.Remove(v);
+            }
+            _uow.Products.Remove(product);
+            await _uow.SaveChangesAsync();
+        }
     }
 
     public async Task<IEnumerable<ProductResponse>> GetSellerProductsAsync(int sellerId)
@@ -202,7 +298,7 @@ public class ProductService : IProductService
         if (seller is null)
             throw new NotFoundException("Seller not found.");
 
-        var products = (await _uow.Products.FindAsync(p => p.SellerId == sellerId)).ToList();
+        var products = (await _uow.Products.FindAsync(p => p.SellerId == sellerId && !p.IsDeleted)).ToList();
         var productIds = products.Select(p => p.Id).ToList();
         var variants = (await _uow.ProductVariants.FindAsync(v => productIds.Contains(v.ProductId)))
             .GroupBy(v => v.ProductId)
@@ -213,7 +309,8 @@ public class ProductService : IProductService
             p.Variants = variants.GetValueOrDefault(p.Id, new List<ProductVariant>());
         }
 
-        var categories = (await _uow.Categories.GetAllAsync()).ToDictionary(c => c.Id);
+        var categoryIds = products.Select(p => p.CategoryId).Distinct().ToList();
+        var categories = (await _uow.Categories.FindAsync(c => categoryIds.Contains(c.Id))).ToDictionary(c => c.Id);
 
         return products.Select(p => MapToResponse(p, seller.Name, categories.GetValueOrDefault(p.CategoryId)));
     }
@@ -224,9 +321,17 @@ public class ProductService : IProductService
         string? search = null,
         int? page = null,
         int? pageSize = null,
-        bool? hasDiscount = null)
+        bool? hasDiscount = null,
+        int? sellerId = null)
     {
-        IQueryable<Product> query = _uow.Products.Query();
+        IQueryable<Product> query = _uow.Products.Query()
+            .Include(p => p.Category)
+            .Where(p => !p.IsDeleted && (p.Category == null || p.Category.IsActive));
+
+        if (sellerId.HasValue && sellerId.Value > 0)
+        {
+            query = query.Where(p => p.SellerId == sellerId.Value);
+        }
 
         if (categoryId.HasValue && categoryId.Value > 0)
         {
@@ -272,16 +377,136 @@ public class ProductService : IProductService
             p.Variants = variants.GetValueOrDefault(p.Id, new List<ProductVariant>());
         }
 
-        var sellers = (await _uow.Users.GetAllAsync()).ToDictionary(u => u.Id, u => u.Name);
-        var categories = (await _uow.Categories.GetAllAsync()).ToDictionary(c => c.Id);
+        var sellerIds = products.Select(p => p.SellerId).Distinct().ToList();
+        var sellers = (await _uow.Users.FindAsync(u => sellerIds.Contains(u.Id))).ToDictionary(u => u.Id, u => u.Name);
+        var categoryIds = products.Select(p => p.CategoryId).Distinct().ToList();
+        var categories = (await _uow.Categories.FindAsync(c => categoryIds.Contains(c.Id))).ToDictionary(c => c.Id);
 
         return products.Select(p => MapToResponse(p, sellers.GetValueOrDefault(p.SellerId, "Unknown"), categories.GetValueOrDefault(p.CategoryId)));
+    }
+
+    public async Task<SellerStorefrontResponse> GetSellerStorefrontAsync(
+        int sellerId,
+        int? categoryId = null,
+        string? sort = null,
+        string? search = null,
+        int? page = null,
+        int? pageSize = null)
+    {
+        var seller = await _uow.Users.GetByIdAsync(sellerId);
+        if (seller is null || !seller.IsActive || seller.Role != UserRole.Seller)
+            throw new NotFoundException("Seller store not found.");
+
+        var sellerProfile = (await _uow.SellerProfiles.FindAsync(sp => sp.UserId == sellerId)).FirstOrDefault();
+
+        // Base query for active, non-deleted products of this seller
+        var baseQuery = _uow.Products.Query()
+            .Include(p => p.Category)
+            .Where(p => p.SellerId == sellerId && !p.IsDeleted && (p.Category == null || p.Category.IsActive));
+
+        var totalProducts = await baseQuery.CountAsync();
+
+        // Calculate store-wide reviews & ratings across all products of this seller
+        var sellerProductIds = await _uow.Products.Query()
+            .Where(p => p.SellerId == sellerId && !p.IsDeleted)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var reviews = await _uow.Reviews.Query()
+            .Where(r => sellerProductIds.Contains(r.ProductId) && !r.IsHidden)
+            .ToListAsync();
+
+        var totalReviews = reviews.Count;
+        var avgRating = totalReviews > 0 ? Math.Round(reviews.Average(r => (double)r.Rating), 1) : 0;
+
+        // Categories of products sold by this seller
+        var categories = await baseQuery
+            .Where(p => p.Category != null)
+            .GroupBy(p => new
+            {
+                p.CategoryId,
+                p.Category!.Key,
+                p.Category.NameAr,
+                p.Category.NameEn,
+                p.Category.IconName
+            })
+            .Select(g => new SellerStoreCategoryDto
+            {
+                Id = g.Key.CategoryId,
+                Key = g.Key.Key,
+                NameAr = g.Key.NameAr ?? g.Key.Key,
+                NameEn = g.Key.NameEn ?? g.Key.Key,
+                IconName = g.Key.IconName ?? string.Empty,
+                ProductCount = g.Count()
+            })
+            .ToListAsync();
+
+        // Filter products for storefront catalog display
+        var filteredQuery = baseQuery;
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+        {
+            filteredQuery = filteredQuery.Where(p => p.CategoryId == categoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lowerSearch = search.Trim().ToLower();
+            filteredQuery = filteredQuery.Where(p => p.Name.ToLower().Contains(lowerSearch) || p.Description.ToLower().Contains(lowerSearch));
+        }
+
+        var totalMatching = await filteredQuery.CountAsync();
+
+        filteredQuery = sort?.ToLower() switch
+        {
+            "price_asc" => filteredQuery.OrderBy(p => p.Price),
+            "price_desc" => filteredQuery.OrderByDescending(p => p.Price),
+            "rating" => filteredQuery.OrderByDescending(p => p.AverageRating),
+            "newest" => filteredQuery.OrderByDescending(p => p.CreatedAt),
+            _ => filteredQuery.OrderByDescending(p => p.CreatedAt)
+        };
+
+        var effectivePage = page.GetValueOrDefault(1) < 1 ? 1 : page.GetValueOrDefault(1);
+        var effectivePageSize = pageSize.GetValueOrDefault(20) < 1 ? 20 : pageSize.GetValueOrDefault(20);
+
+        var products = await filteredQuery
+            .Skip((effectivePage - 1) * effectivePageSize)
+            .Take(effectivePageSize)
+            .ToListAsync();
+
+        var productIds = products.Select(p => p.Id).ToList();
+        var variants = (await _uow.ProductVariants.FindAsync(v => productIds.Contains(v.ProductId)))
+            .GroupBy(v => v.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var p in products)
+        {
+            p.Variants = variants.GetValueOrDefault(p.Id, new List<ProductVariant>());
+        }
+
+        var productDtos = products.Select(p => MapToResponse(p, seller.Name, p.Category)).ToList();
+
+        return new SellerStorefrontResponse
+        {
+            SellerId = seller.Id,
+            SellerName = seller.Name,
+            DispatchCity = sellerProfile?.DispatchCity,
+            JoinedAt = seller.CreatedAt,
+            TotalProducts = totalProducts,
+            AverageRating = avgRating,
+            TotalReviews = totalReviews,
+            Categories = categories,
+            Products = productDtos,
+            Page = effectivePage,
+            PageSize = effectivePageSize,
+            TotalMatchingProducts = totalMatching
+        };
     }
 
     public async Task<ProductResponse> GetProductByIdAsync(int id)
     {
         var product = await _uow.Products.GetByIdAsync(id);
-        if (product is null)
+        if (product is null || product.IsDeleted)
             throw new NotFoundException("Product not found.");
 
         product.Variants = (await _uow.ProductVariants.FindAsync(v => v.ProductId == product.Id)).ToList();
@@ -326,7 +551,14 @@ public class ProductService : IProductService
         {
             Id = product.Id,
             Name = product.Name,
+            NameAr = product.NameAr ?? product.Name,
+            NameEn = product.NameEn ?? product.Name,
+            BrandNameAr = product.BrandNameAr,
+            BrandNameEn = product.BrandNameEn,
+            Keywords = product.Keywords,
             Description = product.Description,
+            DescriptionAr = product.DescriptionAr ?? product.Description,
+            DescriptionEn = product.DescriptionEn ?? product.Description,
             Price = product.Price,
             OldPrice = product.OldPrice,
             DiscountPercent = discountPercent,
@@ -341,8 +573,19 @@ public class ProductService : IProductService
             CategoryId = product.CategoryId,
             CategoryKey = category?.Key ?? string.Empty,
             CategoryIcon = category?.IconName ?? string.Empty,
+            CategoryNameAr = category?.NameAr ?? category?.Key,
+            CategoryNameEn = category?.NameEn ?? category?.Key,
+            RatingAverage = Math.Round(product.AverageRating, 1),
+            RatingCount = product.ReviewsCount,
+            Rating = Math.Round(product.AverageRating, 1),
+            ReviewCount = product.ReviewsCount,
             CreatedAt = product.CreatedAt,
             Variants = variantDtos
         };
+    }
+
+    private static string BuildSearchVector(params string?[] parts)
+    {
+        return string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p))).ToLowerInvariant();
     }
 }

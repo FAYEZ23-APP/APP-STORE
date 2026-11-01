@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Modal,
+  ScrollView,
   I18nManager,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -58,6 +60,7 @@ export default function SellerOrdersScreen({ route }) {
   const [shipments, setShipments] = useState([]);
   const [returnsList, setReturnsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [waybillShipment, setWaybillShipment] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
   const [resolvingReturnId, setResolvingReturnId] = useState(null);
@@ -250,6 +253,17 @@ export default function SellerOrdersScreen({ route }) {
             {t('seller.shippingFee', { amount: formatCurrency(item.deliveryCost) })}
           </Text>
         </View>
+
+        {/* Waybill Button */}
+        <TouchableOpacity
+          onPress={() => setWaybillShipment(item)}
+          style={[tw`w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-center mt-2`]}
+        >
+          <MaterialCommunityIcons name="receipt-text-outline" size={16} color={colors.textDark} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
+          <Text style={tw`text-xs font-bold text-slate-700`}>
+            {t('invoice.waybillTitle')}
+          </Text>
+        </TouchableOpacity>
 
         {/* Action Button: Handed to Carrier */}
         {isHandedActionAvailable && (
@@ -466,6 +480,100 @@ export default function SellerOrdersScreen({ route }) {
           </View>
         )}
       />
+    {/* Waybill Summary Modal */}
+      <Modal
+        visible={waybillShipment !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setWaybillShipment(null)}
+      >
+        <View style={tw`flex-1 bg-black/60 justify-end sm:justify-center p-0 sm:p-4`}>
+          <View style={tw`bg-white rounded-t-3xl sm:rounded-3xl p-6 max-h-[85%]`}>
+            {waybillShipment && (
+              <>
+                <View style={tw`flex-row items-center justify-between pb-3 border-b border-slate-100 mb-4`}>
+                  <View>
+                    <Text style={tw`text-slate-900 font-black text-base`}>
+                      {t('invoice.waybillTitle')}
+                    </Text>
+                    <Text style={tw`text-orange-600 font-mono text-xs`}>
+                      {waybillShipment.trackingNumber || `EGM-SH-${waybillShipment.id}-TRK`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setWaybillShipment(null)}>
+                    <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {/* Waybill Barcode Simulation */}
+                  <View style={tw`bg-slate-50 p-3 rounded-2xl border border-slate-200 items-center mb-3`}>
+                    <Text style={tw`font-mono font-black text-sm text-slate-900 mb-1`}>
+                      {waybillShipment.trackingNumber || `EGM-SH-${waybillShipment.id}-TRK`}
+                    </Text>
+                    <View style={tw`h-7 w-48 bg-slate-800 rounded items-center justify-center`}>
+                      <Text style={tw`text-white text-[10px] font-mono tracking-widest`}>|| | |||| | ||| ||</Text>
+                    </View>
+                  </View>
+
+                  {/* Routing info */}
+                  <View style={tw`bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-3 space-y-1`}>
+                    <View style={tw`flex-row justify-between mb-1`}>
+                      <Text style={tw`text-slate-400 text-xs`}>{t('invoice.seller')}</Text>
+                      <Text style={tw`text-slate-800 font-bold text-xs`}>
+                        {isRTL ? 'التاجر المعتمد' : 'Verified Merchant'}
+                      </Text>
+                    </View>
+                    <View style={tw`flex-row justify-between mb-1`}>
+                      <Text style={tw`text-slate-400 text-xs`}>{t('invoice.buyer')}</Text>
+                      <Text style={tw`text-slate-800 font-bold text-xs`}>
+                        {waybillShipment.recipientFirstName || (isRTL ? 'مشتري معتمد' : 'Verified Buyer')}
+                      </Text>
+                    </View>
+                    <View style={tw`flex-row justify-between`}>
+                      <Text style={tw`text-slate-400 text-xs`}>{t('invoice.shippingAddress')}</Text>
+                      <Text style={tw`text-slate-800 font-bold text-xs`}>
+                        {waybillShipment.recipientCity || (isRTL ? 'القاهرة' : 'Cairo')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Package items */}
+                  <Text style={tw`text-slate-800 font-bold text-xs mb-2`}>
+                    {t('invoice.item')}
+                  </Text>
+                  {((Array.isArray(waybillShipment.items) && waybillShipment.items.length > 0
+                    ? waybillShipment.items
+                    : [{ productName: isRTL ? 'طرد شحنة' : 'Shipment Package', quantity: 1, unitPrice: waybillShipment.itemsSubtotal || 0 }]
+                  )).map((it, idx) => (
+                    <View key={`wb-it-${idx}`} style={tw`flex-row justify-between py-2 border-b border-slate-50`}>
+                      <View style={tw`flex-1 mr-2`}>
+                        <Text numberOfLines={1} style={tw`text-slate-800 font-bold text-xs`}>
+                          {it.productName}
+                        </Text>
+                        <Text style={tw`text-slate-400 text-[10px]`}>
+                          x{it.quantity}
+                        </Text>
+                      </View>
+                      <Text style={tw`text-slate-900 font-bold text-xs`}>
+                        {formatCurrency((it.unitPrice || 0) * (it.quantity || 1))}
+                      </Text>
+                    </View>
+                  ))}
+
+                  {/* COD Due */}
+                  <View style={tw`bg-orange-50 p-3 rounded-2xl border border-orange-200 flex-row justify-between items-center mt-3`}>
+                    <Text style={tw`text-orange-950 font-bold text-xs`}>{t('invoice.codNetDue')}:</Text>
+                    <Text style={tw`text-orange-600 font-black text-sm`}>
+                      {formatCurrency(waybillShipment.codAmount || 0)}
+                    </Text>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

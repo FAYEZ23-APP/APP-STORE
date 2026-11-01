@@ -1,5 +1,5 @@
 import tw from 'twrnc';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
-  I18nManager,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { createProduct, updateProduct, uploadProductImage } from '../../api/productsApi';
 import { getCategories } from '../../api/categoriesApi';
 import { getMySellerProfile } from '../../api/usersApi';
@@ -22,10 +24,15 @@ import { getCategoryIconName } from '../../utils/categoryIcons';
 import { colors } from '../../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 
+const MAX_IMAGES = 8;
+const MAX_IMAGE_DIMENSION = 1600;
+const JPEG_COMPRESS_QUALITY = 0.8;
+
 export default function AddEditProductScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language?.startsWith('ar');
   const editingProduct = route.params?.product;
+  const isMountedRef = useRef(true);
 
   const [name, setName] = useState(editingProduct?.name || '');
   const [description, setDescription] = useState(editingProduct?.description || '');
@@ -92,21 +99,35 @@ export default function AddEditProductScreen({ route, navigation }) {
     editingProduct?.categoryKey || null
   );
 
-  const initialImage = editingProduct?.imageUrls?.[0] || null;
-  const [imageUri, setImageUri] = useState(initialImage);
-  const [relativeImageUrl, setRelativeImageUrl] = useState(initialImage);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // Ordered product images state (up to 8 images)
+  const [images, setImages] = useState(() => {
+    const initialUrls = Array.isArray(editingProduct?.imageUrls)
+      ? editingProduct.imageUrls.slice(0, MAX_IMAGES)
+      : [];
+    return initialUrls.map((url, idx) => ({
+      id: `existing_${idx}_${Date.now()}`,
+      localUri: url,
+      remoteUrl: url,
+      asset: null,
+      status: 'uploaded', // 'uploading' | 'uploaded' | 'error'
+      progress: 100,
+      errorMsg: null,
+    }));
+  });
+
   const [loading, setLoading] = useState(false);
-  const [dispatchCityChecked, setDispatchCityChecked] = useState(false);
+  const [, setDispatchCityChecked] = useState(false);
+
+  const anyUploading = images.some((img) => img.status === 'uploading');
 
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
 
     // Check seller dispatch profile
     const verifySellerProfile = async () => {
       try {
         const res = await getMySellerProfile();
-        if (isMounted) {
+        if (isMountedRef.current) {
           if (!res?.data?.dispatchCity) {
             Alert.alert(
               t('seller.dispatchAlertTitle'),
@@ -130,8 +151,8 @@ export default function AddEditProductScreen({ route, navigation }) {
           }
           setDispatchCityChecked(true);
         }
-      } catch (e) {
-        if (isMounted) setDispatchCityChecked(true);
+      } catch {
+        if (isMountedRef.current) setDispatchCityChecked(true);
       }
     };
 
@@ -140,7 +161,7 @@ export default function AddEditProductScreen({ route, navigation }) {
         setLoadingCategories(true);
         const res = await getCategories();
         const fetched = Array.isArray(res.data) ? res.data : [];
-        if (!isMounted) return;
+        if (!isMountedRef.current) return;
         setCategories(fetched);
 
         if (editingProduct) {
@@ -153,34 +174,144 @@ export default function AddEditProductScreen({ route, navigation }) {
         }
       } catch (err) {
         console.error('Failed to load categories', err);
-        if (isMounted) {
+        if (isMountedRef.current) {
           Alert.alert(t('common.error'), t('seller.loadCategoriesError'));
         }
       } finally {
-        if (isMounted) setLoadingCategories(false);
+        if (isMountedRef.current) setLoadingCategories(false);
       }
     };
 
     verifySellerProfile();
     fetchCategoriesList();
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, [editingProduct, t, navigation]);
 
-  const pickImage = async () => {
+  const updateImageItem = (id, patch) => {
+    if (!isMountedRef.current) return;
+    setImages((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  };
+
+  const resizeAndCompressImage = async (asset) => {
+    const actions = [];
+    const width = asset?.width || 0;
+    const height = asset?.height || 0;
+
+    if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+      if (width >= height) {
+        actions.push({ resize: { width: MAX_IMAGE_DIMENSION } });
+      } else {
+        actions.push({ resize: { height: MAX_IMAGE_DIMENSION } });
+      }
+    }
+
+    const manipulated = await manipulateAsync(
+      asset.uri,
+      actions,
+      {
+        compress: JPEG_COMPRESS_QUALITY,
+        format: SaveFormat.JPEG,
+      }
+    );
+    return manipulated.uri;
+  };
+
+  const processAndUploadItem = async (item) => {
+    updateImageItem(item.id, {
+      status: 'uploading',
+      progress: 5,
+      errorMsg: null,
+    });
+
+    try {
+      let uploadUri = item.localUri;
+      if (item.asset) {
+        try {
+          uploadUri = await resizeAndCompressImage(item.asset);
+        } catch (manipErr) {
+          console.warn('Image manipulation fallback to original URI', manipErr);
+          uploadUri = item.asset.uri;
+        }
+      }
+
+      if (!isMountedRef.current) return;
+      updateImageItem(item.id, { localUri: uploadUri, progress: 15 });
+
+      const fileName = `product_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.jpg`;
+      const formData = new FormData();
+      formData.append('file', {
+        uri: uploadUri,
+        name: fileName,
+        type: 'image/jpeg',
+      });
+
+      const res = await uploadProductImage(formData, (progressEvent) => {
+        if (!progressEvent || !progressEvent.total) return;
+        const pct = Math.min(
+          99,
+          Math.max(15, Math.round((progressEvent.loaded * 100) / progressEvent.total))
+        );
+        updateImageItem(item.id, { progress: pct });
+      });
+
+      if (res.data?.url) {
+        updateImageItem(item.id, {
+          remoteUrl: res.data.url,
+          status: 'uploaded',
+          progress: 100,
+          errorMsg: null,
+        });
+      } else {
+        throw new Error(t('seller.uploadImageFailed'));
+      }
+    } catch (err) {
+      console.error('Image upload failed', err);
+      const msg = err.response?.data?.error || t('seller.uploadImageFailed');
+      updateImageItem(item.id, {
+        status: 'error',
+        progress: 0,
+        errorMsg: msg,
+      });
+    }
+  };
+
+  const pickImages = async () => {
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      Alert.alert(t('common.error'), t('seller.maxImagesReached'));
+      return;
+    }
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [3, 4],
-        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 1,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setImageUri(asset.uri);
-        await handleUpload(asset);
+      if (!result.canceled && Array.isArray(result.assets) && result.assets.length > 0) {
+        const selectedAssets = result.assets.slice(0, remaining);
+        const now = Date.now();
+        const newItems = selectedAssets.map((asset, idx) => ({
+          id: `img_${now}_${idx}_${Math.random().toString(36).slice(2, 7)}`,
+          localUri: asset.uri,
+          remoteUrl: null,
+          asset,
+          status: 'uploading',
+          progress: 0,
+          errorMsg: null,
+        }));
+
+        setImages((prev) => [...prev, ...newItems].slice(0, MAX_IMAGES));
+
+        for (const item of newItems) {
+          processAndUploadItem(item);
+        }
       }
     } catch (err) {
       console.error('Image picker error', err);
@@ -188,32 +319,37 @@ export default function AddEditProductScreen({ route, navigation }) {
     }
   };
 
-  const handleUpload = async (asset) => {
-    setUploadingImage(true);
-    try {
-      const uri = asset.uri;
-      const uriParts = uri.split('.');
-      const extension = uriParts[uriParts.length - 1]?.toLowerCase() || 'jpg';
-      const fileName = asset.fileName || `product_${Date.now()}.${extension}`;
-      const mimeType = asset.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`;
-
-      const formData = new FormData();
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: mimeType,
-      });
-
-      const res = await uploadProductImage(formData);
-      if (res.data?.url) {
-        setRelativeImageUrl(res.data.url);
-      }
-    } catch (err) {
-      console.error('Image upload failed', err);
-      Alert.alert(t('common.error'), err.response?.data?.error || t('seller.uploadImageFailed'));
-    } finally {
-      setUploadingImage(false);
+  const handleRetryUpload = (id) => {
+    const target = images.find((img) => img.id === id);
+    if (target) {
+      processAndUploadItem(target);
     }
+  };
+
+  const handleRemoveImage = (id) => {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const handleMakeMain = (index) => {
+    if (index <= 0 || index >= images.length) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const [chosen] = next.splice(index, 1);
+      next.unshift(chosen);
+      return next;
+    });
+  };
+
+  const handleMoveImage = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= images.length) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -234,13 +370,22 @@ export default function AddEditProductScreen({ route, navigation }) {
       return;
     }
 
-    if (uploadingImage) {
-      Alert.alert(t('common.error'), t('seller.uploading'));
+    if (images.some((img) => img.status === 'uploading')) {
+      Alert.alert(t('common.error'), t('seller.waitForUploads'));
+      return;
+    }
+
+    if (images.some((img) => img.status === 'error')) {
+      Alert.alert(t('common.error'), t('seller.fixFailedUploads'));
       return;
     }
 
     const parsedPrice = parseFloat(price);
     const parsedOldPrice = oldPrice.trim() ? parseFloat(oldPrice) : null;
+    const orderedImageUrls = images
+      .map((img) => img.remoteUrl)
+      .filter(Boolean)
+      .slice(0, MAX_IMAGES);
 
     setLoading(true);
     try {
@@ -251,7 +396,7 @@ export default function AddEditProductScreen({ route, navigation }) {
         oldPrice: parsedOldPrice,
         stock: parseInt(stock, 10),
         weightGrams: parsedWeight,
-        imageUrls: relativeImageUrl ? [relativeImageUrl] : [],
+        imageUrls: orderedImageUrls,
         categoryId: selectedCategory.id,
         variants: variants.length > 0 ? variants.map((v) => ({
           sku: v.sku || null,
@@ -281,8 +426,12 @@ export default function AddEditProductScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView
-      style={[tw`flex-1`, { backgroundColor: colors.cardBg }]}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.cardBg }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        style={[tw`flex-1`, { backgroundColor: colors.cardBg }]}
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -291,42 +440,246 @@ export default function AddEditProductScreen({ route, navigation }) {
         {editingProduct ? t('common.edit') : t('seller.addProduct')}
       </Text>
 
-      <TouchableOpacity
-        onPress={pickImage}
-        disabled={uploadingImage}
+      {/* Multi-Image Grid Section (up to 8 images) */}
+      <View
         style={[
-          tw`items-center justify-center rounded-xl h-44 overflow-hidden border mb-4`,
-          {
-            backgroundColor: colors.placeholderBg,
-            borderColor: colors.border,
-          },
+          tw`rounded-2xl p-3.5 mb-4 border`,
+          { backgroundColor: colors.screenBg, borderColor: colors.border },
         ]}
       >
-        {imageUri ? (
-          <View style={tw`w-full h-full relative`}>
-            <Image
-              source={{ uri: getImageUrl(imageUri) }}
-              style={tw`w-full h-full`}
-              resizeMode="cover"
+        <View style={tw`flex-row items-center justify-between mb-1`}>
+          <View style={tw`flex-row items-center`}>
+            <MaterialCommunityIcons
+              name="image-multiple-outline"
+              size={20}
+              color={colors.primary}
+              style={{ marginRight: 6 }}
             />
-            {uploadingImage && (
-              <View style={tw`absolute inset-0 bg-black/40 justify-center items-center`}>
-                <ActivityIndicator size="large" color={colors.white} />
-                <Text style={[tw`font-semibold mt-2`, { color: colors.white }]}>
-                  {t('seller.uploading')}
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={tw`items-center`}>
-            <MaterialCommunityIcons name="camera-plus-outline" size={34} color={colors.textSecondary} />
-            <Text style={[tw`font-medium mt-2`, { color: colors.textSecondary }]}>
-              {t('seller.pickImage')}
+            <Text style={[tw`text-sm font-bold`, { color: colors.textPrimary }]}>
+              {t('seller.productImagesTitle')}
             </Text>
           </View>
-        )}
-      </TouchableOpacity>
+          <View
+            style={[
+              tw`px-2.5 py-0.5 rounded-full`,
+              { backgroundColor: images.length >= MAX_IMAGES ? colors.accent : colors.primary },
+            ]}
+          >
+            <Text style={[tw`text-xs font-bold`, { color: colors.white }]}>
+              {t('seller.imagesCounter', { count: images.length, max: MAX_IMAGES })}
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={[
+            tw`text-xs mb-3`,
+            { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
+          ]}
+        >
+          {t('seller.productImagesHint')}
+        </Text>
+
+        <View style={tw`flex-row flex-wrap justify-between`}>
+          {images.map((item, idx) => {
+            const isMain = idx === 0;
+            const previewUri = getImageUrl(item.remoteUrl || item.localUri) || item.localUri;
+
+            return (
+              <View
+                key={item.id}
+                style={[
+                  tw`rounded-xl overflow-hidden border mb-3`,
+                  {
+                    width: '48.5%',
+                    backgroundColor: colors.cardBg,
+                    borderColor: isMain ? colors.accent : colors.border,
+                    borderWidth: isMain ? 2 : 1,
+                  },
+                ]}
+              >
+                {/* Image Preview Box */}
+                <View style={tw`w-full h-32 relative bg-gray-100`}>
+                  <Image
+                    source={{ uri: previewUri }}
+                    style={tw`w-full h-full`}
+                    resizeMode="cover"
+                  />
+
+                  {/* Top Badges: Main or Index + Remove button */}
+                  <View style={tw`absolute top-1.5 left-1.5 right-1.5 flex-row items-center justify-between`}>
+                    {isMain ? (
+                      <View
+                        style={[
+                          tw`px-2 py-0.5 rounded-md flex-row items-center`,
+                          { backgroundColor: colors.accent },
+                        ]}
+                      >
+                        <MaterialCommunityIcons name="star" size={12} color={colors.white} />
+                        <Text style={[tw`text-[10px] font-bold ml-1`, { color: colors.white }]}>
+                          {t('seller.mainImageBadge')}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          tw`px-2 py-0.5 rounded-md`,
+                          { backgroundColor: 'rgba(15,23,42,0.7)' },
+                        ]}
+                      >
+                        <Text style={[tw`text-[10px] font-bold`, { color: colors.white }]}>
+                          #{idx + 1}
+                        </Text>
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      onPress={() => handleRemoveImage(item.id)}
+                      style={[
+                        tw`w-6 h-6 rounded-full items-center justify-center`,
+                        { backgroundColor: 'rgba(220,38,38,0.9)' },
+                      ]}
+                      accessibilityLabel={t('seller.removeImage')}
+                    >
+                      <MaterialCommunityIcons name="close" size={14} color={colors.white} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Uploading Progress Overlay */}
+                  {item.status === 'uploading' && (
+                    <View style={tw`absolute inset-0 bg-black/55 justify-center items-center px-3`}>
+                      <ActivityIndicator size="small" color={colors.white} />
+                      <Text style={[tw`text-xs font-bold mt-1`, { color: colors.white }]}>
+                        {item.progress}%
+                      </Text>
+                      <View style={tw`w-full h-1.5 bg-white/30 rounded-full mt-1.5 overflow-hidden`}>
+                        <View
+                          style={[
+                            tw`h-full rounded-full`,
+                            {
+                              width: `${item.progress}%`,
+                              backgroundColor: colors.accent,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Failed Upload Overlay with Retry */}
+                  {item.status === 'error' && (
+                    <View style={tw`absolute inset-0 bg-red-900/80 justify-center items-center px-2`}>
+                      <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.white} />
+                      <Text
+                        numberOfLines={2}
+                        style={[tw`text-[10px] text-center mt-0.5 mb-1.5`, { color: colors.white }]}
+                      >
+                        {item.errorMsg || t('seller.uploadImageFailed')}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleRetryUpload(item.id)}
+                        style={[
+                          tw`px-2.5 py-1 rounded-full flex-row items-center`,
+                          { backgroundColor: colors.white },
+                        ]}
+                      >
+                        <MaterialCommunityIcons name="refresh" size={13} color={colors.danger} />
+                        <Text style={[tw`text-[11px] font-bold ml-1`, { color: colors.danger }]}>
+                          {t('seller.retryUpload')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Controls Bar: Make Main, Move Up, Move Down */}
+                <View
+                  style={[
+                    tw`flex-row items-center justify-between px-2 py-1.5 border-t`,
+                    { borderColor: colors.border, backgroundColor: colors.cardBg },
+                  ]}
+                >
+                  {!isMain ? (
+                    <TouchableOpacity
+                      onPress={() => handleMakeMain(idx)}
+                      style={[
+                        tw`px-2 py-1 rounded-md flex-row items-center`,
+                        { backgroundColor: colors.placeholderBg },
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="star-outline" size={13} color={colors.primary} />
+                      <Text style={[tw`text-[10px] font-bold ml-1`, { color: colors.primary }]}>
+                        {t('seller.makeMainImage')}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={tw`px-1 py-1 flex-row items-center`}>
+                      <MaterialCommunityIcons name="check-decagram" size={13} color={colors.accent} />
+                      <Text style={[tw`text-[10px] font-bold ml-1`, { color: colors.accent }]}>
+                        {t('seller.mainImageBadge')}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={tw`flex-row items-center`}>
+                    <TouchableOpacity
+                      onPress={() => handleMoveImage(idx, -1)}
+                      disabled={idx === 0}
+                      style={[
+                        tw`p-1 rounded mr-1`,
+                        { opacity: idx === 0 ? 0.3 : 1, backgroundColor: colors.placeholderBg },
+                      ]}
+                      accessibilityLabel={t('seller.moveImageUp')}
+                    >
+                      <MaterialCommunityIcons name="arrow-up" size={14} color={colors.textPrimary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleMoveImage(idx, 1)}
+                      disabled={idx === images.length - 1}
+                      style={[
+                        tw`p-1 rounded`,
+                        {
+                          opacity: idx === images.length - 1 ? 0.3 : 1,
+                          backgroundColor: colors.placeholderBg,
+                        },
+                      ]}
+                      accessibilityLabel={t('seller.moveImageDown')}
+                    >
+                      <MaterialCommunityIcons name="arrow-down" size={14} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+
+          {/* Add Images Tile (shown when < 8 images) */}
+          {images.length < MAX_IMAGES && (
+            <TouchableOpacity
+              onPress={pickImages}
+              style={[
+                tw`rounded-xl items-center justify-center border mb-2`,
+                {
+                  width: images.length === 0 ? '100%' : '48.5%',
+                  height: images.length === 0 ? 150 : 162,
+                  backgroundColor: colors.placeholderBg,
+                  borderColor: colors.border,
+                  borderStyle: 'dashed',
+                },
+              ]}
+            >
+              <MaterialCommunityIcons name="camera-plus-outline" size={30} color={colors.primary} />
+              <Text style={[tw`text-xs font-bold mt-2`, { color: colors.primary }]}>
+                {t('seller.addImagesBtn')}
+              </Text>
+              <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
+                {t('seller.imagesCounter', { count: images.length, max: MAX_IMAGES })}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
       {/* Category Selector */}
       <Text style={[tw`text-sm font-semibold mb-2`, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -714,12 +1067,12 @@ export default function AddEditProductScreen({ route, navigation }) {
       <TouchableOpacity
         style={{ borderRadius: 14, overflow: 'hidden', marginTop: 8 }}
         onPress={handleSave}
-        disabled={loading || uploadingImage || loadingCategories}
+        disabled={loading || anyUploading || loadingCategories}
         activeOpacity={0.85}
       >
         <LinearGradient
           colors={
-            loading || uploadingImage || loadingCategories
+            loading || anyUploading || loadingCategories
               ? [colors.disabledBg, colors.disabledBg]
               : [colors.accent, '#FF8C33']
           }
@@ -743,5 +1096,6 @@ export default function AddEditProductScreen({ route, navigation }) {
         </LinearGradient>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

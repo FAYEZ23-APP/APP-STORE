@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<PayoutRequest> PayoutRequests => Set<PayoutRequest>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ReviewReport> ReviewReports => Set<ReviewReport>();
     public DbSet<UserDeviceToken> UserDeviceTokens => Set<UserDeviceToken>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
@@ -30,6 +31,11 @@ public class AppDbContext : DbContext
     public DbSet<BuyerWalletTransaction> BuyerWalletTransactions => Set<BuyerWalletTransaction>();
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UploadedFile> UploadedFiles => Set<UploadedFile>();
+    public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,7 +77,7 @@ public class AppDbContext : DbContext
                 .HasDefaultValue(0);
 
             entity.Property(u => u.PasswordHash)
-                .IsRequired();
+                .IsRequired(false);
 
             entity.Property(u => u.Role)
                 .IsRequired()
@@ -82,8 +88,42 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            entity.Property(u => u.IsTwoFactorEnabled)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(u => u.TwoFactorSecret)
+                .IsRequired(false)
+                .HasMaxLength(128);
+
             entity.Property(u => u.CreatedAt)
                 .IsRequired();
+        });
+
+        // --- ExternalLogin (Google & External OAuth) --------------
+        modelBuilder.Entity<ExternalLogin>(entity =>
+        {
+            entity.ToTable("ExternalLogins");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Provider)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Subject)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired();
+
+            entity.HasIndex(e => new { e.Provider, e.Subject })
+                .IsUnique();
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ExternalLogins)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // --- VerificationCode ------------------------------------
@@ -191,6 +231,31 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(300);
 
+            entity.Property(ua => ua.BuildingNumber)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("");
+
+            entity.Property(ua => ua.Floor)
+                .HasMaxLength(50);
+
+            entity.Property(ua => ua.Apartment)
+                .HasMaxLength(50);
+
+            entity.Property(ua => ua.Landmark)
+                .HasMaxLength(200);
+
+            entity.Property(ua => ua.Latitude)
+                .IsRequired()
+                .HasDefaultValue(0.0);
+
+            entity.Property(ua => ua.Longitude)
+                .IsRequired()
+                .HasDefaultValue(0.0);
+
+            entity.Property(ua => ua.FormattedAddress)
+                .HasMaxLength(500);
+
             entity.Property(ua => ua.IsDefault)
                 .IsRequired();
 
@@ -219,16 +284,30 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(50);
 
+            entity.Property(c => c.NameAr)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(c => c.NameEn)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(c => c.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(c => c.DisplayOrder)
+                .HasDefaultValue(0);
+
             entity.HasData(
-                new Category { Id = 1, Key = "electronics", IconName = "devices" },
-                new Category { Id = 2, Key = "clothing", IconName = "shirt" },
-                new Category { Id = 3, Key = "shoes", IconName = "shoe-sneaker" },
-                new Category { Id = 4, Key = "home", IconName = "home" },
-                new Category { Id = 5, Key = "beauty", IconName = "sparkles" },
-                new Category { Id = 6, Key = "kids", IconName = "baby" },
-                new Category { Id = 7, Key = "sports", IconName = "basketball" },
-                new Category { Id = 8, Key = "accessories", IconName = "watch" },
-                new Category { Id = 9, Key = "other", IconName = "dots-horizontal" }
+                new Category { Id = 1, Key = "electronics", IconName = "devices", NameAr = "إلكترونيات", NameEn = "Electronics", IsActive = true, DisplayOrder = 1 },
+                new Category { Id = 2, Key = "clothing", IconName = "shirt", NameAr = "ملابس وأزياء", NameEn = "Clothing & Fashion", IsActive = true, DisplayOrder = 2 },
+                new Category { Id = 3, Key = "shoes", IconName = "shoe-sneaker", NameAr = "أحذية", NameEn = "Shoes", IsActive = true, DisplayOrder = 3 },
+                new Category { Id = 4, Key = "home", IconName = "home", NameAr = "المنزل والمطبخ", NameEn = "Home & Kitchen", IsActive = true, DisplayOrder = 4 },
+                new Category { Id = 5, Key = "beauty", IconName = "sparkles", NameAr = "الصحة والجمال", NameEn = "Health & Beauty", IsActive = true, DisplayOrder = 5 },
+                new Category { Id = 6, Key = "kids", IconName = "baby", NameAr = "مستلزمات أطفال", NameEn = "Kids & Baby", IsActive = true, DisplayOrder = 6 },
+                new Category { Id = 7, Key = "sports", IconName = "basketball", NameAr = "أدوات رياضية", NameEn = "Sports & Fitness", IsActive = true, DisplayOrder = 7 },
+                new Category { Id = 8, Key = "accessories", IconName = "watch", NameAr = "ساعات وإكسسوارات", NameEn = "Watches & Accessories", IsActive = true, DisplayOrder = 8 },
+                new Category { Id = 9, Key = "other", IconName = "dots-horizontal", NameAr = "منتجات أخرى", NameEn = "Other Products", IsActive = true, DisplayOrder = 9 }
             );
         });
 
@@ -241,8 +320,35 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(200);
 
+            entity.Property(p => p.NameAr)
+                .HasMaxLength(250);
+
+            entity.Property(p => p.NameEn)
+                .HasMaxLength(250);
+
+            entity.Property(p => p.BrandNameAr)
+                .HasMaxLength(100);
+
+            entity.Property(p => p.BrandNameEn)
+                .HasMaxLength(100);
+
+            entity.Property(p => p.Keywords)
+                .HasMaxLength(1000);
+
+            entity.Property(p => p.SearchVector)
+                .IsRequired()
+                .HasDefaultValue("");
+
+            entity.HasIndex(p => p.SearchVector);
+
             entity.Property(p => p.Description)
                 .HasMaxLength(2000);
+
+            entity.Property(p => p.DescriptionAr)
+                .HasMaxLength(4000);
+
+            entity.Property(p => p.DescriptionEn)
+                .HasMaxLength(4000);
 
             entity.Property(p => p.Price)
                 .IsRequired()
@@ -271,6 +377,10 @@ public class AppDbContext : DbContext
             entity.Property(p => p.ReviewsCount)
                 .HasDefaultValue(0)
                 .IsRequired();
+
+            entity.Property(p => p.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
 
             entity.Property(p => p.CreatedAt)
                 .IsRequired();
@@ -366,6 +476,13 @@ public class AppDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue(PaymentMethod.OnReceipt);
 
+            entity.Property(o => o.IdempotencyKey)
+                .HasMaxLength(128);
+
+            entity.HasIndex(o => new { o.BuyerId, o.IdempotencyKey })
+                .IsUnique()
+                .HasFilter("\"IdempotencyKey\" IS NOT NULL AND \"IdempotencyKey\" <> ''");
+
             entity.Property(o => o.CreatedAt)
                 .IsRequired();
 
@@ -412,6 +529,24 @@ public class AppDbContext : DbContext
 
             entity.Property(s => s.DeliveredAt);
 
+            entity.Property(s => s.IsCodSettled)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(s => s.CodSettledAt);
+
+            entity.Property(s => s.ReceivedAmount)
+                .HasPrecision(18, 2);
+
+            entity.Property(s => s.SettlementReference)
+                .HasMaxLength(100);
+
+            entity.Property(s => s.SettledByAdminId);
+
+            entity.Property(s => s.FlaggedForReview)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.HasOne(s => s.Order)
                 .WithMany(o => o.Shipments)
                 .HasForeignKey(s => s.OrderId)
@@ -421,6 +556,11 @@ public class AppDbContext : DbContext
                 .WithMany(u => u.Shipments)
                 .HasForeignKey(s => s.SellerId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.SettledByAdmin)
+                .WithMany()
+                .HasForeignKey(s => s.SettledByAdminId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // --- OrderItem -------------------------------------------
@@ -593,6 +733,28 @@ public class AppDbContext : DbContext
             entity.Property(r => r.Comment)
                 .HasMaxLength(1000);
 
+            entity.Property(r => r.ImageUrls)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
+                .HasColumnType("text")
+                .HasDefaultValueSql("'[]'")
+                .Metadata.SetValueComparer(
+                    new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                        (c1, c2) => c1!.SequenceEqual(c2!),
+                        c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                        c => c.ToList()));
+
+            entity.Property(r => r.SellerReply)
+                .HasMaxLength(500);
+
+            entity.Property(r => r.IsHidden)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(r => r.ModerationNote)
+                .HasMaxLength(500);
+
             entity.Property(r => r.CreatedAt)
                 .IsRequired();
 
@@ -606,7 +768,37 @@ public class AppDbContext : DbContext
                 .HasForeignKey(r => r.BuyerId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasIndex(r => new { r.ProductId, r.BuyerId });
+            entity.HasIndex(r => new { r.ProductId, r.BuyerId })
+                .IsUnique();
+        });
+
+        // --- ReviewReport ----------------------------------------
+        modelBuilder.Entity<ReviewReport>(entity =>
+        {
+            entity.HasKey(rr => rr.Id);
+
+            entity.Property(rr => rr.Reason)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(rr => rr.Details)
+                .HasMaxLength(500);
+
+            entity.Property(rr => rr.CreatedAt)
+                .IsRequired();
+
+            entity.HasOne(rr => rr.Review)
+                .WithMany(r => r.Reports)
+                .HasForeignKey(rr => rr.ReviewId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(rr => rr.Reporter)
+                .WithMany()
+                .HasForeignKey(rr => rr.ReporterId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(rr => new { rr.ReviewId, rr.ReporterId })
+                .IsUnique();
         });
 
         // --- UserDeviceToken -------------------------------------
@@ -919,6 +1111,134 @@ public class AppDbContext : DbContext
             entity.HasOne(r => r.ReplacedByToken)
                 .WithMany()
                 .HasForeignKey(r => r.ReplacedByTokenId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // --- UploadedFile ----------------------------------------
+        modelBuilder.Entity<UploadedFile>(entity =>
+        {
+            entity.HasKey(uf => uf.Id);
+
+            entity.Property(uf => uf.UploaderId)
+                .IsRequired();
+
+            entity.Property(uf => uf.FileName)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.HasIndex(uf => uf.FileName)
+                .IsUnique();
+
+            entity.Property(uf => uf.RelativeUrl)
+                .IsRequired()
+                .HasMaxLength(150);
+
+            entity.HasIndex(uf => uf.RelativeUrl)
+                .IsUnique();
+
+            entity.Property(uf => uf.ContentType)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(uf => uf.SizeBytes)
+                .IsRequired();
+
+            entity.Property(uf => uf.Width)
+                .IsRequired();
+
+            entity.Property(uf => uf.Height)
+                .IsRequired();
+
+            entity.Property(uf => uf.CreatedAt)
+                .IsRequired();
+
+            entity.HasIndex(uf => uf.UploaderId);
+
+            entity.HasOne(uf => uf.Uploader)
+                .WithMany(u => u.UploadedFiles)
+                .HasForeignKey(uf => uf.UploaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- WishlistItem ----------------------------------------
+        modelBuilder.Entity<WishlistItem>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+
+            entity.HasIndex(w => new { w.UserId, w.ProductId })
+                .IsUnique();
+
+            entity.HasOne(w => w.User)
+                .WithMany(u => u.WishlistItems)
+                .HasForeignKey(w => w.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(w => w.Product)
+                .WithMany(p => p.WishlistItems)
+                .HasForeignKey(w => w.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- UserNotification ------------------------------------
+        modelBuilder.Entity<UserNotification>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+
+            entity.Property(n => n.TitleAr)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(n => n.TitleEn)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(n => n.BodyAr)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(n => n.BodyEn)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(n => n.Type)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(n => n.ReferenceId)
+                .HasMaxLength(100);
+
+            entity.HasIndex(n => new { n.UserId, n.IsRead, n.CreatedAt });
+
+            entity.HasOne(n => n.User)
+                .WithMany(u => u.Notifications)
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- AdminAuditLog ----------------------------------------
+        modelBuilder.Entity<AdminAuditLog>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+
+            entity.Property(a => a.Action)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(a => a.EntityType)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(a => a.EntityId)
+                .HasMaxLength(100);
+
+            entity.Property(a => a.Details)
+                .HasMaxLength(2000);
+
+            entity.HasIndex(a => new { a.EntityType, a.CreatedAt });
+
+            entity.HasOne(a => a.Admin)
+                .WithMany(u => u.AdminAuditLogs)
+                .HasForeignKey(a => a.AdminId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

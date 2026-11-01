@@ -17,7 +17,7 @@ public class DeliveryController : ControllerBase
         _shipmentService = shipmentService;
     }
 
-    /// <summary>Search supported delivery cities (Москва, Санкт-Петербург, Казань).</summary>
+    /// <summary>Search supported Egyptian delivery cities and governorates across all 27 governorates.</summary>
     [HttpGet("cities")]
     [ProducesResponseType(typeof(IReadOnlyList<DeliveryCityDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DeliveryCityDto>>> GetCities([FromQuery] string? query = null)

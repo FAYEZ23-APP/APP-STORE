@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
+
+  --color-primary: #C8102E;
+  --color-primary-hover: #A80D26;
+  --color-primary-soft: #FDF2F4;
+  --color-primary-border: #F8CAD1;
+
+  --color-secondary: #1F2329;
+  --color-secondary-hover: #14171B;
+  --color-secondary-light: #2D323B;
+  --color-secondary-border: #3A3F4A;
+
+  --color-brand-bg: #FAF8F5;
+  --color-brand-card: #FFFFFF;
+
+  --color-accent: #D6A33A;
+  --color-accent-hover: #C08F2D;
+  --color-accent-soft: #FBF6EC;
+  --color-accent-border: #EBD6A7;
+
+  --color-neutral: #ECE9E6;
+  --color-neutral-dark: #D8D4CF;
+  --color-neutral-text: #595F69;
+
+  /* Aliasing legacy orange tokens to the deep Egyptian red palette */
+  --color-orange-50: #FDF2F4;
+  --color-orange-100: #FBE4E8;
+  --color-orange-200: #F8CAD1;
+  --color-orange-300: #F099A7;
+  --color-orange-400: #E24863;
+  --color-orange-500: #C8102E;
+  --color-orange-600: #A80D26;
+  --color-orange-700: #8D0A1F;
+  --color-orange-800: #750A1B;
+  --color-orange-900: #620A17;
+  --color-orange-950: #3B030D;
+
+  /* Aliasing amber to the muted Egyptian gold */
+  --color-amber-400: #E5B44E;
+  --color-amber-500: #D6A33A;
+  --color-amber-600: #C08F2D;
+}
+
+@layer base {
+  :root {
+    --primary: #C8102E;
+    --primary-soft: #FDF2F4;
+    --secondary: #1F2329;
+    --accent: #D6A33A;
+    --accent-hover: #C08F2D;
+    --screen-bg: #FAF8F5;
+    --card-bg: #FFFFFF;
+    --neutral: #ECE9E6;
+    --text-primary: #1F2329;
+    --text-secondary: #595F69;
+    --border-color: #ECE9E6;
+  }
+
+  body {
+    background-color: var(--screen-bg);
+    color: var(--text-primary);
+    font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #ECE9E6;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D8D4CF;
+}

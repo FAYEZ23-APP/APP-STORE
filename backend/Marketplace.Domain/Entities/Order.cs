@@ -20,6 +20,7 @@ public class Order
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.OnReceipt;
+    public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Buyer { get; set; } = null!;

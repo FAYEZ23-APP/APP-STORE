@@ -29,7 +29,8 @@ const SORT_OPTIONS = [
 ];
 
 export default function CatalogScreen({ route, navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n?.language === 'ar';
 
   const [categories, setCategories] = useState([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -249,30 +250,40 @@ export default function CatalogScreen({ route, navigation }) {
           { backgroundColor: colors.cardBg, borderColor: colors.border },
         ]}
       >
-        <View
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Search')}
           style={[
             tw`flex-row items-center rounded-xl px-3 h-12 border`,
             { backgroundColor: colors.primarySoft, borderColor: colors.border },
           ]}
         >
           <MaterialCommunityIcons name="magnify" size={22} color={colors.accent} />
-          <TextInput
-            style={[tw`flex-1 ml-2 text-sm`, { color: colors.textPrimary }]}
-            placeholder={t('buyer.search')}
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              style={tw`p-1.5`}
-            >
-              <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
+          <Text
+            style={[
+              tw`flex-1 ml-2 text-sm`,
+              { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
+            ]}
+          >
+            {t('search.placeholder') || t('buyer.search')}
+          </Text>
+          <View
+            style={[
+              tw`flex-row items-center px-2 py-1 rounded-lg`,
+              { backgroundColor: colors.accentSoft },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="auto-fix"
+              size={14}
+              color={colors.accent}
+              style={tw`me-1`}
+            />
+            <Text style={[tw`text-[11px] font-bold`, { color: colors.accent }]}>
+              {isRTL ? 'بحث ذكي' : 'Smart'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Categories Header + Button to Dedicated Categories Screen */}
         <View style={tw`flex-row items-center justify-between mt-3 mb-1.5`}>

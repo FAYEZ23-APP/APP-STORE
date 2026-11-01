@@ -12,6 +12,7 @@ public class ResolveReturnRequest
 {
     public string Status { get; set; } = string.Empty;
     public string? SellerNote { get; set; }
+    public bool AdminOverride { get; set; } = false;
 }
 
 public class ReturnResponse

@@ -8,6 +8,7 @@ using Marketplace.Application.Interfaces;
 using Marketplace.Application.Validators.Users;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Services;
@@ -48,7 +49,7 @@ public class VerificationService : IVerificationService
         }
 
         // Validate Egyptian phone number
-        if (!EgyptianPhoneValidation.PhoneRegex.IsMatch(trimmed))
+        if (!EgyptianPhoneValidation.IsValid(trimmed))
         {
             throw new BadRequestException("Phone number must be a valid Egyptian mobile number (e.g. 01012345678 or +201012345678).");
         }
@@ -109,8 +110,9 @@ public class VerificationService : IVerificationService
         }
 
         // 5. Invalidate any previous unconsumed codes for this target and purpose
-        var previousActiveCodes = await _uow.VerificationCodes.FindAsync(c =>
-            c.Target == normalizedTarget && c.Purpose == purpose && c.ConsumedAt == null);
+        var previousActiveCodes = await _uow.VerificationCodes.Query()
+            .Where(c => c.Target == normalizedTarget && c.Purpose == purpose && c.ConsumedAt == null)
+            .ToListAsync(cancellationToken);
 
         foreach (var oldCode in previousActiveCodes)
         {
@@ -193,11 +195,58 @@ public class VerificationService : IVerificationService
 
         var trimmedCode = code.Trim();
 
-        // Find the active, unconsumed code for this target and purpose
-        var codes = await _uow.VerificationCodes.FindAsync(c =>
-            c.Target == normalizedTarget && c.Purpose == purpose && c.ConsumedAt == null);
+        // 1. Compute HMAC-SHA256 of supplied code upfront
+        var serverSecret = GetServerSecret();
+        var computedHash = ComputeHmacSha256(trimmedCode, serverSecret);
+        var computedBytes = Encoding.UTF8.GetBytes(computedHash);
 
-        var codeRecord = codes.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
+        // 2. Idempotency Grace Window (5 seconds):
+        // If a duplicate parallel request arrives for a code already consumed within the last 5 seconds
+        // with the exact same matching CodeHash, return the already consumed record instead of failing.
+        // Security: the grace window must ONLY cover codes that were consumed by a genuine successful
+        // verification. A code that was locked (>= 5 failed attempts), expired, or superseded by a newer
+        // code also has ConsumedAt set, and must never be accepted again:
+        //   - locked     -> AttemptCount >= 5
+        //   - expired    -> ConsumedAt is after ExpiresAt
+        //   - superseded -> a newer code exists for the same target/purpose
+        var graceCutoff = DateTime.UtcNow.AddSeconds(-5);
+        var recentlyConsumed = await _uow.VerificationCodes.Query()
+            .Where(c => c.Target == normalizedTarget &&
+                        c.Purpose == purpose &&
+                        c.ConsumedAt != null &&
+                        c.ConsumedAt >= graceCutoff &&
+                        c.AttemptCount < 5 &&
+                        c.ConsumedAt <= c.ExpiresAt)
+            .OrderByDescending(c => c.ConsumedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (recentlyConsumed != null)
+        {
+            var newestCreatedAt = await _uow.VerificationCodes.Query()
+                .Where(c => c.Target == normalizedTarget && c.Purpose == purpose)
+                .MaxAsync(c => c.CreatedAt, cancellationToken);
+            if (recentlyConsumed.CreatedAt < newestCreatedAt)
+            {
+                recentlyConsumed = null; // superseded by a newer code: not a genuine duplicate request
+            }
+        }
+
+        if (recentlyConsumed != null)
+        {
+            var consumedBytes = Encoding.UTF8.GetBytes(recentlyConsumed.CodeHash);
+            if (CryptographicOperations.FixedTimeEquals(computedBytes, consumedBytes))
+            {
+                return recentlyConsumed;
+            }
+        }
+
+        // 3. Query active unconsumed codes with ORDER BY CreatedAt DESC strictly at the database level
+        var activeCodes = await _uow.VerificationCodes.Query()
+            .Where(c => c.Target == normalizedTarget && c.Purpose == purpose && c.ConsumedAt == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var codeRecord = activeCodes.FirstOrDefault();
 
         if (codeRecord == null)
         {
@@ -220,14 +269,8 @@ public class VerificationService : IVerificationService
             throw new BadRequestException("This verification code has been invalidated due to too many failed attempts (5). Please request a new code.");
         }
 
-        // Compute HMAC-SHA256 of supplied code
-        var serverSecret = GetServerSecret();
-        var computedHash = ComputeHmacSha256(trimmedCode, serverSecret);
-
         // Constant-time comparison
-        var computedBytes = Encoding.UTF8.GetBytes(computedHash);
         var storedBytes = Encoding.UTF8.GetBytes(codeRecord.CodeHash);
-
         var isMatch = CryptographicOperations.FixedTimeEquals(computedBytes, storedBytes);
 
         if (!isMatch)
@@ -248,8 +291,13 @@ public class VerificationService : IVerificationService
             throw new BadRequestException($"Incorrect verification code. Attempts remaining: {attemptsLeft}.");
         }
 
-        // Valid match! Consume code.
+        // Valid match! Consume code and any other active unconsumed codes for this target & purpose.
         codeRecord.ConsumedAt = DateTime.UtcNow;
+        foreach (var remaining in activeCodes.Skip(1))
+        {
+            remaining.ConsumedAt = DateTime.UtcNow;
+        }
+
         await _uow.SaveChangesAsync();
 
         return codeRecord;

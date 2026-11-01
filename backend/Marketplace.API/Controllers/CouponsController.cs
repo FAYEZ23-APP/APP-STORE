@@ -1,4 +1,5 @@
 using Marketplace.API.Extensions;
+using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Coupons;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Enums;
@@ -9,20 +10,15 @@ namespace Marketplace.API.Controllers;
 
 [ApiController]
 [Route("api/coupons")]
+[RequireFeature(FeatureFlag.Coupons)]
 public class CouponsController : ControllerBase
 {
     private readonly ICouponService _couponService;
-    private readonly IConfiguration _configuration;
 
-    public CouponsController(ICouponService couponService, IConfiguration configuration)
+    public CouponsController(ICouponService couponService)
     {
         _couponService = couponService;
-        _configuration = configuration;
     }
-
-    private bool IsCouponsEnabled =>
-        _configuration.GetValue<bool>("Features:CouponsEnabled", false) ||
-        _configuration.GetValue<bool>("Coupons:Enabled", false);
 
     /// <summary>Validate and preview a discount coupon for items in cart.</summary>
     [HttpPost("validate")]
@@ -31,8 +27,6 @@ public class CouponsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CouponValidationResponse>> ValidateCoupon([FromBody] ValidateCouponRequest request)
     {
-        if (!IsCouponsEnabled) return NotFound(new { error = "Coupons feature is disabled." });
-
         var buyerId = User.GetUserId();
         var result = await _couponService.ValidateCouponAsync(buyerId, request);
         return Ok(result);
@@ -47,8 +41,6 @@ public class CouponsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CouponResponse>> CreateCoupon([FromBody] CreateCouponRequest request)
     {
-        if (!IsCouponsEnabled) return NotFound(new { error = "Coupons feature is disabled." });
-
         int? sellerId = User.IsInRole("Seller") ? User.GetUserId() : null;
 
         var result = await _couponService.CreateCouponAsync(sellerId, request);
@@ -62,8 +54,6 @@ public class CouponsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IEnumerable<CouponResponse>>> GetMyCoupons()
     {
-        if (!IsCouponsEnabled) return NotFound(new { error = "Coupons feature is disabled." });
-
         var sellerId = User.GetUserId();
         var result = await _couponService.GetSellerCouponsAsync(sellerId);
         return Ok(result);

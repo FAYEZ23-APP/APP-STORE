@@ -16,23 +16,75 @@ public class OrderService : IOrderService
     private readonly IDeliveryProvider _deliveryProvider;
     private readonly IConfiguration _configuration;
     private readonly INotificationService _notificationService;
+    private readonly IShippingDistanceService? _shippingDistanceService;
 
     public OrderService(
         IUnitOfWork uow,
         IDeliveryProvider deliveryProvider,
         IConfiguration configuration,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IShippingDistanceService? shippingDistanceService = null)
     {
         _uow = uow;
         _deliveryProvider = deliveryProvider;
         _configuration = configuration;
         _notificationService = notificationService;
+        _shippingDistanceService = shippingDistanceService;
     }
 
-    public async Task<OrderResponse> CreateOrderAsync(int buyerId, CreateOrderRequest request)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime Timestamp, int OrderId)> _recentOrderSubmissions = new();
+
+    public async Task<OrderResponse> CreateOrderAsync(int buyerId, CreateOrderRequest request, string? idempotencyKey = null)
     {
         if (request.Items == null || !request.Items.Any())
             throw new BadRequestException("Order must contain at least one item.");
+
+        var effectiveKey = !string.IsNullOrWhiteSpace(idempotencyKey)
+            ? idempotencyKey.Trim()
+            : (!string.IsNullOrWhiteSpace(request.IdempotencyKey) ? request.IdempotencyKey.Trim() : null);
+
+        if (!string.IsNullOrWhiteSpace(effectiveKey))
+        {
+            var existingOrder = (await _uow.Orders.FindAsync(o => o.BuyerId == buyerId && o.IdempotencyKey == effectiveKey)).FirstOrDefault();
+            if (existingOrder != null)
+            {
+                return await GetOrderByIdAsync(buyerId, existingOrder.Id);
+            }
+        }
+
+        // Short-window double-tap duplicate guard per buyer (10 seconds)
+        var itemsFingerprint = string.Join(";", request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).Select(i => $"{i.ProductId}:{i.VariantId}:{i.Quantity}"));
+        var submissionKey = $"{buyerId}:{itemsFingerprint}:{request.DeliveryMethod}:{request.PaymentMethod}";
+        if (_recentOrderSubmissions.TryGetValue(submissionKey, out var recent) && (DateTime.UtcNow - recent.Timestamp).TotalSeconds < 10)
+        {
+            try
+            {
+                return await GetOrderByIdAsync(buyerId, recent.OrderId);
+            }
+            catch
+            {
+                // Fallback to normal flow if lookup fails
+            }
+        }
+
+        // Feature gating checks for checkout
+        var walletEnabled = _configuration.GetValue<bool?>("Features:EnableWallet")
+            ?? _configuration.GetValue<bool?>("Features:WalletEnabled")
+            ?? _configuration.GetValue<bool?>("Wallet:Enabled")
+            ?? false;
+        if (request.UseWalletBalance && !walletEnabled)
+        {
+            throw new BadRequestException("Wallet feature is currently disabled.");
+        }
+
+        var couponsEnabled = _configuration.GetValue<bool?>("Features:EnableCoupons")
+            ?? _configuration.GetValue<bool?>("Features:CouponsEnabled")
+            ?? _configuration.GetValue<bool?>("Coupons:Enabled")
+            ?? false;
+        if (!string.IsNullOrWhiteSpace(request.CouponCode) && !couponsEnabled)
+        {
+            throw new BadRequestException("Coupons feature is currently disabled.");
+        }
 
         var buyer = await _uow.Users.GetByIdAsync(buyerId);
         if (buyer == null || (buyer.Email != null && buyer.Email.StartsWith("deleted_", StringComparison.OrdinalIgnoreCase)))
@@ -110,13 +162,17 @@ public class OrderService : IOrderService
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(request.City))
-                throw new BadRequestException("City is required for Courier delivery.");
+            var effectiveCity = !string.IsNullOrWhiteSpace(request.City)
+                ? request.City.Trim()
+                : request.Governorate?.Trim();
 
-            if (!await _deliveryProvider.IsValidCityAsync(request.City.Trim()))
-                throw new BadRequestException("Selected City is not supported by the delivery provider.");
+            if (string.IsNullOrWhiteSpace(effectiveCity))
+                throw new BadRequestException("City or Governorate is required for Courier delivery.");
 
-            destinationCity = request.City.Trim();
+            if (!await _deliveryProvider.IsValidCityAsync(effectiveCity))
+                throw new BadRequestException("Selected City or Governorate is not supported by the delivery provider.");
+
+            destinationCity = effectiveCity;
             destinationGovernorate = string.IsNullOrWhiteSpace(request.Governorate) ? destinationCity : request.Governorate.Trim();
             destinationArea = string.IsNullOrWhiteSpace(request.Area) ? "غير محدد" : request.Area.Trim();
             destinationStreetBuilding = string.IsNullOrWhiteSpace(request.StreetBuilding)
@@ -127,6 +183,18 @@ public class OrderService : IOrderService
                 throw new BadRequestException("StreetBuilding or AddressLine is required for Courier delivery.");
 
             addressLine = $"{destinationArea}، {destinationStreetBuilding}".Trim();
+        }
+
+        double? destLat = request.Latitude;
+        double? destLng = request.Longitude;
+        if ((!destLat.HasValue || !destLng.HasValue || (destLat.Value == 0 && destLng.Value == 0)) && !string.IsNullOrWhiteSpace(destinationCity))
+        {
+            var destCoords = EgyptianGovernorates.GetCoordinates(destinationCity) ?? EgyptianGovernorates.GetCoordinates(destinationGovernorate);
+            if (destCoords.HasValue)
+            {
+                destLat = destCoords.Value.Latitude;
+                destLng = destCoords.Value.Longitude;
+            }
         }
 
         // Group duplicate order items by (ProductId, VariantId)
@@ -220,6 +288,7 @@ public class OrderService : IOrderService
                 Area = destinationArea,
                 StreetBuilding = destinationStreetBuilding,
                 PaymentMethod = paymentMethod,
+                IdempotencyKey = effectiveKey,
                 CreatedAt = DateTime.UtcNow,
                 Shipments = new List<Shipment>(),
                 Items = new List<OrderItem>()
@@ -240,6 +309,26 @@ public class OrderService : IOrderService
                     ? profile.DispatchCity
                     : "القاهرة";
 
+                double? originLat = null;
+                double? originLng = null;
+                if (profile != null)
+                {
+                    if (profile.DispatchLatitude.HasValue && profile.DispatchLongitude.HasValue && profile.DispatchLatitude.Value != 0)
+                    {
+                        originLat = profile.DispatchLatitude.Value;
+                        originLng = profile.DispatchLongitude.Value;
+                    }
+                    else
+                    {
+                        var originCoords = EgyptianGovernorates.GetCoordinates(dispatchCity);
+                        if (originCoords.HasValue)
+                        {
+                            originLat = originCoords.Value.Latitude;
+                            originLng = originCoords.Value.Longitude;
+                        }
+                    }
+                }
+
                 int parcelWeightGrams = group.Sum(x => Math.Max(1, x.Product.WeightGrams) * x.Quantity);
                 decimal parcelItemsSubtotal = group.Sum(x => x.UnitPrice * x.Quantity);
 
@@ -254,6 +343,28 @@ public class OrderService : IOrderService
                 });
 
                 decimal deliveryCost = carrierShipment.DeliveryCost;
+
+                if (_shippingDistanceService != null && destLat.HasValue && destLng.HasValue)
+                {
+                    try
+                    {
+                        var feeCalculation = await _shippingDistanceService.CalculateShippingFeeAsync(
+                            destLat.Value,
+                            destLng.Value,
+                            originLat,
+                            originLng
+                        );
+                        if (feeCalculation != null && feeCalculation.TotalShippingCost > 0)
+                        {
+                            deliveryCost = feeCalculation.TotalShippingCost;
+                        }
+                    }
+                    catch
+                    {
+                        // Fall back cleanly to carrier shipment delivery cost
+                    }
+                }
+
                 if (parcelItemsSubtotal >= freeShippingThreshold || overallOrderItemsSubtotal >= freeShippingThreshold)
                 {
                     deliveryCost = 0m;
@@ -452,6 +563,21 @@ public class OrderService : IOrderService
 
             await _uow.CommitTransactionAsync();
 
+            _recentOrderSubmissions[submissionKey] = (DateTime.UtcNow, order.Id);
+            if (!string.IsNullOrWhiteSpace(effectiveKey))
+            {
+                _recentOrderSubmissions[$"key:{buyerId}:{effectiveKey}"] = (DateTime.UtcNow, order.Id);
+            }
+
+            if (_recentOrderSubmissions.Count > 1000)
+            {
+                var staleTime = DateTime.UtcNow.AddMinutes(-5);
+                foreach (var kvp in _recentOrderSubmissions.Where(k => k.Value.Timestamp < staleTime).Take(200).ToList())
+                {
+                    _recentOrderSubmissions.TryRemove(kvp.Key, out _);
+                }
+            }
+
             await _notificationService.NotifyOrderPlacedAsync(order.Id);
 
             var productLookup = loadedItems
@@ -459,6 +585,160 @@ public class OrderService : IOrderService
                 .ToDictionary(g => g.Key, g => g.First().Product);
 
             return MapOrderToResponse(order, order.Shipments.ToList(), order.Items.ToList(), productLookup, sellers);
+        }
+        catch (Exception ex) when (!string.IsNullOrEmpty(effectiveKey) && IsOrderIdempotencyUniqueViolation(ex))
+        {
+            // A concurrent request with the same (BuyerId, IdempotencyKey) committed first.
+            // Roll back this duplicate transaction (restores stock/wallet/coupon changes) and
+            // return the order that was already created.
+            await _uow.RollbackTransactionAsync();
+            _uow.ClearChangeTracker();
+
+            var existing = (await _uow.Orders.FindAsync(o => o.BuyerId == buyerId && o.IdempotencyKey == effectiveKey)).FirstOrDefault();
+            if (existing == null)
+                throw;
+
+            return await GetOrderByIdAsync(buyerId, existing.Id);
+        }
+        catch
+        {
+            await _uow.RollbackTransactionAsync();
+            throw;
+        }
+    }
+
+    private static bool IsOrderIdempotencyUniqueViolation(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException!)
+        {
+            if (e.GetType().Name == "PostgresException")
+            {
+                var t = e.GetType();
+                var sqlState = t.GetProperty("SqlState")?.GetValue(e) as string;
+                var constraint = t.GetProperty("ConstraintName")?.GetValue(e) as string;
+                return sqlState == "23505" && constraint == "IX_Orders_BuyerId_IdempotencyKey";
+            }
+            if (e.InnerException == null) break;
+        }
+        return false;
+    }
+
+    public async Task<OrderResponse> CancelOrderAsync(int buyerId, int orderId)
+    {
+        // Concurrency (D-004): all status checks run INSIDE the transaction, after taking a row lock on the
+        // order (SELECT ... FOR UPDATE). The seller hand-over path takes the same lock, so a cancel and a
+        // hand-to-carrier on the same order are strictly serialized and the loser re-reads the committed state.
+        await _uow.BeginTransactionAsync();
+        try
+        {
+            await _uow.ExecuteSqlRawAsync(@"SELECT 1 FROM ""Orders"" WHERE ""Id"" = {0} FOR UPDATE", orderId);
+            _uow.ClearChangeTracker();
+
+            var order = await _uow.Orders.GetByIdAsync(orderId);
+            if (order == null)
+                throw new NotFoundException($"Order with ID {orderId} not found.");
+
+            if (order.BuyerId != buyerId)
+                throw new ForbiddenException("You do not have permission to cancel this order.");
+
+            // Idempotent: If already Cancelled, return current state
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                await _uow.RollbackTransactionAsync();
+                return await GetOrderByIdAsync(buyerId, orderId);
+            }
+
+            if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Delivered)
+            {
+                throw new BadRequestException("لا يمكن إلغاء طلب تم شحنه أو توصيله بالفعل (Cannot cancel an order that has already been shipped or delivered).");
+            }
+
+            var shipments = (await _uow.Shipments.FindAsync(s => s.OrderId == orderId)).ToList();
+
+            // Check if all shipments are in Created or Cancelled status (before HandedToCarrier)
+            bool canCancel = shipments.Count > 0 && shipments.All(s => s.Status == ShipmentStatus.Created || s.Status == ShipmentStatus.Cancelled);
+            if (!canCancel)
+            {
+                throw new BadRequestException("لا يمكن إلغاء الطلب لأن الشحنة تم تسليمها لشركة الشحن أو جاري نقلها بالفعل (Cannot cancel order after shipments are handed to carrier).");
+            }
+            var items = (await _uow.OrderItems.FindAsync(oi => oi.OrderId == orderId)).ToList();
+
+            // 1. Atomically restore product/variant stock
+            foreach (var item in items)
+            {
+                if (item.VariantId.HasValue)
+                {
+                    await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                        item.Quantity,
+                        item.VariantId.Value);
+                }
+                else
+                {
+                    await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                        item.Quantity,
+                        item.ProductId);
+                }
+            }
+
+            // 2. Refund any BuyerWallet amount used at checkout
+            if (order.WalletAmountUsed > 0)
+            {
+                var buyerWallets = (await _uow.BuyerWallets.FindAsync(w => w.BuyerId == buyerId)).ToList();
+                if (!buyerWallets.Any())
+                {
+                    var newWallet = new BuyerWallet
+                    {
+                        BuyerId = buyerId,
+                        Balance = 0m,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _uow.BuyerWallets.AddAsync(newWallet);
+                    await _uow.SaveChangesAsync();
+                }
+
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""BuyerWallets"" SET ""Balance"" = ""Balance"" + {0}, ""UpdatedAt"" = {1} WHERE ""BuyerId"" = {2}",
+                    order.WalletAmountUsed,
+                    DateTime.UtcNow,
+                    buyerId);
+
+                var walletRefundTx = new BuyerWalletTransaction
+                {
+                    BuyerId = buyerId,
+                    OrderId = order.Id,
+                    Amount = order.WalletAmountUsed,
+                    Type = BuyerWalletTransactionType.RefundCredit,
+                    Description = $"استرداد رصيد المحفظة لإلغاء الطلب #{order.Id}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.BuyerWalletTransactions.AddAsync(walletRefundTx);
+            }
+
+            // 3. Revert coupon usage if applied
+            if (!string.IsNullOrWhiteSpace(order.CouponCode))
+            {
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""Coupons"" SET ""UsedCount"" = GREATEST(0, ""UsedCount"" - 1) WHERE ""Code"" = {0}",
+                    order.CouponCode.Trim().ToUpperInvariant());
+            }
+
+            // 4. Mark shipments as Cancelled
+            foreach (var shipment in shipments)
+            {
+                shipment.Status = ShipmentStatus.Cancelled;
+                _uow.Shipments.Update(shipment);
+            }
+
+            // 5. Mark order as Cancelled
+            order.Status = OrderStatus.Cancelled;
+            _uow.Orders.Update(order);
+
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            return await GetOrderByIdAsync(buyerId, orderId);
         }
         catch
         {
@@ -501,24 +781,25 @@ public class OrderService : IOrderService
         return response;
     }
 
-    public async Task<OrderResponse> GetOrderByIdAsync(int userId, int orderId)
+    public async Task<OrderResponse> GetOrderByIdAsync(int userId, int orderId, string? role = null)
     {
         var order = await _uow.Orders.GetByIdAsync(orderId);
         if (order == null)
             throw new NotFoundException($"Order with ID {orderId} not found.");
 
         var shipments = (await _uow.Shipments.FindAsync(s => s.OrderId == orderId)).ToList();
+        bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
         bool isBuyer = order.BuyerId == userId;
         bool isSeller = shipments.Any(s => s.SellerId == userId);
 
-        if (!isBuyer && !isSeller)
+        if (!isBuyer && !isSeller && !isAdmin)
             throw new ForbiddenException("You do not have permission to view this order.");
 
         var items = (await _uow.OrderItems.FindAsync(i => i.OrderId == orderId)).ToList();
         var productIds = items.Select(i => i.ProductId).Distinct().ToList();
         var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
 
-        if (!isBuyer && isSeller)
+        if (!isBuyer && isSeller && !isAdmin)
         {
             shipments = shipments.Where(s => s.SellerId == userId).ToList();
             var sellerProductIds = products.Values.Where(p => p.SellerId == userId).Select(p => p.Id).ToHashSet();
@@ -530,7 +811,7 @@ public class OrderService : IOrderService
 
         var mapped = MapOrderToResponse(order, shipments, items, products, sellers);
 
-        if (!isBuyer && isSeller)
+        if (!isBuyer && isSeller && !isAdmin)
         {
             mapped.TotalAmount = mapped.ItemsSubtotal + mapped.DeliveryCost;
         }
@@ -581,29 +862,16 @@ public class OrderService : IOrderService
         return response.OrderByDescending(r => r.Date);
     }
 
-    public async Task UpdateOrderStatusAsync(int sellerId, int orderId, string status)
+    public async Task UpdateOrderStatusAsync(int orderId, string status)
     {
         var order = await _uow.Orders.GetByIdAsync(orderId);
         if (order == null)
             throw new NotFoundException($"Order with ID {orderId} not found.");
 
-        var shipments = (await _uow.Shipments.FindAsync(s => s.OrderId == orderId && s.SellerId == sellerId)).ToList();
-        if (!shipments.Any())
-            throw new ForbiddenException("You do not have permission to update this order.");
-
         if (!Enum.TryParse<OrderStatus>(status, true, out var newStatus))
             throw new BadRequestException($"Invalid status: {status}");
 
-        var allShipments = (await _uow.Shipments.FindAsync(s => s.OrderId == orderId)).ToList();
-        if (allShipments.Count <= 1)
-        {
-            order.Status = newStatus;
-        }
-        else
-        {
-            order.Status = Order.DeriveStatus(allShipments.Select(s => s.Status));
-        }
-
+        order.Status = newStatus;
         _uow.Orders.Update(order);
         await _uow.SaveChangesAsync();
     }
@@ -687,6 +955,7 @@ public class OrderService : IOrderService
             StreetBuilding = order.StreetBuilding,
             AddressLine = computedAddressLine,
             PaymentMethod = order.PaymentMethod.ToString(),
+            IdempotencyKey = order.IdempotencyKey,
             CreatedAt = order.CreatedAt,
             Shipments = shipmentResponses,
             Items = itemResponses

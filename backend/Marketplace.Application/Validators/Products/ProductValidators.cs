@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using Marketplace.Application.DTOs.Products;
 using Marketplace.Application.Interfaces;
+using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Validators.Products;
 
@@ -20,14 +22,20 @@ public class CreateProductVariantRequestValidator : AbstractValidator<CreateProd
         RuleFor(x => x.ImageUrl)
             .Must(CreateProductRequestValidator.IsValidImageUrl)
             .When(x => !string.IsNullOrWhiteSpace(x.ImageUrl))
-            .WithMessage("Variant ImageUrl must be a valid path starting with /uploads/ or a valid http/https URL without path traversal or private IP targets.");
+            .WithMessage("Variant ImageUrl must be a relative path '/uploads/<guid>.<ext>' (external URLs are not allowed).");
     }
 }
 
 public class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
 {
-    public CreateProductRequestValidator(IUnitOfWork uow)
+    private static readonly Regex RelativeUploadRegex = new(
+        @"^/uploads/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.(jpg|jpeg|png|webp)$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public CreateProductRequestValidator(IUnitOfWork uow, IConfiguration configuration)
     {
+        var maxImages = configuration.GetValue<int>("Products:MaxImagesPerProduct", 8);
+
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).NotEmpty().MaximumLength(2000);
         RuleFor(x => x.Price).GreaterThan(0);
@@ -55,9 +63,12 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
             .GreaterThan(0)
             .When(x => x.HeightCm.HasValue)
             .WithMessage("HeightCm must be greater than 0 when provided.");
+        RuleFor(x => x.ImageUrls)
+            .Must(list => list == null || list.Count <= maxImages)
+            .WithMessage($"A product cannot have more than {maxImages} images.");
         RuleForEach(x => x.ImageUrls)
             .Must(IsValidImageUrl)
-            .WithMessage("Each ImageUrl must be a valid path starting with /uploads/ or a valid http/https URL without path traversal or private IP targets.");
+            .WithMessage("Each ImageUrl must be a relative path '/uploads/<guid>.<ext>' (external URLs are not allowed).");
         RuleFor(x => x.CategoryId)
             .GreaterThan(0).WithMessage("CategoryId is required.")
             .MustAsync(async (catId, ct) => (await uow.Categories.GetByIdAsync(catId)) != null)
@@ -72,35 +83,17 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
     {
         if (string.IsNullOrWhiteSpace(url)) return false;
         var trimmed = url.Trim();
-
         if (trimmed.Contains("..")) return false;
-        if (trimmed.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase) ||
-            trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        if (trimmed.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-        {
-            var host = uri.Host.ToLowerInvariant();
-            if (host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" ||
-                host.StartsWith("10.") || host.StartsWith("192.168.") || host.StartsWith("169.254."))
-            {
-                return false;
-            }
-            return true;
-        }
-
-        return false;
+        return RelativeUploadRegex.IsMatch(trimmed);
     }
 }
 
 public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequest>
 {
-    public UpdateProductRequestValidator(IUnitOfWork uow)
+    public UpdateProductRequestValidator(IUnitOfWork uow, IConfiguration configuration)
     {
+        var maxImages = configuration.GetValue<int>("Products:MaxImagesPerProduct", 8);
+
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).NotEmpty().MaximumLength(2000);
         RuleFor(x => x.Price).GreaterThan(0);
@@ -128,9 +121,12 @@ public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequ
             .GreaterThan(0)
             .When(x => x.HeightCm.HasValue)
             .WithMessage("HeightCm must be greater than 0 when provided.");
+        RuleFor(x => x.ImageUrls)
+            .Must(list => list == null || list.Count <= maxImages)
+            .WithMessage($"A product cannot have more than {maxImages} images.");
         RuleForEach(x => x.ImageUrls)
             .Must(CreateProductRequestValidator.IsValidImageUrl)
-            .WithMessage("Each ImageUrl must be a valid path starting with /uploads/ or a valid http/https URL without path traversal or private IP targets.");
+            .WithMessage("Each ImageUrl must be a relative path '/uploads/<guid>.<ext>' (external URLs are not allowed).");
         RuleFor(x => x.CategoryId)
             .GreaterThan(0).WithMessage("CategoryId is required.")
             .MustAsync(async (catId, ct) => (await uow.Categories.GetByIdAsync(catId)) != null)
