@@ -505,3 +505,9 @@ android/
 **/wwwroot/uploads/**
 !**/wwwroot/uploads/.gitkeep
 **/App_Data/private-uploads/**
+
+
+# Database backup archives
+backups/
+*.dump
+*.dump.gz

@@ -1,76 +1,172 @@
-# Egyptian Marketplace Platform (سوق إلكتروني مصري)
+# Egyptian Marketplace Platform (منصة السوق المصري)
 
-مشروع متكامل لمنصة سوق إلكتروني مصممة خصيصاً لتلبية متطلبات السوق المصري وتجربة المستخدم المحلية، مع الامتثال الكامل لقانون حماية البيانات الشخصية المصري (PDPL 151/2020).
+منصة تجارة إلكترونية متكاملة مصممة خصيصاً لتلبية متطلبات السوق المصري وتجربة المستخدم المحلية، مع الامتثال الكامل لقانون حماية البيانات الشخصية المصري (PDPL 151/2020) وأنظمة الدفع عند الاستلام (COD) والتقييم والتحقق البيومتري.
 
 ---
 
-## 📁 هيكل المشروع (Project Structure)
+## 📁 هيكل المشروع (Project Architecture)
 
-```
-APP-store/
-├── backend/                  # .NET 10 Web API Backend
-│   ├── Marketplace.API/             # Controllers, Middlewares, Configuration
-│   ├── Marketplace.Application/     # Services, DTOs, Business Logic, FluentValidation
-│   ├── Marketplace.Domain/          # Domain Entities, Enums
-│   ├── Marketplace.Infrastructure/  # EF Core, PostgreSQL, Repositories, Push Notifications
-│   ├── tests/                       # API Automated Integration Tests
-│   └── Marketplace.slnx             # Solution File
+```text
+marketplace/
+├── backend/                       # .NET 10 Web API Backend
+│   ├── Marketplace.API/                  # واجهات API والتحكم والإعدادات وميدلوير الأمان
+│   ├── Marketplace.Application/          # منطق الأعمال والخدمات وDTOs وقواعد التحقق
+│   ├── Marketplace.Domain/               # الكيانات الجوهرية (Entities) والتعدادات
+│   ├── Marketplace.Infrastructure/       # اتصالات PostgreSQL والتشفير والمستودعات
+│   ├── Marketplace.Tests/                # مشروع اختبارات C# القياسي (xUnit)
+│   ├── tests/                            # اختبارات التكامل والتحقق ضد PostgreSQL
+│   └── Marketplace.slnx                  # ملف الحل
 │
-└── mobile/                   # React Native (Expo) Mobile Application
-    ├── assets/                      # Icons & Splash Screens
-    ├── src/
-    │   ├── api/                     # Axios API Services (Auth, Products, Orders, Reviews, Coupons, Returns, etc.)
-    │   ├── components/              # Shared UI Components (ProductCard, ReviewModal, Badges, etc.)
-    │   ├── context/                 # AuthContext & CartContext
-    │   ├── locales/                 # Arabic (Primary RTL) & English translations
-    │   ├── navigation/              # BuyerTabs, SellerTabs & AppNavigator
-    │   ├── screens/                 # Buyer, Seller, Auth, Profile Screens
-    │   ├── theme/                   # Brand Colors (Navy, Orange, Clean surfaces)
-    │   └── utils/                   # Egyptian Phone, Currency, Notifications, Storage helpers
-    ├── App.js
-    └── package.json
+├── admin-web/                     # Next.js 16 (App Router) لوحة تحكم الإدارة
+│   ├── app/                              # مسارات لوحة التحكم (المستخدمين، الشحنات، المراجعات، المالية)
+│   ├── components/                       # مكونات واجهة الإدارة وجداول البيانات
+│   ├── lib/                              # خدمات API والتوثيق والتحقق من الجلسات
+│   └── package.json
+│
+├── mobile/                        # تطبيق الموبايل (React Native / Expo)
+│   ├── src/
+│   │   ├── api/                          # خدمات استدعاء API الموثقة
+│   │   ├── components/                   # مكونات الواجهة وتجربة المستخدم
+│   │   ├── context/                      # إدارة حالة التوثيق، القفل البيومتري، والسلة
+│   │   ├── locales/                      # الترجمة (العربية RTL افتراضياً والإنجليزية)
+│   │   ├── navigation/                   # مسارات التنقل (المشتري، البائع، الإدارة)
+│   │   ├── screens/                      # شاشات التطبيق
+│   │   └── utils/                        # تطبيع الهواتف، التخزين الآمن، ومفاتيح البيومترك
+│   └── package.json
+│
+├── scripts/                       # سكربتات التشغيل والأتمتة والنسخ الاحتياطي
+│   ├── run-all-tests.ps1                 # مشغل حزمة الاختبارات الشاملة (18 جناحاً)
+│   ├── backup-db.ps1                     # أتمتة النسخ الاحتياطي لقاعدة بيانات PostgreSQL
+│   ├── restore-drill.ps1                 # تجربة استعادة النسخ الاحتياطي والتحقق من الجداول
+│   └── check-i18n.js                     # تدقيق تطابق ملفات الترجمة (عربي/إنجليزي)
+│
+└── docs/                          # وثائق التدقيق والأمان والتقارير الشاملة
 ```
 
 ---
 
-## 🚀 المميزات الرئيسية (Core & Competitive Features)
+## ⚙️ المتطلبات المسبقة (Prerequisites)
 
-1. **الامتثال للسوق المصري (Egyptian Market Ready):**
-   - العملة الرسمية: الجنيه المصري (`ج.م` / `EGP`).
-   - دعم كامل للغة العربية والاتجاه من اليمين إلى اليسار (RTL First).
-   - التحقق الصارم من أرقام الهواتف المصرية (`010`, `011`, `012`, `015`).
-   - هيكل العناوين المصرية (المحافظة، المركز/المدينة، الحي/المنطقة، الشارع).
-   - الدفع عند الاستلام (Cash On Delivery) وإدارة مرات الرفض وتتبع المرتجعات.
-   - الامتثال لقانون حماية البيانات المصري (PDPL 151/2020) مع تصدير وحذف البيانات.
-
-2. **المميزات التنافسية الحديثة (E-Commerce Features):**
-   - **نظام الكوبونات والخصومات (Coupons & Discounts):** دعم الكوبونات الثابتة والنسبية مع شروط الحد الأدنى وتاريخ الصلاحية.
-   - **التقييمات والمراجعات (Product Reviews):** تمكين المشترين من تقييم المنتجات بالنجوم وكتابة مراجعات تفصيلية.
-   - **تنوعات المنتجات (Product Variants):** دعم المقاسات، الألوان، والخيارات المتعددة مع تتبع مخصص للمخزون والأسعار.
-   - **إدارة المرتجعات (Order Returns):** دورة عمل متكاملة لتقديم ومتابعة طلبات الإرجاع وأسبابها.
-   - **المحافظ الإلكترونية (Wallets):** محفظة للمشتري (لرد المبالغ) ومحفظة للبائع (للأرباح وطلبات السحب).
-   - **الإشعارات الفورية (Push Notifications):** إرسال واستقبال إشعارات بحالة الطلبات عبر Expo Notifications.
-   - **لوحات تحكم متقدمة (Analytics & Dashboards):** إحصائيات بيع ورسوم بيانية لأداء البائع والمنصة.
-
-3. **الأمان والمصادقة:**
-   - توثيق آمن عبر JWT مع تشفير كلمات المرور (BCrypt).
-   - دعم تسجيل الدخول المباشر وتسجيل الدخول عبر Google (Google OAuth).
-   - صلاحيات دقيقة للمستخدمين (مشتري Buyer، بائع Seller، مدير Admin).
+1. **.NET 10 SDK** (الإصدار `10.0.100` أو أحدث)
+2. **Node.js** (الإصدار `v20.x` أو `v24.x`) مع مدير الحزم `npm`
+3. **PostgreSQL** (الإصدار `16` أو `17` أو `18`)
+4. **PowerShell 7+** أو Windows PowerShell 5.1
+5. **Git** لإدارة الإصدارات
 
 ---
 
-## 🛠️ التشغيل السريع (Getting Started)
+## 🗄️ إعداد وتجهيز قاعدة البيانات (Database Setup)
 
-### تشغيل الباك إند (Backend):
+> **قاعدة أمان صارمة:** لا تقم أبداً بتشغيل أي عمليات تحديث أو حذف على قاعدة بيانات إنتاجية. العمل يتم عبر توليد سكربتات المايجريشن وتطبيقها بشكل منظم.
+
+### 1. إنشاء قواعد البيانات في PostgreSQL:
+قم بإنشاء قاعدة البيانات الأساسية وقاعدة بيانات الاختبارات:
+```sql
+CREATE DATABASE "MarketplaceMVP";
+CREATE DATABASE "MarketplaceMVP_test";
+```
+
+### 2. توليد وتطبيق سكربت المايجريشن (EF Core Migrations):
+لتوليد سكربت SQL الكامل لجميع الهجرات (25 هجرة معتمدة):
+```powershell
+dotnet ef migrations script --project backend/Marketplace.Infrastructure/Marketplace.Infrastructure.csproj --startup-project backend/Marketplace.API/Marketplace.API.csproj -o migrations.sql
+```
+قم بتطبيق ملف `migrations.sql` على قاعدة البيانات المطلوبة عبر `psql`:
 ```bash
+psql -h localhost -U postgres -d MarketplaceMVP -f migrations.sql
+psql -h localhost -U postgres -d MarketplaceMVP_test -f migrations.sql
+```
+
+### 3. متغيرات البيئة (Environment Variables):
+عيّن سلسلة الاتصال الخاصة ببيئة الاختبار في جلسة العمل:
+```powershell
+$env:TEST_DB = "Host=localhost;Port=5432;Database=MarketplaceMVP_test;Username=postgres;Password=YOUR_PASSWORD"
+```
+
+---
+
+## 🚀 تشغيل مكونات النظام (Running the System)
+
+### 1. تشغيل خادم الباك إند (Backend API):
+```powershell
 cd backend
-dotnet restore
+dotnet restore Marketplace.slnx
 dotnet run --project Marketplace.API
 ```
+- المنفذ الافتراضي في بيئة التطوير: `http://localhost:5209`
+- رابط فحص الجاهزية: `GET http://localhost:5209/api/health`
+- توثيق Swagger (متاح فقط في بيئة `Development`): `http://localhost:5209/swagger`
 
-### تشغيل تطبيق الموبايل (Mobile):
-```bash
+### 2. تشغيل لوحة تحكم الإدارة (Admin Web Portal):
+```powershell
+cd admin-web
+npm install
+npm run dev
+```
+- تعمل اللوحة على: `http://localhost:3000`
+- تتطلب تسجيل دخول بصلاحية مدير (`Admin`) مع تفعيل التحقق بخطوتين (2FA / TOTP).
+
+### 3. تشغيل تطبيق الموبايل (Mobile App):
+```powershell
 cd mobile
 npm install
 npx expo start
 ```
+- يدعم التطبيق العمل على محاكي Android أو iOS أو عبر تطبيق Expo Go.
+
+---
+
+## 🧪 تشغيل الاختبارات الآلية (Testing & Quality Assurance)
+
+### 1. تشغيل اختبارات C# القياسية (xUnit Tests):
+مشروع الاختبارات `backend/Marketplace.Tests` يغطي المسارات الجوهرية (تطبيع الهواتف، إخفاء البيانات الحساسة، التشفير المتناظر AES-256-GCM للـ 2FA، تطبيع النصوص العربية، والدقة المالية):
+```powershell
+dotnet test backend/Marketplace.slnx
+```
+
+### 2. تشغيل حزمة الاختبارات الشاملة (All 18 Suites Runner):
+يتحقق السكربت من بيئة العمل ضد قاعدة بيانات اختبار حقيقية (`_test`) وينفذ جميع الأجنحة الـ 18:
+```powershell
+$env:TEST_DB = "Host=localhost;Port=5432;Database=MarketplaceMVP_test;Username=postgres;Password=YOUR_PASSWORD"
+powershell -ExecutionPolicy Bypass -File scripts/run-all-tests.ps1
+```
+- ينتج تقرير نتائج ديناميكي شامل بصيغة UTF-8 في `tests/RESULTS.md`.
+
+### 3. تدقيق أمان الحزم وتطابق الترجمة (Security & i18n Audits):
+```powershell
+# فحص تطابق مفاتيح الترجمة (العربية والإنجليزية)
+node mobile/scripts/check-i18n.js
+
+# فحص أمان لوحة الإدارة ضد هجمات XSS و CSRF والحقن
+npm --prefix admin-web run test:security
+```
+
+---
+
+## 💾 النسخ الاحتياطي واستعادة الكوارث (Backup & Disaster Recovery)
+
+### 1. أخذ نسخة احتياطية مشفرة ومضغوطة:
+يقوم السكربت باكتشاف `pg_dump` تلقائياً وحفظ نسخة احتياطية مضغوطة في مجلد `backups/` مع إخفاء كلمات المرور:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/backup-db.ps1
+```
+
+### 2. تنفيذ تمرين استعادة الكوارث المعتمد (Disaster Recovery Drill):
+يقوم السكربت باستعادة أحدث نسخة احتياطية داخل قاعدة بيانات تدريبية معزولة (`MarketplaceMVP_restore_test`)، والتحقق من سلامة كافة الجداول (29 جدولاً) والهجرات (25 هجرة)، ثم تنظيف قاعدة التدريب:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/restore-drill.ps1
+```
+
+---
+
+## 🔒 معايير الأمان والامتثال القانوني (Security & PDPL Compliance)
+
+1. **حماية البيانات الشخصية (Egyptian PDPL 151/2020):**
+   - حجب فوري لأكواد التحقق (`******`)، وأرقام الهواتف، والإيميلات في سجلات النظام (`LogMasking`).
+   - إمكانية تصدير كامل بيانات المستخدم (`GET /api/users/me/export-data`) بدون تسريب هاشات التوكن أو كلمات المرور.
+   - مسار حذف حساب المشترى الشامل وتطهير بيانات الطلبات الشخصية مع إبقاء المعاملات المالية للضرائب.
+2. **عزل الميزات المالية:**
+   - تظل ميزات الأموال الحقيقية (`Features:EnableWallet` و `Features:EnableVendorPayouts` و `Features:EnableCoupons`) معطلة افتراضياً (`false`) في كافة البيئات لحين اكتمال التوقيع القانوني والمحاسبي.
+3. **أمان المصادقة والبيومترك:**
+   - شاشة القفل البيومتري (`UnlockScreen`) تعمل كحماية على مستوى الواجهة، وتخزين الرموز مشفر في `expo-secure-store`.
+   - أسرار الـ 2FA للإدارة مشفرة في قاعدة البيانات باستخدام خوارزمية `AES-256-GCM` برمز بادئة `ENC:v1:`.

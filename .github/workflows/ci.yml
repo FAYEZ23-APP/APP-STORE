@@ -1,0 +1,80 @@
+name: Marketplace CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend:
+    name: Backend Build & xUnit Tests (.NET 10)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore backend/Marketplace.slnx
+
+      - name: Build Solution
+        run: dotnet build backend/Marketplace.slnx -c Release --no-restore
+
+      - name: Run xUnit Tests
+        run: dotnet test backend/Marketplace.slnx -c Release --no-build --verbosity normal
+
+  admin-web:
+    name: Admin Web Security & Build (Next.js 16)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Install Dependencies
+        run: npm --prefix admin-web ci
+
+      - name: Run Security Suite
+        run: npm --prefix admin-web run test:security
+
+      - name: Build Web Application
+        run: npm --prefix admin-web run build
+
+  mobile:
+    name: Mobile i18n & Unit Tests (Expo / React Native)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install Dependencies
+        run: npm --prefix mobile ci
+
+      - name: Verify i18n Locales Parity
+        run: node mobile/scripts/check-i18n.js
+
+      - name: Run Authentication & Biometric Mock Suites
+        run: |
+          node mobile/tests/test_auth_flows_mock.js
+          node mobile/tests/test_biometric_cold_start_and_use_password_mock.js
+          node mobile/tests/test_biometric_lock_state_machine_mock.js
+          node mobile/tests/test_single_flight_refresh_mock.js
+          node mobile/tests/test_feature_gating_mock.js

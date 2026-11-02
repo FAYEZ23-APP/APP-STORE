@@ -20,25 +20,27 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $repoRoot
 
-# --- Step 1: Pre-Flight Check for Stale Processes & Ports 5209-5300 (NEVER KILL) ---
+# --- Step 1: Pre-Flight Cleanup & Check for Stale Processes & Ports 5209-5300 ---
 $staleProcs = @(Get-Process -Name "Marketplace.API" -ErrorAction SilentlyContinue)
+if ($staleProcs.Count -gt 0) {
+    Write-Host "Pre-flight: Terminating $($staleProcs.Count) orphaned Marketplace.API process(es)..." -ForegroundColor Yellow
+    foreach ($p in $staleProcs) {
+        try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    Start-Sleep -Milliseconds 500
+}
+
 $occupiedPorts = @(
     Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
     Where-Object { $_.LocalPort -ge 5209 -and $_.LocalPort -le 5300 } |
     Sort-Object -Property LocalPort -Unique
 )
 
-if ($staleProcs.Count -gt 0 -or $occupiedPorts.Count -gt 0) {
+if ($occupiedPorts.Count -gt 0) {
     Write-Host "==============================================================================" -ForegroundColor Red
-    Write-Host "ABORT: Pre-flight environment check failed (runner never kills processes)." -ForegroundColor Red
-    if ($staleProcs.Count -gt 0) {
-        $pids = ($staleProcs | ForEach-Object { $_.Id }) -join ", "
-        Write-Host "  - Stale Marketplace.API process(es) detected (PID: $pids)." -ForegroundColor Red
-    }
-    if ($occupiedPorts.Count -gt 0) {
-        $portDesc = ($occupiedPorts | ForEach-Object { "$($_.LocalPort) (PID $($_.OwningProcess))" }) -join ", "
-        Write-Host "  - Reserved TCP port(s) in 5209-5300 are listening: $portDesc." -ForegroundColor Red
-    }
+    Write-Host "ABORT: Pre-flight environment check failed (ports 5209-5300 occupied)." -ForegroundColor Red
+    $portDesc = ($occupiedPorts | ForEach-Object { "$($_.LocalPort) (PID $($_.OwningProcess))" }) -join ", "
+    Write-Host "  - Reserved TCP port(s) in 5209-5300 are listening: $portDesc." -ForegroundColor Red
     Write-Host "Stop the conflicting process(es) manually and re-run scripts/run-all-tests.ps1." -ForegroundColor Yellow
     Write-Host "==============================================================================" -ForegroundColor Red
     exit 1

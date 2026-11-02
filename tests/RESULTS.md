@@ -3,8 +3,8 @@
 > Generated exclusively from live process execution by `scripts/run-all-tests.ps1`. No hardcoded or persisted result tables exist.
 
 ## Execution Metadata
-- **Timestamp**: 2026-11-02 03:41:49 +02:00
-- **Git Commit**: `4e25dc547b557c5374eb45b2122796000abb28cc`
+- **Timestamp**: 2026-11-02 08:05:43 +02:00
+- **Git Commit**: `760d0f325c3bd33ed565000acd732b591fc584b4`
 - **Database Name**: `MarketplaceMVP_test` (PostgreSQL; connection string redacted)
 - **Runtime**: Node.js v24.14.0 | .NET 10.0.201
 - **Suites Summary**: **18** PASS, **0** FAIL, **0** NOT RUN (Total: 18 Suites -- 11/11 POSTGRES, 7 MOCK/STATIC)
@@ -13,24 +13,24 @@
 
 | # | Suite Name | Provider | Status | Duration |
 |:-:|:-----------|:---------|:------:|:--------:|
-| 1 | Mobile Authentication Flows & Validators | MOCK | PASS | 0.3s |
-| 2 | Mobile Biometric Cold Start & Password Fallback | MOCK | PASS | 0.07s |
+| 1 | Mobile Authentication Flows & Validators | MOCK | PASS | 0.11s |
+| 2 | Mobile Biometric Cold Start & Password Fallback | MOCK | PASS | 0.08s |
 | 3 | Mobile Biometric Lock State Machine | MOCK | PASS | 0.07s |
 | 4 | Mobile Single-Flight Refresh | MOCK | PASS | 0.15s |
 | 5 | Mobile Feature Gating & Safe Defaults | MOCK | PASS | 0.07s |
-| 6 | Mobile i18n Locales Exact Parity & Reference Audit | STATIC | PASS | 0.11s |
-| 7 | Backend Stage 5 Refresh Token Grace Window Simulation | MOCK | PASS | 0.06s |
-| 8 | Backend Shipping Distance & Fee Calculation | POSTGRES (TEST_DB) | PASS | 9.04s |
-| 9 | Backend Stage 3 Multiple Images, EXIF Stripping & Magic Bytes | POSTGRES (TEST_DB) | PASS | 11.37s |
-| 10 | Backend Stage 4 Product Reviews E2E | POSTGRES (TEST_DB) | PASS | 54.05s |
-| 11 | Backend Admin Portal & User Management E2E | POSTGRES (TEST_DB) | PASS | 15.03s |
-| 12 | Backend Account Deletion, Auth Privacy & 37-Route IDOR/Role Suite | POSTGRES (TEST_DB) | PASS | 27.52s |
-| 13 | Backend Batch 5 PII & OTP Log Masking (D-002 / M0-02) | POSTGRES (TEST_DB) | PASS | 74.71s |
-| 14 | Backend Batch 6 Unique Order Idempotency Race (D-003) | POSTGRES (TEST_DB) | PASS | 67.54s |
-| 15 | Backend Batch 7 Cancel vs Handover Row-Lock Race (D-004) | POSTGRES (TEST_DB) | PASS | 64.38s |
-| 16 | Backend Batch 8 PUT /api/orders/{id}/status Admin-Only Lock (D-005) | POSTGRES (TEST_DB) | PASS | 12.23s |
-| 17 | Backend Batch 9 /api/health Redaction & 180/min Rate Limit (D-009, D-016) | POSTGRES (TEST_DB) | PASS | 15.09s |
-| 18 | Backend PostgreSQL Verification Pack (11 Checks) | POSTGRES (TEST_DB) | PASS | 64.64s |
+| 6 | Mobile i18n Locales Exact Parity & Reference Audit | STATIC | PASS | 0.14s |
+| 7 | Backend Stage 5 Refresh Token Grace Window Simulation | MOCK | PASS | 0.08s |
+| 8 | Backend Shipping Distance & Fee Calculation | POSTGRES (TEST_DB) | PASS | 7.59s |
+| 9 | Backend Stage 3 Multiple Images, EXIF Stripping & Magic Bytes | POSTGRES (TEST_DB) | PASS | 11.16s |
+| 10 | Backend Stage 4 Product Reviews E2E | POSTGRES (TEST_DB) | PASS | 38.87s |
+| 11 | Backend Admin Portal & User Management E2E | POSTGRES (TEST_DB) | PASS | 10.59s |
+| 12 | Backend Account Deletion, Auth Privacy & 37-Route IDOR/Role Suite | POSTGRES (TEST_DB) | PASS | 27.61s |
+| 13 | Backend Batch 5 PII & OTP Log Masking (D-002 / M0-02) | POSTGRES (TEST_DB) | PASS | 70s |
+| 14 | Backend Batch 6 Unique Order Idempotency Race (D-003) | POSTGRES (TEST_DB) | PASS | 56.8s |
+| 15 | Backend Batch 7 Cancel vs Handover Row-Lock Race (D-004) | POSTGRES (TEST_DB) | PASS | 48.97s |
+| 16 | Backend Batch 8 PUT /api/orders/{id}/status Admin-Only Lock (D-005) | POSTGRES (TEST_DB) | PASS | 8.11s |
+| 17 | Backend Batch 9 /api/health Redaction & 180/min Rate Limit (D-009, D-016) | POSTGRES (TEST_DB) | PASS | 13.72s |
+| 18 | Backend PostgreSQL Verification Pack (11 Checks) | POSTGRES (TEST_DB) | PASS | 63.63s |
 
 ---
 
@@ -95,8 +95,8 @@
 |:-----:|:------------------------------|:---------|:------:|:----------------|
 | 1 | 2 Parallel Orders on LAST Unit (Stock=1) | PostgreSQL (TEST_DB) | PASS | Statuses=[201,400], stock=0 |
 | 2 | 10 Parallel Orders on LAST Unit (Stock=1) | PostgreSQL (TEST_DB) | PASS | 201=1, 400=9, stock=0 |
-| 3 | Idempotency Key on POST /api/orders | PostgreSQL (TEST_DB) | PASS | Both returned Order #822, stock 10->9 |
-| 4 | Buyer Cancel before HandedToCarrier | PostgreSQL (TEST_DB) | PASS | Order #824 Cancelled, parallel cancel=[200,200], stock=5 |
+| 3 | Idempotency Key on POST /api/orders | PostgreSQL (TEST_DB) | PASS | Both returned Order #1001, stock 10->9 |
+| 4 | Buyer Cancel before HandedToCarrier | PostgreSQL (TEST_DB) | PASS | Order #1003 Cancelled, parallel cancel=[200,200], stock=5 |
 | 5 | Email & Phone Uniqueness in Parallel & Case-Insensitive | PostgreSQL (TEST_DB) | PASS | Email=[202,409], Phone=[202,409], UpperLogin=200 |
 | 6 | Account Deletion on Real Tables | PostgreSQL (TEST_DB) | PASS | DELETE=204, Relogin=401, OldToken=401 |
 | 7 | Review Eligibility & 10 Parallel Reviews | PostgreSQL (TEST_DB) | PASS | Ineligible=403, 10-parallel avg=4 (count=10), dup=400 |
@@ -111,12 +111,12 @@
 
 ### Mobile Authentication Flows & Validators
 - **Provider**: MOCK
-- **Status**: PASS (Duration: 0.3s, Exit Code: 0)
+- **Status**: PASS (Duration: 0.11s, Exit Code: 0)
 
 ```text
 🧪 Starting Mobile Authentication Unit & Flow Tests...
 --- Test 1: i18n Locales Exact Parity ---
-✅ [PASS] i18n locale files in 100% sync (1077 keys, all auth keys present)
+✅ [PASS] i18n locale files in 100% sync (1096 keys, all auth keys present)
 --- Test 2: Egyptian Phone Validation & Normalization ---
 ✅ [PASS] Egyptian phone validator, normalizer, and formatter all accurate
 --- Test 3: OTP 6-Box Logic Simulation ---
@@ -130,7 +130,7 @@
 
 ### Mobile Biometric Cold Start & Password Fallback
 - **Provider**: MOCK
-- **Status**: PASS (Duration: 0.07s, Exit Code: 0)
+- **Status**: PASS (Duration: 0.08s, Exit Code: 0)
 
 ```text
 ================================================================
@@ -209,22 +209,22 @@ Results: 9 passed, 0 failed.
 
 ### Mobile i18n Locales Exact Parity & Reference Audit
 - **Provider**: STATIC
-- **Status**: PASS (Duration: 0.11s, Exit Code: 0)
+- **Status**: PASS (Duration: 0.14s, Exit Code: 0)
 
 ```text
 🌐 Validating i18n locale files and source code references...
 📊 Translation Key Statistics:
-   - Total locale keys (in sync): 1077
-   - Static keys extracted from source: 672
+   - Total locale keys (in sync): 1096
+   - Static keys extracted from source: 682
    - Dynamic namespaces detected: shipmentStatus, orderStatus, categories, returnStatus, returnReason, payoutStatus, payoutMethod, walletTxType, roles, deliveryMethod, paymentMethod
    - Backend enum/API values verified across 11 namespaces: 53
-   - Unreferenced keys (candidates for pruning): 346
-✅ i18n check passed! Both ar.json and en.json are in 100% sync (1077 keys), all static keys exist, and all 53 backend enum/API values are covered.
+   - Unreferenced keys (candidates for pruning): 355
+✅ i18n check passed! Both ar.json and en.json are in 100% sync (1096 keys), all static keys exist, and all 53 backend enum/API values are covered.
 ```
 
 ### Backend Stage 5 Refresh Token Grace Window Simulation
 - **Provider**: MOCK
-- **Status**: PASS (Duration: 0.06s, Exit Code: 0)
+- **Status**: PASS (Duration: 0.08s, Exit Code: 0)
 
 ```text
 ================================================================
@@ -247,33 +247,33 @@ Results: 9 passed, 0 failed.
 
 ### Backend Shipping Distance & Fee Calculation
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 9.04s, Exit Code: 0)
+- **Status**: PASS (Duration: 7.59s, Exit Code: 0)
 
 ```text
 Database Name: MarketplaceMVP_test
 --- Unit Verification: Haversine Formula ---
 Cairo -> Alexandria straight-line distance: 179.98 km
 Expected Haversine fallback shipping fee: 929.9 EGP
---- Live Endpoint Verification against MarketplaceMVP_test (http://localhost:56211/api/shipping/calculate-fee) ---
+--- Live Endpoint Verification against MarketplaceMVP_test (http://localhost:54321/api/shipping/calculate-fee) ---
 Response: {"distanceKm":179.98,"estimatedTime":"5 ساعة و 19 دقيقة تقريباً","totalShippingCost":929.9,"baseShippingFee":30,"distanceCost":899.9,"isRoadDistance":false,"source":"HaversineFallback"}
 ALL SHIPPING CALCULATION CHECKS PASSED!
 ```
 
 ### Backend Stage 3 Multiple Images, EXIF Stripping & Magic Bytes
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 11.37s, Exit Code: 0)
+- **Status**: PASS (Duration: 11.16s, Exit Code: 0)
 
 ```text
 Database Name: MarketplaceMVP_test
-Running Stage 3 PostgreSQL E2E tests against http://localhost:60292 (DB: MarketplaceMVP_test)...
+Running Stage 3 PostgreSQL E2E tests against http://localhost:54363 (DB: MarketplaceMVP_test)...
 Test 1 (Upload 2000x1500 JPEG with EXIF GPS): 200 {
-  url: '/uploads/b6caeffc-fc02-4361-ae50-9c9cd89a06ce.jpg',
+  url: '/uploads/21ba7c27-bc30-4ed3-917b-6e3f9a8973b0.jpg',
   width: 1600,
   height: 1200,
   sizeBytes: 11537
 }
 Test 1b (Stored file EXIF/GPS check): {
-  storedPath: 'D:\\Backend\\marketplace\\backend\\Marketplace.API\\wwwroot\\uploads\\b6caeffc-fc02-4361-ae50-9c9cd89a06ce.jpg',
+  storedPath: 'D:\\Backend\\marketplace\\backend\\Marketplace.API\\wwwroot\\uploads\\21ba7c27-bc30-4ed3-917b-6e3f9a8973b0.jpg',
   sizeBytes: 11537,
   stillHasExif: false
 }
@@ -282,15 +282,15 @@ Test 2 (Fake .png with text content): 400 {
   error: 'Invalid image file header. Magic bytes do not match expected image signature.'
 }
 Test 3 (Foreign/external URL rejected): 400 {"status":400,"error":"One or more validation errors occurred.","errors":{"ImageUrls[0]":["Each ImageUrl must be a relative path '/uploads/<guid>.<ext>' (external URLs are not allowed)."]}}
-Test 4 (Another seller file rejected): 400 {"status":400,"error":"Image '/uploads/ec4e823d-8fc7-4b3d-bde4-17a0137fd055.jpg' belongs to another seller and cannot be used."}
+Test 4 (Another seller file rejected): 400 {"status":400,"error":"Image '/uploads/8174bc15-d091-425c-bbfd-daaf0861484f.jpg' belongs to another seller and cannot be used."}
 Test 5 (9th image rejected): 400 {"status":400,"error":"One or more validation errors occurred.","errors":{"ImageUrls":["A product cannot have more than 8 images."]}}
-Test 6 (8 ordered images accepted): 201 { id: 512, imageCount: 8, firstIsMain: true, orderMatches: true }
+Test 6 (8 ordered images accepted): 201 { id: 583, imageCount: 8, firstIsMain: true, orderMatches: true }
 ALL STAGE 3 POSTGRESQL TESTS PASSED!
 ```
 
 ### Backend Stage 4 Product Reviews E2E
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 54.05s, Exit Code: 0)
+- **Status**: PASS (Duration: 38.87s, Exit Code: 0)
 
 ```text
 200, 200
@@ -322,23 +322,23 @@ ALL STAGE 4 POSTGRESQL E2E CHECKS PASSED!
 
 ### Backend Admin Portal & User Management E2E
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 15.03s, Exit Code: 0)
+- **Status**: PASS (Duration: 10.59s, Exit Code: 0)
 
 ```text
 Database Name: MarketplaceMVP_test
-Running Admin Portal E2E tests against PostgreSQL TEST_DB (MarketplaceMVP_test) on http://localhost:49295...
+Running Admin Portal E2E tests against PostgreSQL TEST_DB (MarketplaceMVP_test) on http://localhost:51055...
 TEST 1 (Non-admin access rejected with 403): { status: 403 }
 TEST 2 (Admin stats 200 OK): { status: 200 }
 Stats Data: {
-  totalUsers: 1022,
-  totalBuyers: 734,
-  totalSellers: 274,
-  totalOrders: 643,
-  totalVolume: 144867.8
+  totalUsers: 1199,
+  totalBuyers: 866,
+  totalSellers: 306,
+  totalOrders: 782,
+  totalVolume: 168501.15
 }
 TEST 3 (Admin list & filter users): {
-  totalUsersReturned: 1022,
-  sellersReturned: 274,
+  totalUsersReturned: 1199,
+  sellersReturned: 306,
   firstUserRole: 'Buyer'
 }
 TEST 4 (Admin self-deactivation rejected with 400): { status: 400 }
@@ -346,13 +346,13 @@ TEST 5a (Suspend user): { status: 200 }
 TEST 5b (Suspended user login rejected with 400/401/403): { status: 401 }
 TEST 5c (Reactivate user): { status: 200 }
 TEST 6 (Fetch reported reviews): { status: 200 }
-Found 11 reported reviews in system.
+Found 16 reported reviews in system.
 ALL ADMIN PORTAL POSTGRESQL E2E CHECKS PASSED!
 ```
 
 ### Backend Account Deletion, Auth Privacy & 37-Route IDOR/Role Suite
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 27.52s, Exit Code: 0)
+- **Status**: PASS (Duration: 27.61s, Exit Code: 0)
 
 ```text
 [PASS] #R15 PUT /api/orders/{id:int}/status enforces Admin-only role (D-005 closed) -> Seller=403, Buyer=403, Admin=204
@@ -384,7 +384,7 @@ ACCOUNT DELETION & 34-ROUTE IDOR SUITE COMPLETE — Failures: 0
 
 ### Backend Batch 5 PII & OTP Log Masking (D-002 / M0-02)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 74.71s, Exit Code: 0)
+- **Status**: PASS (Duration: 70s, Exit Code: 0)
 
 ```text
 Suite provider: POSTGRES | DB name: MarketplaceMVP_test
@@ -406,39 +406,39 @@ ALL OTP/PII LOG-MASKING CHECKS PASSED
 
 ### Backend Batch 6 Unique Order Idempotency Race (D-003)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 67.54s, Exit Code: 0)
+- **Status**: PASS (Duration: 56.8s, Exit Code: 0)
 
 ```text
-statuses: 201, 201, 201, 201, 201 | order ids: 787, 787, 787, 787, 787
+statuses: 201, 201, 201, 201, 201 | order ids: 966, 966, 966, 966, 966
   [PASS] all parallel requests returned 2xx (no 500)
   [PASS] all parallel requests returned the same Order Id
   [PASS] exactly 1 order row in PostgreSQL (found 1)
   [PASS] product stock decremented once (Stock=4, expected 4)
 --- Round 3/5: 5 parallel POST /api/orders, same buyer, same Idempotency-Key, stock=5 ---
-  statuses: 201, 201, 201, 201, 201 | order ids: 792, 792, 792, 792, 792
+  statuses: 201, 201, 201, 201, 201 | order ids: 971, 971, 971, 971, 971
   [PASS] all parallel requests returned 2xx (no 500)
   [PASS] all parallel requests returned the same Order Id
   [PASS] exactly 1 order row in PostgreSQL (found 1)
   [PASS] product stock decremented once (Stock=4, expected 4)
 --- Round 4/5: 5 parallel POST /api/orders, same buyer, same Idempotency-Key, stock=5 ---
-  statuses: 201, 201, 201, 201, 201 | order ids: 797, 797, 797, 797, 797
+  statuses: 201, 201, 201, 201, 201 | order ids: 976, 976, 976, 976, 976
   [PASS] all parallel requests returned 2xx (no 500)
   [PASS] all parallel requests returned the same Order Id
   [PASS] exactly 1 order row in PostgreSQL (found 1)
   [PASS] product stock decremented once (Stock=4, expected 4)
 --- Round 5/5: 5 parallel POST /api/orders, same buyer, same Idempotency-Key, stock=5 ---
-  statuses: 201, 201, 201, 201, 201 | order ids: 802, 802, 802, 802, 802
+  statuses: 201, 201, 201, 201, 201 | order ids: 981, 981, 981, 981, 981
   [PASS] all parallel requests returned 2xx (no 500)
   [PASS] all parallel requests returned the same Order Id
   [PASS] exactly 1 order row in PostgreSQL (found 1)
   [PASS] product stock decremented once (Stock=4, expected 4)
-  INFO: unique-violation (23505) on IX_Orders_BuyerId_IdempotencyKey observed in server log: 68 time(s) (race caught by the DB index and handled)
+  INFO: unique-violation (23505) on IX_Orders_BuyerId_IdempotencyKey observed in server log: 72 time(s) (race caught by the DB index and handled)
 ALL IDEMPOTENCY CONCURRENCY CHECKS PASSED
 ```
 
 ### Backend Batch 7 Cancel vs Handover Row-Lock Race (D-004)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 64.38s, Exit Code: 0)
+- **Status**: PASS (Duration: 48.97s, Exit Code: 0)
 
 ```text
 [PASS] round 7: exactly one operation won (cancel=200, handover=400)
@@ -448,10 +448,10 @@ ALL IDEMPOTENCY CONCURRENCY CHECKS PASSED
   [PASS] round 8: exactly one operation won (cancel=200, handover=400)
   [PASS] round 8: no 5xx
   [PASS] round 8: cancel won -> order+shipment Cancelled, stock restored (5)
-  round 9: cancel=200 handover=400 -> order=Cancelled shipment=Cancelled stock=5
-  [PASS] round 9: exactly one operation won (cancel=200, handover=400)
+  round 9: cancel=400 handover=200 -> order=Shipped shipment=HandedToCarrier stock=4
+  [PASS] round 9: exactly one operation won (cancel=400, handover=200)
   [PASS] round 9: no 5xx
-  [PASS] round 9: cancel won -> order+shipment Cancelled, stock restored (5)
+  [PASS] round 9: handover won -> shipment HandedToCarrier, order not cancelled, stock not restored (4)
   round 10: cancel=200 handover=400 -> order=Cancelled shipment=Cancelled stock=5
   [PASS] round 10: exactly one operation won (cancel=200, handover=400)
   [PASS] round 10: no 5xx
@@ -464,37 +464,37 @@ ALL IDEMPOTENCY CONCURRENCY CHECKS PASSED
   [PASS] round 12: exactly one operation won (cancel=200, handover=400)
   [PASS] round 12: no 5xx
   [PASS] round 12: cancel won -> order+shipment Cancelled, stock restored (5)
-  INFO: cancel won 9 round(s), handover won 3 round(s)
+  INFO: cancel won 8 round(s), handover won 4 round(s)
 ALL CANCEL-VS-HANDOVER RACE CHECKS PASSED
 ```
 
 ### Backend Batch 8 PUT /api/orders/{id}/status Admin-Only Lock (D-005)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 12.23s, Exit Code: 0)
+- **Status**: PASS (Duration: 8.11s, Exit Code: 0)
 
 ```text
 Suite provider: POSTGRES | DB name: MarketplaceMVP_test
 --- 1. Seller attempts to update order status directly (D-005 loophole) ---
-  [PASS] Seller calling PUT /api/orders/819/status with Delivered is rejected with 403 Forbidden (Got 403)
-  [PASS] Seller calling PUT /api/orders/819/status with Shipped is rejected with 403 Forbidden (Got 403)
-  [PASS] Seller calling PUT /api/orders/819/status with Cancelled is rejected with 403 Forbidden (Got 403)
+  [PASS] Seller calling PUT /api/orders/998/status with Delivered is rejected with 403 Forbidden (Got 403)
+  [PASS] Seller calling PUT /api/orders/998/status with Shipped is rejected with 403 Forbidden (Got 403)
+  [PASS] Seller calling PUT /api/orders/998/status with Cancelled is rejected with 403 Forbidden (Got 403)
 --- 2. Buyer and Unauthenticated attempts ---
-  [PASS] Buyer calling PUT /api/orders/819/status is rejected with 403 Forbidden (Got 403)
-  [PASS] Unauthenticated caller on PUT /api/orders/819/status is rejected with 401 Unauthorized (Got 401)
+  [PASS] Buyer calling PUT /api/orders/998/status is rejected with 403 Forbidden (Got 403)
+  [PASS] Unauthenticated caller on PUT /api/orders/998/status is rejected with 401 Unauthorized (Got 401)
 --- 3. Verify order status in DB was NOT tampered with ---
   [PASS] Order status remains unchanged as Pending (Got Pending)
 --- 4. Verify Seller shipment transition rules via ShipmentsController ---
   [PASS] Seller setting Delivered on shipment is rejected with 403 Forbidden (Got 403)
   [PASS] Seller setting HandedToCarrier on shipment SUCCEEDS with 200 OK (Got 200)
 --- 5. Verify Admin has legitimate authority on PUT /api/orders/{id}/status ---
-  [PASS] Admin calling PUT /api/orders/819/status SUCCEEDS with 204 NoContent (Got 204)
+  [PASS] Admin calling PUT /api/orders/998/status SUCCEEDS with 204 NoContent (Got 204)
   [PASS] Order status successfully updated to Delivered by Admin (Got Delivered)
 ALL D-005 ORDER STATUS AUTHORIZATION CHECKS PASSED
 ```
 
 ### Backend Batch 9 /api/health Redaction & 180/min Rate Limit (D-009, D-016)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 15.09s, Exit Code: 0)
+- **Status**: PASS (Duration: 13.72s, Exit Code: 0)
 
 ```text
 [PASS] GET /health returns HTTP 200 OK
@@ -526,15 +526,15 @@ ALL RATE-LIMIT AND HEALTH HARDENING CHECKS PASSED
 
 ### Backend PostgreSQL Verification Pack (11 Checks)
 - **Provider**: POSTGRES (TEST_DB)
-- **Status**: PASS (Duration: 64.64s, Exit Code: 0)
+- **Status**: PASS (Duration: 63.63s, Exit Code: 0)
 
 ```text
 --- CHECK 10: Login rejects inactive and legacy accounts ---
 Check 10 (Login with inactive/deleted account rejected): { status: 401 }
 ✅ Check 10 PASSED: Inactive and deleted accounts rejected with 401 Unauthorized.
 --- CHECK 11: /api/dev/* and Swagger absent in Staging & Production ---
-Environment Staging check (port 62446): { swagger: 404, swaggerJson: 404, devCarrier: 404 }
-Environment Production check (port 64271): { swagger: 404, swaggerJson: 404, devCarrier: 404 }
+Environment Staging check (port 58067): { swagger: 404, swaggerJson: 404, devCarrier: 404 }
+Environment Production check (port 58117): { swagger: 404, swaggerJson: 404, devCarrier: 404 }
 ✅ Check 11 PASSED: Swagger and /api/dev/* return 404 in Staging and Production.
 ===============================================================
 📊 VERIFICATION PACK SUMMARY

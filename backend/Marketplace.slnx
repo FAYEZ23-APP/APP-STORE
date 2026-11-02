@@ -3,4 +3,5 @@
   <Project Path="Marketplace.Application/Marketplace.Application.csproj" />
   <Project Path="Marketplace.Domain/Marketplace.Domain.csproj" />
   <Project Path="Marketplace.Infrastructure/Marketplace.Infrastructure.csproj" />
+  <Project Path="Marketplace.Tests/Marketplace.Tests.csproj" />
 </Solution>
