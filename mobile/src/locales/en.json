@@ -589,7 +589,18 @@
     "resetPasswordButton": "Save New Password",
     "changeIdentifier": "Change Email or Phone",
     "invalidCodeLength": "Please enter the complete 6-digit verification code",
-    "passwordMinLength": "Password must be at least 6 characters long"
+    "passwordMinLength": "Password must be at least 6 characters long",
+    "emailRequired": "Email is required",
+    "phoneRequired": "Phone number is required",
+    "invalidEgyptianPhone": "Please enter a valid Egyptian mobile number",
+    "selectRole": "Select Account Type",
+    "signupMethod": "Sign Up Method",
+    "fullName": "Full Name",
+    "phoneOptional": "Egyptian Mobile Number (Optional)",
+    "egyptianPhonePlaceholder": "010XXXXXXXX or 011XXXXXXXX",
+    "alreadyHaveAccount": "Already have an account?",
+    "verificationCodeResent": "Verification code has been resent successfully",
+    "passwordTooShort": "Password must be at least 6 characters"
   },
   "seller": {
     "dashboard": "Seller Dashboard",

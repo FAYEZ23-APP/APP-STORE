@@ -589,7 +589,18 @@
     "resetPasswordButton": "حفظ كلمة المرور الجديدة",
     "changeIdentifier": "تغيير البريد أو الرقم",
     "invalidCodeLength": "يرجى إدخال رمز التحقق المكون من 6 أرقام كاملاً",
-    "passwordMinLength": "يجب ألا تقل كلمة المرور عن 6 أحرف"
+    "passwordMinLength": "يجب ألا تقل كلمة المرور عن 6 أحرف",
+    "emailRequired": "البريد الإلكتروني مطلوب",
+    "phoneRequired": "رقم الهاتف المحمول مطلوب",
+    "invalidEgyptianPhone": "يرجى إدخال رقم هاتف محمول مصري صحيح",
+    "selectRole": "اختر نوع الحساب",
+    "signupMethod": "طريقة التسجيل",
+    "fullName": "الاسم بالكامل",
+    "phoneOptional": "رقم الموبايل المصري (اختياري)",
+    "egyptianPhonePlaceholder": "010XXXXXXXX أو 011XXXXXXXX",
+    "alreadyHaveAccount": "لديك حساب بالفعل؟",
+    "verificationCodeResent": "تمت إعادة إرسال رمز التحقق بنجاح",
+    "passwordTooShort": "يجب ألا تقل كلمة المرور عن 6 أحرف"
   },
   "seller": {
     "dashboard": "لوحة التاجر",
