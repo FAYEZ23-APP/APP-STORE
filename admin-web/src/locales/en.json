@@ -847,7 +847,12 @@
     "submitDecision": "Submit Decision",
     "userUpdatedSuccess": "User account #{{id}} status updated successfully",
     "payoutUpdatedSuccess": "Payout #{{id}} processed as {{status}}",
-    "governanceDetails": "Hosted in Egypt under Egyptian Law 151/2020. Zero external PII logging."
+    "governanceDetails": "Hosted in Egypt under Egyptian Law 151/2020. Zero external PII logging.",
+    "stepUpConfirm": "Admin Confirmation (Password / Code) *",
+    "stepUpPlaceholder": "Enter admin password to confirm authorization",
+    "stepUpRequired": "Please enter admin password to confirm this sensitive action",
+    "payoutsDisabledTitle": "Vendor payouts are currently disabled",
+    "payoutsDisabledDesc": "Vendor settlements and payout processing are disabled under platform policy flags."
   },
   "buyer": {
     "catalog": "Catalog",

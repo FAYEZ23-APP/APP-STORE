@@ -61,6 +61,7 @@ import {
   deleteCategory,
 } from '../../api/categoriesApi';
 import { formatCurrency } from '../../utils/currency';
+import { fetchSafeAppConfig } from '../../api/configApi';
 import { getImageUrl, handleImageError } from '../../utils/imageUrl';
 import {
   getRoleLabel,
@@ -97,6 +98,9 @@ export default function AdminPortalPage() {
   const [processStatus, setProcessStatus] = useState('Completed'); // 'Completed' | 'Rejected'
   const [adminNotes, setAdminNotes] = useState('');
   const [processLoading, setProcessLoading] = useState(false);
+  const [appConfig, setAppConfig] = useState(null);
+  const [stepUpPassword, setStepUpPassword] = useState('');
+  const [stepUpError, setStepUpError] = useState(null);
 
   // Reported Reviews Moderation State
   const [reviews, setReviews] = useState([]);

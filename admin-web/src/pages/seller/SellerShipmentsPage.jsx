@@ -257,7 +257,7 @@ export default function SellerShipmentsPage() {
       {/* MODAL: PRINTABLE WAYBILL */}
       {waybillShipment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm print:p-0 print:bg-white print:static print:inset-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none print:border-none print:p-0 print:w-full">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none print:border-none print:p-0 print:w-full" role="dialog" aria-modal="true" aria-label="بوليصة الشحن / Waybill">
             {/* Header & Actions */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <div>

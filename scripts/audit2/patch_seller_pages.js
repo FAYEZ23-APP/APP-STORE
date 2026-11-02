@@ -10,15 +10,18 @@ if (!walletContent.includes('fetchSafeAppConfig')) {
     "import { getSellerWallet, requestPayout, getSellerPayouts } from '../../api/walletApi';",
     "import { getSellerWallet, requestPayout, getSellerPayouts } from '../../api/walletApi';\nimport { fetchSafeAppConfig } from '../../api/configApi';"
   );
+}
 
+if (!walletContent.includes('isFeatureDisabled')) {
   walletContent = walletContent.replace(
     "  const [payoutSuccessMsg, setPayoutSuccessMsg] = useState(null);",
     "  const [payoutSuccessMsg, setPayoutSuccessMsg] = useState(null);\n  const [isFeatureDisabled, setIsFeatureDisabled] = useState(false);\n  const [configChecked, setConfigChecked] = useState(false);"
   );
+}
 
-  walletContent = walletContent.replace(
-    "  useEffect(() => {\n    loadWalletData();\n  }, [loadWalletData]);",
-    `  useEffect(() => {
+walletContent = walletContent.replace(
+  /useEffect\(\(\) => \{\r?\n\s*loadWalletData\(\);\r?\n\s*\}, \[loadWalletData\]\);/,
+  `useEffect(() => {
     fetchSafeAppConfig().then((cfg) => {
       setConfigChecked(true);
       if (!cfg.walletEnabled && !cfg.vendorPayoutsEnabled) {
@@ -32,9 +35,10 @@ if (!walletContent.includes('fetchSafeAppConfig')) {
       loadWalletData();
     });
   }, [loadWalletData]);`
-  );
+);
 
-  // Add disabled state check before main JSX
+// Add disabled state check before main JSX if not present
+if (!walletContent.includes('ميزة المحفظة وسحب الأرباح معطلة حالياً')) {
   walletContent = walletContent.replace(
     "  const availableBalance = Number(wallet?.balance || 0);",
     `  if (configChecked && isFeatureDisabled) {
@@ -57,10 +61,10 @@ if (!walletContent.includes('fetchSafeAppConfig')) {
 
   const availableBalance = Number(wallet?.balance || 0);`
   );
-
-  fs.writeFileSync(walletPagePath, walletContent, 'utf-8');
-  console.log('[OK] Patched SellerWalletPage.jsx with feature gating');
 }
+
+fs.writeFileSync(walletPagePath, walletContent, 'utf-8');
+console.log('[OK] Patched SellerWalletPage.jsx with feature gating');
 
 // 2. Patch SellerCouponsPage.jsx
 const couponsPagePath = path.resolve('admin-web/src/pages/seller/SellerCouponsPage.jsx');
@@ -71,15 +75,18 @@ if (!couponsContent.includes('fetchSafeAppConfig')) {
     "import { getMyCoupons, createCoupon } from '../../api/couponsApi';",
     "import { getMyCoupons, createCoupon } from '../../api/couponsApi';\nimport { fetchSafeAppConfig } from '../../api/configApi';"
   );
+}
 
+if (!couponsContent.includes('isFeatureDisabled')) {
   couponsContent = couponsContent.replace(
     "  const [copiedCode, setCopiedCode] = useState(null);",
     "  const [copiedCode, setCopiedCode] = useState(null);\n  const [isFeatureDisabled, setIsFeatureDisabled] = useState(false);\n  const [configChecked, setConfigChecked] = useState(false);"
   );
+}
 
-  couponsContent = couponsContent.replace(
-    "  useEffect(() => {\n    fetchCoupons();\n  }, []);",
-    `  useEffect(() => {
+couponsContent = couponsContent.replace(
+  /useEffect\(\(\) => \{\r?\n\s*fetchCoupons\(\);\r?\n\s*\}, \[\]\);/,
+  `useEffect(() => {
     fetchSafeAppConfig().then((cfg) => {
       setConfigChecked(true);
       if (!cfg.couponsEnabled) {
@@ -93,8 +100,9 @@ if (!couponsContent.includes('fetchSafeAppConfig')) {
       fetchCoupons();
     });
   }, []);`
-  );
+);
 
+if (!couponsContent.includes('ميزة كوبونات الخصم معطلة حالياً')) {
   couponsContent = couponsContent.replace(
     "  return (",
     `  if (configChecked && isFeatureDisabled) {
@@ -117,7 +125,8 @@ if (!couponsContent.includes('fetchSafeAppConfig')) {
 
   return (`
   );
-
-  fs.writeFileSync(couponsPagePath, couponsContent, 'utf-8');
-  console.log('[OK] Patched SellerCouponsPage.jsx with feature gating');
 }
+
+fs.writeFileSync(couponsPagePath, couponsContent, 'utf-8');
+console.log('[OK] Patched SellerCouponsPage.jsx with feature gating');
+

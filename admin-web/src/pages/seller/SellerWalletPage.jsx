@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { getSellerWallet, requestPayout, getSellerPayouts } from '../../api/walletApi';
+import { fetchSafeAppConfig } from '../../api/configApi';
 import { formatCurrency } from '../../utils/currency';
 import { isValidEgyptianPhone } from '../../utils/egyptianPhone';
 import {
@@ -41,6 +42,8 @@ export default function SellerWalletPage() {
   const [submittingPayout, setSubmittingPayout] = useState(false);
   const [payoutError, setPayoutError] = useState(null);
   const [payoutSuccessMsg, setPayoutSuccessMsg] = useState(null);
+  const [isFeatureDisabled, setIsFeatureDisabled] = useState(false);
+  const [configChecked, setConfigChecked] = useState(false);
 
   const loadWalletData = useCallback(async () => {
     setLoading(true);
@@ -61,7 +64,18 @@ export default function SellerWalletPage() {
   }, [t]);
 
   useEffect(() => {
-    loadWalletData();
+    fetchSafeAppConfig().then((cfg) => {
+      setConfigChecked(true);
+      if (!cfg.walletEnabled && !cfg.vendorPayoutsEnabled) {
+        setIsFeatureDisabled(true);
+        setLoading(false);
+      } else {
+        loadWalletData();
+      }
+    }).catch(() => {
+      setConfigChecked(true);
+      loadWalletData();
+    });
   }, [loadWalletData]);
 
   const handleRequestPayout = async (e) => {
@@ -119,6 +133,24 @@ export default function SellerWalletPage() {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (configChecked && isFeatureDisabled) {
+    return (
+      <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-4 my-8" role="alert" aria-live="polite">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+          <Wallet className="w-8 h-8" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">
+          {isRTL ? 'ميزة المحفظة وسحب الأرباح معطلة حالياً' : 'Wallet and payouts are currently disabled'}
+        </h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          {isRTL
+            ? 'المعاملات المالية وسحب أرباح التجار معطلة حالياً وفقاً للسياسات التنظيمية والضوابط القانونية للمنصة.'
+            : 'Financial features and vendor payouts are currently disabled per regulatory policy.'}
+        </p>
       </div>
     );
   }

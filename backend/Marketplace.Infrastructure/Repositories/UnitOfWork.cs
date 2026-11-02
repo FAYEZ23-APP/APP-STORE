@@ -149,6 +149,7 @@ public class UnitOfWork : IUnitOfWork
         if (_context.Database.IsRelational())
         {
             await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                SELECT pg_advisory_xact_lock(987654, {productId});
                 UPDATE ""Products""
                 SET ""ReviewsCount"" = (
                         SELECT COUNT(*)::int

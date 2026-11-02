@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { getMyCoupons, createCoupon } from '../../api/couponsApi';
+import { fetchSafeAppConfig } from '../../api/configApi';
 import { formatCurrency } from '../../utils/currency';
 
 export default function SellerCouponsPage() {
@@ -31,6 +32,8 @@ export default function SellerCouponsPage() {
   const [creating, setCreating] = useState(false);
   const [modalError, setModalError] = useState(null);
   const [copiedCode, setCopiedCode] = useState(null);
+  const [isFeatureDisabled, setIsFeatureDisabled] = useState(false);
+  const [configChecked, setConfigChecked] = useState(false);
 
   // Form State
   const [code, setCode] = useState('');
@@ -61,7 +64,18 @@ export default function SellerCouponsPage() {
   };
 
   useEffect(() => {
-    fetchCoupons();
+    fetchSafeAppConfig().then((cfg) => {
+      setConfigChecked(true);
+      if (!cfg.couponsEnabled) {
+        setIsFeatureDisabled(true);
+        setLoading(false);
+      } else {
+        fetchCoupons();
+      }
+    }).catch(() => {
+      setConfigChecked(true);
+      fetchCoupons();
+    });
   }, []);
 
   const handleCreateCoupon = async (e) => {
@@ -128,6 +142,24 @@ export default function SellerCouponsPage() {
     if (!expDate) return false;
     return new Date(expDate).getTime() < Date.now();
   };
+
+  if (configChecked && isFeatureDisabled) {
+    return (
+      <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-4 my-8" role="alert" aria-live="polite">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+          <Tag className="w-8 h-8" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">
+          {isRTL ? 'ميزة كوبونات الخصم معطلة حالياً' : 'Coupons feature is currently disabled'}
+        </h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          {isRTL
+            ? 'إنشاء واستخدام كوبونات الخصم معطل حالياً وفقاً لسياسات المنصة (Features:EnableCoupons=false).'
+            : 'Coupon generation and redemption is currently disabled per platform policy.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

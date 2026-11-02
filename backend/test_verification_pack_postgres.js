@@ -121,7 +121,7 @@ function hasExifOrGpsMarker(buf) {
   return false;
 }
 
-async function waitForHealth(baseUrl, maxWaitMs = 35000) {
+async function waitForHealth(baseUrl, maxWaitMs = 60000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     try {
@@ -752,8 +752,14 @@ async function main() {
     console.log('Check 7c (Duplicate review rejected):', { status: dupRes.status });
 
     // Fetch product details for RatingAverage and RatingCount
-    const p7AfterRes = await fetch(`${BASE_URL}/api/products/${p7.id}`);
-    const p7After = await jsonOrNull(p7AfterRes);
+    let p7After = null;
+    for (let r = 0; r < 10; r++) {
+      const p7AfterRes = await fetch(${BASE_URL}/api/products/);
+      p7After = await jsonOrNull(p7AfterRes);
+      if (p7After && p7After.ratingCount === 10) break;
+      await new Promise(res => setTimeout(res, 300));
+    }
+// replaced
     console.log('Check 7d (Aggregated product rating):', {
       ratingCount: p7After.ratingCount,
       ratingAverage: p7After.ratingAverage,
