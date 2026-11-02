@@ -754,7 +754,7 @@ async function main() {
     // Fetch product details for RatingAverage and RatingCount
     let p7After = null;
     for (let r = 0; r < 10; r++) {
-      const p7AfterRes = await fetch(${BASE_URL}/api/products/);
+      const p7AfterRes = await fetch(BASE_URL + '/api/products/' + p7.id);
       p7After = await jsonOrNull(p7AfterRes);
       if (p7After && p7After.ratingCount === 10) break;
       await new Promise(res => setTimeout(res, 300));
