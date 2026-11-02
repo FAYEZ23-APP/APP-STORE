@@ -1,6 +1,7 @@
 using Marketplace.API.Extensions;
 using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Admin;
+using Marketplace.Application.DTOs.Shipments;
 using Marketplace.Application.DTOs.Wallet;
 using Marketplace.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -15,13 +16,16 @@ public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
     private readonly IWalletService _walletService;
+    private readonly IShipmentService _shipmentService;
 
     public AdminController(
         IAdminService adminService,
-        IWalletService walletService)
+        IWalletService walletService,
+        IShipmentService shipmentService)
     {
         _adminService = adminService;
         _walletService = walletService;
+        _shipmentService = shipmentService;
     }
 
     /// <summary>List platform users with optional role and status filters. (Admin only)</summary>
@@ -60,6 +64,38 @@ public class AdminController : ControllerBase
     {
         var stats = await _adminService.GetPlatformStatsAsync();
         return Ok(stats);
+    }
+
+    /// <summary>List platform shipments with filters and pagination. (Admin only)</summary>
+    [HttpGet("shipments")]
+    [ProducesResponseType(typeof(AdminShipmentPagedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<AdminShipmentPagedResponse>> GetShipments(
+        [FromQuery] string? status = null,
+        [FromQuery] int? orderId = null,
+        [FromQuery] int? sellerId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _shipmentService.GetAdminShipmentsAsync(status, orderId, sellerId, page, pageSize);
+        return Ok(result);
+    }
+
+    /// <summary>Update shipment status, tracking number, and COD settlement. (Admin only)</summary>
+    [HttpPut("shipments/{id:int}/status")]
+    [ProducesResponseType(typeof(AdminShipmentDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AdminShipmentDetailResponse>> UpdateShipmentStatus(
+        int id,
+        [FromBody] AdminUpdateShipmentStatusRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _shipmentService.UpdateAdminShipmentStatusAsync(adminId, id, request);
+        return Ok(result);
     }
 
     /// <summary>List vendor payout requests with optional status filter. (Admin only)</summary>

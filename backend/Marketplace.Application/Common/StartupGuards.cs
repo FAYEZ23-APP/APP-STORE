@@ -133,5 +133,53 @@ public static class StartupGuards
                     "CRITICAL_PRODUCTION_GUARD: Admin:WebEnabled is enabled in Production, but Admin:RequireHttpsBehindProxy is set to false. HTTPS is mandatory behind proxy for Admin Web in Production. Startup refused.");
             }
         }
+
+        // 4. DB-003 & DB-004 Database connection & encryption key production guards
+        var connStr = configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrWhiteSpace(connStr))
+        {
+            var csb = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connStr };
+
+            // Reject superuser 'postgres'
+            if (csb.TryGetValue("Username", out var userObj) ||
+                csb.TryGetValue("User ID", out userObj) ||
+                csb.TryGetValue("User", out userObj) ||
+                csb.TryGetValue("Uid", out userObj))
+            {
+                var username = userObj?.ToString()?.Trim();
+                if (string.Equals(username, "postgres", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "CRITICAL_PRODUCTION_GUARD: Database connection in Production must not use superuser 'postgres'. Create a dedicated least-privilege application user.");
+                }
+            }
+
+            // Enforce TLS encryption (SSL Mode=Require, VerifyCA, or VerifyFull)
+            if (csb.TryGetValue("SSL Mode", out var sslObj) || csb.TryGetValue("SslMode", out sslObj))
+            {
+                var sslMode = sslObj?.ToString()?.Trim();
+                bool isSecure = string.Equals(sslMode, "Require", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(sslMode, "VerifyCA", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(sslMode, "VerifyFull", StringComparison.OrdinalIgnoreCase);
+                if (!isSecure)
+                {
+                    throw new InvalidOperationException(
+                        "CRITICAL_PRODUCTION_GUARD: Database connection in Production must enforce TLS encryption (SSL Mode=Require, VerifyCA, or VerifyFull).");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "CRITICAL_PRODUCTION_GUARD: Database connection in Production must explicitly specify SSL Mode (Require, VerifyCA, or VerifyFull).");
+            }
+        }
+
+        // 5. DB-004: Two-factor secret encryption key presence
+        var twoFactorKey = configuration["Security:TwoFactorEncryptionKey"] ?? configuration["TwoFactor:EncryptionKey"];
+        if (string.IsNullOrWhiteSpace(twoFactorKey))
+        {
+            throw new InvalidOperationException(
+                "CRITICAL_PRODUCTION_GUARD: 'Security:TwoFactorEncryptionKey' must be configured in Production environment.");
+        }
     }
 }

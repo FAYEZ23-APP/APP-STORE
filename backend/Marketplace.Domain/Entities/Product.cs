@@ -38,6 +38,7 @@ public class Product
     public decimal AverageRating { get; set; } = 0;
     public int ReviewsCount { get; set; } = 0;
     public bool IsDeleted { get; set; } = false;
+    public bool AllowInspection { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Seller { get; set; } = null!;

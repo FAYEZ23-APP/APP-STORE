@@ -67,6 +67,8 @@ public class GlobalExceptionMiddleware
             NotFoundException => (HttpStatusCode.NotFound, exception.Message),
             ConflictException => (HttpStatusCode.Conflict, exception.Message),
             TooManyRequestsException => (HttpStatusCode.TooManyRequests, exception.Message),
+            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException =>
+                (HttpStatusCode.Conflict, "حدث تعارض تزامني أثناء معالجة البيانات، يرجى إعادة المحاولة (Concurrency conflict)."),
             Microsoft.EntityFrameworkCore.DbUpdateException dbEx when dbEx.InnerException is Npgsql.PostgresException { SqlState: "23505" } =>
                 (HttpStatusCode.Conflict, "A resource with this identifier already exists."),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")

@@ -139,23 +139,10 @@ public class WalletService : IWalletService
             throw new NotFoundException("Seller not found.");
         }
 
-        var wallet = await GetOrCreateWalletAsync(sellerId);
-
-        if (wallet.Balance < request.Amount)
-        {
-            throw new BadRequestException($"الرصيد المتاح ({wallet.Balance} ج.م) غير كافٍ لإتمام طلب السحب بقيمة {request.Amount} ج.م.");
-        }
-
         if (!Enum.TryParse<PayoutMethod>(request.Method.Trim(), true, out var method))
         {
             throw new BadRequestException("طريقة السحب غير صحيحة.");
         }
-
-        // Deduct from Balance and move to PendingBalance
-        wallet.Balance -= request.Amount;
-        wallet.PendingBalance += request.Amount;
-        wallet.UpdatedAt = DateTime.UtcNow;
-        _uow.VendorWallets.Update(wallet);
 
         var destinationAccount = request.DestinationAccount.Trim();
         if (method == PayoutMethod.VodafoneCash && EgyptianPhoneValidation.IsValid(destinationAccount))
@@ -163,40 +150,72 @@ public class WalletService : IWalletService
             destinationAccount = EgyptianPhoneNormalizer.Normalize(destinationAccount);
         }
 
-        var payout = new PayoutRequest
-        {
-            SellerId = sellerId,
-            Amount = request.Amount,
-            Method = method,
-            DestinationAccount = destinationAccount,
-            Status = PayoutStatus.Pending,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _uow.PayoutRequests.AddAsync(payout);
+        // Ensure wallet exists before acquiring lock
+        await GetOrCreateWalletAsync(sellerId);
 
-        var transaction = new WalletTransaction
+        await _uow.BeginTransactionAsync();
+        try
         {
-            WalletId = wallet.Id,
-            Amount = -request.Amount,
-            Type = WalletTransactionType.Payout,
-            Description = $"طلب سحب أرباح بقيمة {request.Amount} ج.م عبر {method} إلى {destinationAccount}",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _uow.WalletTransactions.AddAsync(transaction);
+            // Acquire row lock FOR UPDATE on VendorWallets
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", sellerId);
+            _uow.ClearChangeTracker();
 
-        await _uow.SaveChangesAsync();
+            var wallet = await GetOrCreateWalletAsync(sellerId);
 
-        return new PayoutRequestResponse
+            if (wallet.Balance < request.Amount)
+            {
+                throw new BadRequestException($"الرصيد المتاح ({wallet.Balance} ج.م) غير كافٍ لإتمام طلب السحب بقيمة {request.Amount} ج.م.");
+            }
+
+            // Deduct from Balance and move to PendingBalance
+            wallet.Balance -= request.Amount;
+            wallet.PendingBalance += request.Amount;
+            wallet.UpdatedAt = DateTime.UtcNow;
+            _uow.VendorWallets.Update(wallet);
+
+            var payout = new PayoutRequest
+            {
+                SellerId = sellerId,
+                Amount = request.Amount,
+                Method = method,
+                DestinationAccount = destinationAccount,
+                Status = PayoutStatus.Pending,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.PayoutRequests.AddAsync(payout);
+
+            var transaction = new WalletTransaction
+            {
+                WalletId = wallet.Id,
+                Amount = -request.Amount,
+                Type = WalletTransactionType.Payout,
+                Description = $"طلب سحب أرباح بقيمة {request.Amount} ج.م عبر {method} إلى {destinationAccount}",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.WalletTransactions.AddAsync(transaction);
+
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            return new PayoutRequestResponse
+            {
+                Id = payout.Id,
+                SellerId = seller.Id,
+                SellerName = seller.Name,
+                Amount = payout.Amount,
+                Method = payout.Method.ToString(),
+                DestinationAccount = payout.DestinationAccount,
+                Status = payout.Status.ToString(),
+                CreatedAt = payout.CreatedAt
+            };
+        }
+        catch
         {
-            Id = payout.Id,
-            SellerId = seller.Id,
-            SellerName = seller.Name,
-            Amount = payout.Amount,
-            Method = payout.Method.ToString(),
-            DestinationAccount = payout.DestinationAccount,
-            Status = payout.Status.ToString(),
-            CreatedAt = payout.CreatedAt
-        };
+            await _uow.RollbackTransactionAsync();
+            _uow.ClearChangeTracker();
+            throw;
+        }
     }
 
     public async Task<IEnumerable<PayoutRequestResponse>> GetSellerPayoutRequestsAsync(int sellerId)
@@ -255,130 +274,215 @@ public class WalletService : IWalletService
 
     public async Task<PayoutRequestResponse> ProcessPayoutAsync(int payoutRequestId, ProcessPayoutRequest request)
     {
-        var payout = await _uow.PayoutRequests.GetByIdAsync(payoutRequestId);
-        if (payout == null)
-        {
-            throw new NotFoundException($"Payout request with ID {payoutRequestId} not found.");
-        }
-
-        if (payout.Status != PayoutStatus.Pending)
-        {
-            throw new BadRequestException("تمت معالجة طلب السحب هذا مسبقاً ولا يمكن تعديل حالته.");
-        }
-
         if (!Enum.TryParse<PayoutStatus>(request.Status.Trim(), true, out var targetStatus) ||
             targetStatus == PayoutStatus.Pending)
         {
             throw new BadRequestException("حالة المعالجة يجب أن تكون 'Completed' أو 'Rejected'.");
         }
 
-        var wallet = await GetOrCreateWalletAsync(payout.SellerId);
-
-        if (targetStatus == PayoutStatus.Completed)
+        await _uow.BeginTransactionAsync();
+        try
         {
-            wallet.PendingBalance = Math.Max(0m, wallet.PendingBalance - payout.Amount);
-            wallet.UpdatedAt = DateTime.UtcNow;
-            _uow.VendorWallets.Update(wallet);
+            // Acquire row lock FOR UPDATE on PayoutRequests
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""PayoutRequests"" WHERE ""Id"" = {0} FOR UPDATE", payoutRequestId);
+            _uow.ClearChangeTracker();
 
-            payout.Status = PayoutStatus.Completed;
-            payout.AdminNotes = request.AdminNotes;
-            payout.ProcessedAt = DateTime.UtcNow;
-            _uow.PayoutRequests.Update(payout);
-        }
-        else if (targetStatus == PayoutStatus.Rejected)
-        {
-            // Refund back to available balance
-            wallet.Balance += payout.Amount;
-            wallet.PendingBalance = Math.Max(0m, wallet.PendingBalance - payout.Amount);
-            wallet.UpdatedAt = DateTime.UtcNow;
-            _uow.VendorWallets.Update(wallet);
-
-            payout.Status = PayoutStatus.Rejected;
-            payout.AdminNotes = request.AdminNotes;
-            payout.ProcessedAt = DateTime.UtcNow;
-            _uow.PayoutRequests.Update(payout);
-
-            var refundTx = new WalletTransaction
+            var payout = await _uow.PayoutRequests.GetByIdAsync(payoutRequestId);
+            if (payout == null)
             {
-                WalletId = wallet.Id,
+                throw new NotFoundException($"Payout request with ID {payoutRequestId} not found.");
+            }
+
+            if (payout.Status != PayoutStatus.Pending)
+            {
+                throw new BadRequestException("تمت معالجة طلب السحب هذا مسبقاً ولا يمكن تعديل حالته.");
+            }
+
+            // Ensure seller's VendorWallet exists before locking
+            await GetOrCreateWalletAsync(payout.SellerId);
+
+            // Acquire row lock FOR UPDATE on VendorWallets
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", payout.SellerId);
+
+            var wallet = await GetOrCreateWalletAsync(payout.SellerId);
+
+            if (targetStatus == PayoutStatus.Completed)
+            {
+                wallet.PendingBalance = Math.Max(0m, wallet.PendingBalance - payout.Amount);
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _uow.VendorWallets.Update(wallet);
+
+                payout.Status = PayoutStatus.Completed;
+                payout.AdminNotes = request.AdminNotes;
+                payout.ProcessedAt = DateTime.UtcNow;
+                _uow.PayoutRequests.Update(payout);
+            }
+            else if (targetStatus == PayoutStatus.Rejected)
+            {
+                // Refund back to available balance
+                wallet.Balance += payout.Amount;
+                wallet.PendingBalance = Math.Max(0m, wallet.PendingBalance - payout.Amount);
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _uow.VendorWallets.Update(wallet);
+
+                payout.Status = PayoutStatus.Rejected;
+                payout.AdminNotes = request.AdminNotes;
+                payout.ProcessedAt = DateTime.UtcNow;
+                _uow.PayoutRequests.Update(payout);
+
+                var refundTx = new WalletTransaction
+                {
+                    WalletId = wallet.Id,
+                    Amount = payout.Amount,
+                    Type = WalletTransactionType.Refund,
+                    Description = $"استرجاع رصيد لطلب السحب المرفوض #{payout.Id}: {request.AdminNotes ?? "تم الرفض من قبل الإدارة"}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.WalletTransactions.AddAsync(refundTx);
+            }
+
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            await _notificationService.NotifyPayoutProcessedAsync(payout.Id, targetStatus);
+
+            var seller = await _uow.Users.GetByIdAsync(payout.SellerId);
+
+            return new PayoutRequestResponse
+            {
+                Id = payout.Id,
+                SellerId = payout.SellerId,
+                SellerName = seller?.Name ?? "Unknown Seller",
                 Amount = payout.Amount,
-                Type = WalletTransactionType.Refund,
-                Description = $"استرجاع رصيد لطلب السحب المرفوض #{payout.Id}: {request.AdminNotes ?? "تم الرفض من قبل الإدارة"}",
-                CreatedAt = DateTime.UtcNow
+                Method = payout.Method.ToString(),
+                DestinationAccount = payout.DestinationAccount,
+                Status = payout.Status.ToString(),
+                AdminNotes = payout.AdminNotes,
+                CreatedAt = payout.CreatedAt,
+                ProcessedAt = payout.ProcessedAt
             };
-            await _uow.WalletTransactions.AddAsync(refundTx);
         }
-
-        await _uow.SaveChangesAsync();
-
-        await _notificationService.NotifyPayoutProcessedAsync(payout.Id, targetStatus);
-
-        var seller = await _uow.Users.GetByIdAsync(payout.SellerId);
-
-        return new PayoutRequestResponse
+        catch
         {
-            Id = payout.Id,
-            SellerId = payout.SellerId,
-            SellerName = seller?.Name ?? "Unknown Seller",
-            Amount = payout.Amount,
-            Method = payout.Method.ToString(),
-            DestinationAccount = payout.DestinationAccount,
-            Status = payout.Status.ToString(),
-            AdminNotes = payout.AdminNotes,
-            CreatedAt = payout.CreatedAt,
-            ProcessedAt = payout.ProcessedAt
-        };
+            await _uow.RollbackTransactionAsync();
+            _uow.ClearChangeTracker();
+            throw;
+        }
     }
 
     public async Task ProcessShipmentDeliveredAsync(int shipmentId)
     {
-        var shipment = await _uow.Shipments.GetByIdAsync(shipmentId);
-        if (shipment == null) return;
-
-        // Idempotency: verify this shipment has not already been credited or held in escrow
-        var existingTx = await _uow.WalletTransactions.FindAsync(t =>
-            t.ShipmentId == shipmentId && (
-                t.Type == WalletTransactionType.COD_Collection ||
-                t.Type == WalletTransactionType.OrderSettlement ||
-                t.Type == WalletTransactionType.COD_EscrowHold));
-
-        if (existingTx.Any())
-            return; // Already processed
-
-        var items = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipmentId)).ToList();
-        decimal itemsSubtotal = items.Sum(i => i.UnitPrice * i.Quantity);
-
-        decimal commissionRate = _configuration.GetValue<decimal>("Marketplace:CommissionRate", 0.10m); // 10%
-        decimal commissionAmount = Math.Round(itemsSubtotal * commissionRate, 2);
-        decimal netEarnings = itemsSubtotal - commissionAmount;
-
-        var wallet = await GetOrCreateWalletAsync(shipment.SellerId);
-
-        // COD Escrow Hold Protection:
-        // When a COD shipment is delivered, physical cash is with the courier/carrier, NOT yet in the platform's bank account.
-        // Holding net earnings in PendingBalance prevents platform cash deficits (عجز سيولة) until courier remittance is confirmed.
-        var isCod = shipment.CodAmount > 0;
-        var requireCodEscrow = _configuration.GetValue<bool>("Marketplace:RequireCodEscrowHold", true);
-
-        if (isCod && requireCodEscrow && !shipment.IsCodSettled)
+        await _uow.BeginTransactionAsync();
+        try
         {
-            wallet.PendingBalance += netEarnings;
+            // Acquire row lock FOR UPDATE on Shipments
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""Shipments"" WHERE ""Id"" = {0} FOR UPDATE", shipmentId);
+            _uow.ClearChangeTracker();
+
+            var shipment = await _uow.Shipments.GetByIdAsync(shipmentId);
+            if (shipment == null)
+            {
+                await _uow.RollbackTransactionAsync();
+                return;
+            }
+
+            // Idempotency: verify this shipment has not already been credited or held in escrow
+            var existingTx = await _uow.WalletTransactions.FindAsync(t =>
+                t.ShipmentId == shipmentId && (
+                    t.Type == WalletTransactionType.COD_Collection ||
+                    t.Type == WalletTransactionType.OrderSettlement ||
+                    t.Type == WalletTransactionType.COD_EscrowHold));
+
+            if (existingTx.Any())
+            {
+                await _uow.RollbackTransactionAsync();
+                return; // Already processed
+            }
+
+            // Ensure seller's VendorWallet exists before locking
+            await GetOrCreateWalletAsync(shipment.SellerId);
+
+            // Acquire row lock FOR UPDATE on VendorWallets
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", shipment.SellerId);
+
+            var items = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipmentId)).ToList();
+            decimal itemsSubtotal = items.Sum(i => i.UnitPrice * i.Quantity);
+
+            decimal commissionRate = _configuration.GetValue<decimal>("Marketplace:CommissionRate", 0.10m); // 10%
+            decimal commissionAmount = Math.Round(itemsSubtotal * commissionRate, 2);
+            decimal netEarnings = itemsSubtotal - commissionAmount;
+
+            var wallet = await GetOrCreateWalletAsync(shipment.SellerId);
+
+            // COD Escrow Hold Protection:
+            // When a COD shipment is delivered, physical cash is with the courier/carrier, NOT yet in the platform's bank account.
+            // Holding net earnings in PendingBalance prevents platform cash deficits (عجز سيولة) until courier remittance is confirmed.
+            var isCod = shipment.CodAmount > 0;
+            var requireCodEscrow = _configuration.GetValue<bool>("Marketplace:RequireCodEscrowHold", true);
+
+            if (isCod && requireCodEscrow && !shipment.IsCodSettled)
+            {
+                wallet.PendingBalance += netEarnings;
+                wallet.TotalEarned += netEarnings;
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _uow.VendorWallets.Update(wallet);
+
+                var escrowTx = new WalletTransaction
+                {
+                    WalletId = wallet.Id,
+                    OrderId = shipment.OrderId,
+                    ShipmentId = shipment.Id,
+                    Amount = netEarnings,
+                    Type = WalletTransactionType.COD_EscrowHold,
+                    Description = $"أرباح معلقة في الضمان بانتظار توريد كاش الشحنة من شركة الشحن (COD Escrow Hold) - بوليصة {shipment.TrackingNumber} - طلب #{shipment.OrderId}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.WalletTransactions.AddAsync(escrowTx);
+
+                if (commissionAmount > 0)
+                {
+                    var commissionTx = new WalletTransaction
+                    {
+                        WalletId = wallet.Id,
+                        OrderId = shipment.OrderId,
+                        ShipmentId = shipment.Id,
+                        Amount = -commissionAmount,
+                        Type = WalletTransactionType.Commission,
+                        Description = $"عمولة المنصة ({commissionRate * 100:0.#}%) للشحنة #{shipment.Id}",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _uow.WalletTransactions.AddAsync(commissionTx);
+                }
+
+                await _uow.SaveChangesAsync();
+                await _uow.CommitTransactionAsync();
+                return;
+            }
+
+            // Prepaid / non-COD or already settled
+            wallet.Balance += netEarnings;
             wallet.TotalEarned += netEarnings;
             wallet.UpdatedAt = DateTime.UtcNow;
             _uow.VendorWallets.Update(wallet);
 
-            var escrowTx = new WalletTransaction
+            // Transaction 1: Order Settlement
+            var settlementTx = new WalletTransaction
             {
                 WalletId = wallet.Id,
                 OrderId = shipment.OrderId,
                 ShipmentId = shipment.Id,
-                Amount = netEarnings,
-                Type = WalletTransactionType.COD_EscrowHold,
-                Description = $"أرباح معلقة في الضمان بانتظار توريد كاش الشحنة من شركة الشحن (COD Escrow Hold) - بوليصة {shipment.TrackingNumber} - طلب #{shipment.OrderId}",
+                Amount = itemsSubtotal,
+                Type = WalletTransactionType.OrderSettlement,
+                Description = $"تسوية أرباح شحنة تم تسليمها بنجاح (بوليصة {shipment.TrackingNumber}) - طلب #{shipment.OrderId}",
                 CreatedAt = DateTime.UtcNow
             };
-            await _uow.WalletTransactions.AddAsync(escrowTx);
+            await _uow.WalletTransactions.AddAsync(settlementTx);
 
+            // Transaction 2: Platform Commission
             if (commissionAmount > 0)
             {
                 var commissionTx = new WalletTransaction
@@ -395,45 +499,14 @@ public class WalletService : IWalletService
             }
 
             await _uow.SaveChangesAsync();
-            return;
+            await _uow.CommitTransactionAsync();
         }
-
-        // Prepaid / non-COD or already settled
-        wallet.Balance += netEarnings;
-        wallet.TotalEarned += netEarnings;
-        wallet.UpdatedAt = DateTime.UtcNow;
-        _uow.VendorWallets.Update(wallet);
-
-        // Transaction 1: Order Settlement
-        var settlementTx = new WalletTransaction
+        catch
         {
-            WalletId = wallet.Id,
-            OrderId = shipment.OrderId,
-            ShipmentId = shipment.Id,
-            Amount = itemsSubtotal,
-            Type = WalletTransactionType.OrderSettlement,
-            Description = $"تسوية أرباح شحنة تم تسليمها بنجاح (بوليصة {shipment.TrackingNumber}) - طلب #{shipment.OrderId}",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _uow.WalletTransactions.AddAsync(settlementTx);
-
-        // Transaction 2: Platform Commission
-        if (commissionAmount > 0)
-        {
-            var commissionTx = new WalletTransaction
-            {
-                WalletId = wallet.Id,
-                OrderId = shipment.OrderId,
-                ShipmentId = shipment.Id,
-                Amount = -commissionAmount,
-                Type = WalletTransactionType.Commission,
-                Description = $"عمولة المنصة ({commissionRate * 100:0.#}%) للشحنة #{shipment.Id}",
-                CreatedAt = DateTime.UtcNow
-            };
-            await _uow.WalletTransactions.AddAsync(commissionTx);
+            await _uow.RollbackTransactionAsync();
+            _uow.ClearChangeTracker();
+            throw;
         }
-
-        await _uow.SaveChangesAsync();
     }
 
     public async Task SettleCodShipmentAsync(int shipmentId, string? notes = null)
@@ -471,6 +544,9 @@ public class WalletService : IWalletService
                 throw new BadRequestException("لا يوجد سجل حجز ضمان (COD_EscrowHold) لهذه الشحنة (شحنة قديمة قبل تفعيل نظام الضمان أو غير مؤهلة).");
 
             var netEarnings = escrowHoldTx.Amount;
+            await GetOrCreateWalletAsync(shipment.SellerId);
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", shipment.SellerId);
             var wallet = await GetOrCreateWalletAsync(shipment.SellerId);
 
             if (wallet.PendingBalance < netEarnings)
@@ -606,6 +682,9 @@ public class WalletService : IWalletService
                 throw new BadRequestException("لا يوجد سجل حجز ضمان (COD_EscrowHold) لهذه الشحنة (شحنة قديمة قبل تفعيل نظام الضمان أو غير مؤهلة).");
 
             var netEarnings = escrowHoldTx.Amount;
+            await GetOrCreateWalletAsync(shipment.SellerId);
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", shipment.SellerId);
             var wallet = await GetOrCreateWalletAsync(shipment.SellerId);
 
             if (wallet.PendingBalance < netEarnings)

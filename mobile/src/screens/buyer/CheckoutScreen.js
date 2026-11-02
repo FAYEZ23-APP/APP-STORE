@@ -418,7 +418,7 @@ export default function CheckoutScreen({ route, navigation }) {
         <Text style={[tw`text-lg font-bold mt-4 text-center`, { color: colors.textPrimary }]}>
           {t('cart.emptyTitle')}
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={[tw`mt-5 px-6 py-2.5 rounded-xl`, { backgroundColor: colors.primary }]}
         >
@@ -528,7 +528,7 @@ export default function CheckoutScreen({ route, navigation }) {
 
           <View style={tw`flex-row items-center justify-between`}>
             {/* Courier Button */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.8}
               onPress={() => setDeliveryMethod('Courier')}
               style={[
@@ -560,7 +560,7 @@ export default function CheckoutScreen({ route, navigation }) {
             </TouchableOpacity>
 
             {/* Pickup Button (Bosta branch) */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.8}
               onPress={() => setDeliveryMethod('Pickup')}
               style={[
@@ -676,7 +676,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {savedAddresses.map((addr) => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         key={`checkout-addr-${addr.id}`}
                         onPress={() => handleSelectSavedAddress(addr)}
                         style={[
@@ -803,7 +803,7 @@ export default function CheckoutScreen({ route, navigation }) {
                       { name: isRTL ? 'الإسكندرية' : 'Alexandria' },
                     ]
                 ).map((c) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     key={`pickup-city-${c.name}`}
                     onPress={() => handleCityChangeForPickup(c.name)}
                     style={[
@@ -831,7 +831,7 @@ export default function CheckoutScreen({ route, navigation }) {
                 {t('checkout.choosePickupPoint')}:
               </Text>
               {pickupPoints.map((point) => (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   key={`point-${point.id}`}
                   onPress={() => setSelectedPickupPointId(point.id)}
                   style={[
@@ -1047,7 +1047,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   {isRTL ? 'قيمة الخصم المحتسبة:' : 'Calculated discount:'} {formatCurrency(appliedCoupon.discountAmount)}
                 </Text>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleRemoveCoupon}
                 style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.discount, backgroundColor: colors.dangerSoft }]}
               >
@@ -1056,7 +1056,7 @@ export default function CheckoutScreen({ route, navigation }) {
             </View>
           ) : (
             <View style={tw`flex-row items-center`}>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[
                   tw`flex-1 border rounded-xl px-3.5 py-2.5 text-sm ${isRTL ? 'ml-2' : 'mr-2'}`,
                   {
@@ -1072,7 +1072,7 @@ export default function CheckoutScreen({ route, navigation }) {
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="characters"
               />
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 activeOpacity={0.8}
                 disabled={validatingCoupon || !couponCodeInput.trim()}
                 onPress={handleApplyCoupon}
@@ -1223,7 +1223,7 @@ export default function CheckoutScreen({ route, navigation }) {
           { backgroundColor: colors.cardBg, borderColor: colors.border },
         ]}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           disabled={submitting || checkoutItems.length === 0}
           onPress={handleConfirmOrder}

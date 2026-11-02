@@ -1,6 +1,14 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken, setOnUnauthorized } from '../api/client';
+import {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  removeToken,
+  setOnUnauthorized,
+  performSingleFlightRefresh,
+} from '../api/client';
 import {
   login as loginApi,
   register as registerApi,

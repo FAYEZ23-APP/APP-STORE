@@ -216,7 +216,7 @@ export default function DashboardScreen({ navigation }) {
               </View>
             </View>
           </View>
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => navigation.navigate('Profile')}
             style={styles.headerIconButton}
             activeOpacity={0.8}
@@ -231,7 +231,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={tw`flex-row justify-between items-center mb-2`}>
             <Text style={styles.financialSubtext}>{revenueLabel}</Text>
             <View style={styles.periodPillContainer}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setPeriod('today')}
                 style={[styles.periodPill, period === 'today' && styles.periodPillActive]}
               >
@@ -239,7 +239,7 @@ export default function DashboardScreen({ navigation }) {
                   {isRTL ? 'اليوم' : 'Today'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setPeriod('month')}
                 style={[styles.periodPill, period === 'month' && styles.periodPillActive]}
               >
@@ -254,7 +254,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={tw`flex-row items-baseline justify-between mb-3`}>
             <Text style={styles.financialBigAmount}>{formatCurrency(revenueDisplay)}</Text>
             {features.wallet && (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => navigation.navigate('SellerWallet')}
                 style={tw`px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-xl flex-row items-center`}
               >
@@ -313,7 +313,7 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={tw`flex-row flex-wrap justify-between mb-4`}>
           {/* Action 1: Ready to Handover */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             style={[styles.todoCard, cardShadow, dashboard.pendingHandoverCount > 0 && styles.todoCardAlert]}
             onPress={() => navigation.navigate('SellerOrders', { initialFilter: 'Created' })}
             activeOpacity={0.8}
@@ -331,7 +331,7 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
 
           {/* Action 2: Low Stock Alert */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             style={[styles.todoCard, cardShadow, dashboard.lowStockProductsCount > 0 && styles.todoCardWarning]}
             onPress={() => {
               // Scroll to quick restock widget
@@ -352,7 +352,7 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
 
           {/* Action 3: Out of Stock */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             style={[styles.todoCard, cardShadow, { width: '100%', marginTop: 8 }]}
             onPress={() => navigation.navigate('MyProducts')}
             activeOpacity={0.8}
@@ -378,7 +378,7 @@ export default function DashboardScreen({ navigation }) {
         {(features.wallet || features.coupons) && (
           <View style={tw`flex-row gap-3 mb-4`}>
             {features.wallet && (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
                 onPress={() => navigation.navigate('SellerWallet')}
                 activeOpacity={0.8}
@@ -393,7 +393,7 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             )}
             {features.coupons && (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
                 onPress={() => navigation.navigate('SellerCoupons')}
                 activeOpacity={0.8}
@@ -418,7 +418,7 @@ export default function DashboardScreen({ navigation }) {
               {isRTL ? 'إدارة المخزون السريع' : 'Quick Stock Manager'}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('MyProducts')}>
+          <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation.navigate('MyProducts')}>
             <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('seller.viewAllProducts')}</Text>
           </TouchableOpacity>
         </View>
@@ -467,21 +467,21 @@ export default function DashboardScreen({ navigation }) {
                       <ActivityIndicator size="small" color={colors.accent} style={tw`px-3`} />
                     ) : (
                       <>
-                        <TouchableOpacity
+                        <TouchableOpacity accessible={true} accessibilityRole="button"
                           style={styles.quickAddPill}
                           onPress={() => handleInlineStockAdd(prod.productId, 5)}
                           activeOpacity={0.8}
                         >
                           <Text style={styles.quickAddText}>+5</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
+                        <TouchableOpacity accessible={true} accessibilityRole="button"
                           style={styles.quickAddPill}
                           onPress={() => handleInlineStockAdd(prod.productId, 10)}
                           activeOpacity={0.8}
                         >
                           <Text style={styles.quickAddText}>+10</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
+                        <TouchableOpacity accessible={true} accessibilityRole="button"
                           style={styles.editPill}
                           onPress={() => openRestockModal(prod)}
                           activeOpacity={0.8}
@@ -569,7 +569,7 @@ export default function DashboardScreen({ navigation }) {
               {isRTL ? 'آخر الشحنات والطرود' : 'Recent Shipments & Parcels'}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('SellerOrders')}>
+          <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation.navigate('SellerOrders')}>
             <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('common.viewAll') || (isRTL ? 'عرض الكل' : 'View All')}</Text>
           </TouchableOpacity>
         </View>
@@ -577,7 +577,7 @@ export default function DashboardScreen({ navigation }) {
         {dashboard.recentShipments && dashboard.recentShipments.length > 0 ? (
           <View style={[styles.sectionCard, cardShadow]}>
             {dashboard.recentShipments.map((s, idx) => (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 key={`recent-ship-${s.shipmentId}`}
                 style={[
                   styles.recentShipmentRow,
@@ -620,7 +620,7 @@ export default function DashboardScreen({ navigation }) {
         ) : null}
 
         {/* ─── 6. Quick Action: Add New Product ─── */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           onPress={() => navigation.navigate('AddEditProduct')}
           style={[styles.addBanner, cardShadow, tw`mt-5`]}
@@ -669,7 +669,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={[styles.modalContent, cardShadow]}>
             <View style={tw`flex-row items-center justify-between mb-4`}>
               <Text style={styles.modalTitle}>{isRTL ? 'تحديث المخزون والسعر' : 'Update Stock & Price'}</Text>
-              <TouchableOpacity onPress={() => setRestockModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setRestockModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -704,22 +704,22 @@ export default function DashboardScreen({ navigation }) {
             />
 
             <View style={tw`flex-row justify-end mt-5`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setRestockModalVisible(false)}
                 style={[styles.modalBtn, { backgroundColor: '#F1F5F9' }]}
               >
                 <Text style={[styles.modalBtnText, { color: colors.textPrimary }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleModalSave}
                 disabled={updatingStock}
                 style={[styles.modalBtn, { backgroundColor: colors.accent, marginLeft: 10 }]}
               >
                 {updatingStock ? (
-                  <ActivityIndicator size="small" color={colors.white} />
+                  <ActivityIndicator size="small" color={colors.accentContrast} />
                 ) : (
-                  <Text style={[styles.modalBtnText, { color: colors.white }]}>{t('common.save')}</Text>
+                  <Text style={[styles.modalBtnText, { color: colors.accentContrast }]}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -10,6 +10,7 @@ public class UnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _context;
     private IDbContextTransaction? _transaction;
+    private int _transactionDepth = 0;
 
     public UnitOfWork(AppDbContext context)
     {
@@ -80,7 +81,15 @@ public class UnitOfWork : IUnitOfWork
     {
         if (_context.Database.IsRelational())
         {
-            _transaction = await _context.Database.BeginTransactionAsync();
+            if (_transaction == null && _context.Database.CurrentTransaction == null)
+            {
+                _transaction = await _context.Database.BeginTransactionAsync();
+                _transactionDepth = 1;
+            }
+            else
+            {
+                _transactionDepth++;
+            }
         }
     }
 
@@ -88,9 +97,18 @@ public class UnitOfWork : IUnitOfWork
     {
         if (_transaction != null)
         {
-            await _transaction.CommitAsync();
-            await _transaction.DisposeAsync();
-            _transaction = null;
+            _transactionDepth--;
+            if (_transactionDepth <= 0)
+            {
+                await _transaction.CommitAsync();
+                await _transaction.DisposeAsync();
+                _transaction = null;
+                _transactionDepth = 0;
+            }
+        }
+        else if (_transactionDepth > 0)
+        {
+            _transactionDepth--;
         }
     }
 
@@ -98,9 +116,20 @@ public class UnitOfWork : IUnitOfWork
     {
         if (_transaction != null)
         {
-            await _transaction.RollbackAsync();
-            await _transaction.DisposeAsync();
-            _transaction = null;
+            try
+            {
+                await _transaction.RollbackAsync();
+            }
+            finally
+            {
+                await _transaction.DisposeAsync();
+                _transaction = null;
+                _transactionDepth = 0;
+            }
+        }
+        else
+        {
+            _transactionDepth = 0;
         }
     }
 

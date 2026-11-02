@@ -81,6 +81,7 @@ public class ProductService : IProductService
             ImageUrls = normalizedImageUrls,
             CategoryId = request.CategoryId,
             SellerId = sellerId,
+            AllowInspection = request.AllowInspection,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -155,6 +156,10 @@ public class ProductService : IProductService
         product.HeightCm = request.HeightCm;
         product.ImageUrls = normalizedImageUrls;
         product.CategoryId = request.CategoryId;
+        if (request.AllowInspection.HasValue)
+        {
+            product.AllowInspection = request.AllowInspection.Value;
+        }
         product.SearchVector = BuildSearchVector(
             nameAr,
             nameEn,
@@ -363,7 +368,9 @@ public class ProductService : IProductService
 
         if (page.HasValue && pageSize.HasValue && page.Value > 0 && pageSize.Value > 0)
         {
-            query = query.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value);
+            var clampedPage = Math.Clamp(page.Value, 1, 1000);
+            var clampedPageSize = Math.Clamp(pageSize.Value, 1, 100);
+            query = query.Skip((clampedPage - 1) * clampedPageSize).Take(clampedPageSize);
         }
 
         var products = query.ToList();
@@ -466,8 +473,8 @@ public class ProductService : IProductService
             _ => filteredQuery.OrderByDescending(p => p.CreatedAt)
         };
 
-        var effectivePage = page.GetValueOrDefault(1) < 1 ? 1 : page.GetValueOrDefault(1);
-        var effectivePageSize = pageSize.GetValueOrDefault(20) < 1 ? 20 : pageSize.GetValueOrDefault(20);
+        var effectivePage = Math.Clamp(page.GetValueOrDefault(1), 1, 1000);
+        var effectivePageSize = Math.Clamp(pageSize.GetValueOrDefault(20), 1, 100);
 
         var products = await filteredQuery
             .Skip((effectivePage - 1) * effectivePageSize)
@@ -579,6 +586,7 @@ public class ProductService : IProductService
             RatingCount = product.ReviewsCount,
             Rating = Math.Round(product.AverageRating, 1),
             ReviewCount = product.ReviewsCount,
+            AllowInspection = product.AllowInspection,
             CreatedAt = product.CreatedAt,
             Variants = variantDtos
         };

@@ -40,6 +40,7 @@ import {
 } from '../../api/usersApi';
 import { changeAppLanguage } from '../../locales/i18n';
 import { linkGoogle } from '../../api/authApi';
+import { useGoogleAuth } from '../../utils/googleAuth';
 import { isValidEgyptianPhone, formatEgyptianPhone } from '../../utils/egyptianPhone';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
@@ -160,35 +161,23 @@ export default function ProfileScreen({ navigation }) {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletEnabled, setWalletEnabled] = useState(false);
 
-  // Google Account Linking State
-  const [linkGoogleToken, setLinkGoogleToken] = useState('');
+  // Google Account Linking Flow (MOB-013)
   const [linkGoogleLoading, setLinkGoogleLoading] = useState(false);
-
-  const handleLinkGoogle = async () => {
-    if (!linkGoogleToken.trim()) {
-      Alert.alert(
-        t('common.error'),
-        t('profile.linkGoogleTokenRequired')
-      );
-      return;
-    }
-    setLinkGoogleLoading(true);
-    try {
-      await linkGoogle(linkGoogleToken.trim());
-      setLinkGoogleToken('');
-      Alert.alert(
-        t('common.success'),
-        t('profile.linkGoogleSuccess')
-      );
-    } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        t('profile.linkGoogleError');
-      Alert.alert(t('common.error'), msg);
-    } finally {
-      setLinkGoogleLoading(false);
-    }
-  };
+  const { signIn: startGoogleLink, isLoading: googleLinking } = useGoogleAuth({
+    onIdToken: async (idToken) => {
+      setLinkGoogleLoading(true);
+      try {
+        await linkGoogle(idToken);
+        Alert.alert(t('common.success'), t('profile.linkGoogleSuccess'));
+      } catch (err) {
+        const msg = err.response?.data?.message || t('profile.linkGoogleError');
+        Alert.alert(t('common.error'), msg);
+      } finally {
+        setLinkGoogleLoading(false);
+      }
+    },
+    onError: (err) => Alert.alert(t('common.error'), err),
+  });
 
   const loadSellerProfile = useCallback(async () => {
     try {
@@ -622,7 +611,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => setIsEditingName((p) => !p)}
             style={styles.editProfileBtn}
             activeOpacity={0.8}
@@ -643,10 +632,10 @@ export default function ProfileScreen({ navigation }) {
               autoFocus
             />
             <View style={tw`flex-row justify-end mt-2`}>
-              <TouchableOpacity onPress={() => setIsEditingName(false)} style={styles.nameCancelBtn}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsEditingName(false)} style={styles.nameCancelBtn}>
                 <Text style={styles.nameCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveName} disabled={savingName} style={styles.nameSaveBtn}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={handleSaveName} disabled={savingName} style={styles.nameSaveBtn}>
                 {savingName ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
@@ -660,7 +649,7 @@ export default function ProfileScreen({ navigation }) {
         {/* Sleek Summary Bar (Orders, Addresses, Account Status) */}
         {isBuyer && (
           <View style={styles.summaryBar}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               style={styles.summaryCol}
               onPress={() => navigation?.navigate('MyOrders')}
               activeOpacity={0.8}
@@ -728,14 +717,14 @@ export default function ProfileScreen({ navigation }) {
               <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
                 {t('profile.buyerHubTitle')}
               </Text>
-              <TouchableOpacity onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}>
                 <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('profile.viewAllOrders')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={[styles.orderStatusBarCard, cardShadow]}>
               {/* 1. Processing */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={styles.statusTile}
                 onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Processing' })}
                 activeOpacity={0.75}
@@ -752,7 +741,7 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* 2. In Transit */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={styles.statusTile}
                 onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'InTransit' })}
                 activeOpacity={0.75}
@@ -769,7 +758,7 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* 3. Ready For Pickup */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={styles.statusTile}
                 onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'ReadyForPickup' })}
                 activeOpacity={0.75}
@@ -786,7 +775,7 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* 4. Delivered */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={styles.statusTile}
                 onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Delivered' })}
                 activeOpacity={0.75}
@@ -803,7 +792,7 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* 5. Returned */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 style={styles.statusTile}
                 onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Returned' })}
                 activeOpacity={0.75}
@@ -844,7 +833,7 @@ export default function ProfileScreen({ navigation }) {
                   </View>
                 </View>
 
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   activeOpacity={0.8}
                   onPress={() => setShowWalletModal(true)}
                   style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.accent, backgroundColor: '#FFF7ED' }]}
@@ -980,7 +969,7 @@ export default function ProfileScreen({ navigation }) {
                 )}
 
                 {/* Action Link to Orders */}
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   style={styles.trackDetailsBtn}
                   onPress={() => navigation?.navigate('MyOrders')}
                   activeOpacity={0.8}
@@ -1013,7 +1002,7 @@ export default function ProfileScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => openAddressModal()}
               style={styles.addSmallBtn}
               activeOpacity={0.8}
@@ -1047,10 +1036,10 @@ export default function ProfileScreen({ navigation }) {
                 </View>
 
                 <View style={tw`flex-row items-center`}>
-                  <TouchableOpacity onPress={() => openAddressModal(addr)} style={tw`p-1 mr-1`}>
+                  <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => openAddressModal(addr)} style={tw`p-1 mr-1`}>
                     <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.primary} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteAddress(addr.id)} style={tw`p-1`}>
+                  <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => handleDeleteAddress(addr.id)} style={tw`p-1`}>
                     <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.discount} />
                   </TouchableOpacity>
                 </View>
@@ -1074,7 +1063,7 @@ export default function ProfileScreen({ navigation }) {
             ) : (
               <View>
                 <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.mainDispatchCity')}</Text>
-                <TextInput
+                <TextInput accessibilityLabel="Input" accessible={true}
                   style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                   value={sellerProfile.dispatchCity}
                   onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchCity: text }))}
@@ -1083,7 +1072,7 @@ export default function ProfileScreen({ navigation }) {
                 />
 
                 <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.detailedDispatchAddress')}</Text>
-                <TextInput
+                <TextInput accessibilityLabel="Input" accessible={true}
                   style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                   value={sellerProfile.dispatchAddress}
                   onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchAddress: text }))}
@@ -1092,7 +1081,7 @@ export default function ProfileScreen({ navigation }) {
                 />
 
                 <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.contactPhoneRepresentative')}</Text>
-                <TextInput
+                <TextInput accessibilityLabel="Input" accessible={true}
                   style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                   keyboardType="phone-pad"
                   value={sellerProfile.contactPhone}
@@ -1101,7 +1090,7 @@ export default function ProfileScreen({ navigation }) {
                   placeholderTextColor="#94A3B8"
                 />
 
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={handleSaveSellerProfile}
                   disabled={savingSellerProfile}
                   style={[styles.saveBtn, { backgroundColor: colors.accent }]}
@@ -1158,7 +1147,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           {/* Change Password Accordion Header */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             style={tw`flex-row items-center justify-between`}
             onPress={() => setIsChangingPassword((p) => !p)}
             activeOpacity={0.8}
@@ -1208,7 +1197,7 @@ export default function ProfileScreen({ navigation }) {
                 placeholderTextColor="#94A3B8"
               />
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleSavePassword}
                 disabled={savingPassword}
                 style={[styles.saveBtn, { backgroundColor: colors.primary }]}
@@ -1238,29 +1227,19 @@ export default function ProfileScreen({ navigation }) {
               {t('profile.googleLinkingDesc')}
             </Text>
 
-            <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t('profile.googleIdTokenLabel')} *
-            </Text>
-            <TextInput
-              style={[styles.fieldInput, tw`font-mono text-xs`, { textAlign: isRTL ? 'right' : 'left' }]}
-              value={linkGoogleToken}
-              onChangeText={setLinkGoogleToken}
-              placeholder={t('profile.googleIdTokenPlaceholder')}
-              placeholderTextColor="#94A3B8"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
             <TouchableOpacity
-              onPress={handleLinkGoogle}
-              disabled={linkGoogleLoading}
-              style={[styles.saveBtn, { backgroundColor: colors.primary, marginTop: 10 }]}
+              onPress={startGoogleLink}
+              disabled={linkGoogleLoading || googleLinking}
+              style={[styles.saveBtn, { backgroundColor: '#2563EB', marginTop: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.linkGoogleBtn')}
+              activeOpacity={0.85}
             >
-              {linkGoogleLoading ? (
+              {linkGoogleLoading || googleLinking ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
                 <View style={tw`flex-row items-center justify-center`}>
-                  <MaterialCommunityIcons name="link-variant" size={16} color={colors.white} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
+                  <MaterialCommunityIcons name="google" size={18} color={colors.white} style={isRTL ? tw`ml-2` : tw`mr-2`} />
                   <Text style={styles.saveBtnText}>
                     {t('profile.linkGoogleBtn')}
                   </Text>
@@ -1282,7 +1261,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View style={[tw`flex-row p-1 rounded-xl`, { backgroundColor: '#F1F5F9' }]}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleLanguageChange('ar')}
               style={[
                 tw`px-3 py-1.5 rounded-lg`,
@@ -1295,7 +1274,7 @@ export default function ProfileScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleLanguageChange('en')}
               style={[
                 tw`px-3 py-1.5 rounded-lg`,
@@ -1311,7 +1290,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* 6. Logout Button */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           style={[styles.logoutBtn, cardShadow, tw`mt-4`]}
           onPress={handleLogout}
           activeOpacity={0.85}
@@ -1321,7 +1300,7 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
 
         {/* 7. Discreet Delete Account Action */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => setDeleteAccountModalVisible(true)}
           style={tw`items-center py-3 mt-1 mb-6`}
           activeOpacity={0.7}
@@ -1345,14 +1324,14 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.modalTitle}>
                 {editingAddressId ? t('profile.addressModal.titleEdit') : t('profile.addressModal.titleNew')}
               </Text>
-              <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setAddressModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={tw`mt-3`}>
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.label')}</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.label}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, label: text }))}
@@ -1361,7 +1340,7 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.recipientName')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.recipientName}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, recipientName: text }))}
@@ -1370,7 +1349,7 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.recipientPhone')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 keyboardType="phone-pad"
                 value={addressForm.recipientPhone}
@@ -1381,7 +1360,7 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 1. Governorate */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.governorate')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.governorate}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, governorate: text }))}
@@ -1391,7 +1370,7 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 2. City / Center */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.city')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.city}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, city: text }))}
@@ -1401,7 +1380,7 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 3. Area / District */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.area')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.area}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, area: text }))}
@@ -1411,7 +1390,7 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 4. Street & Building / Apartment */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.streetBuilding')} *</Text>
-              <TextInput
+              <TextInput accessibilityLabel="Input" accessible={true}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.streetBuilding}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, streetBuilding: text }))}
@@ -1431,7 +1410,7 @@ export default function ProfileScreen({ navigation }) {
                 />
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleSaveAddress}
                 disabled={savingAddress}
                 style={[styles.saveBtn, { backgroundColor: colors.primary, marginBottom: 20 }]}
@@ -1467,7 +1446,7 @@ export default function ProfileScreen({ navigation }) {
 
             {googleEnabled && (
               <View style={tw`flex-row gap-2 mt-3 mb-2`}>
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => setDeleteAuthMethod('password')}
                   style={[
                     tw`flex-1 py-2 rounded-xl items-center border`,
@@ -1481,7 +1460,7 @@ export default function ProfileScreen({ navigation }) {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => setDeleteAuthMethod('google')}
                   style={[
                     tw`flex-1 py-2 rounded-xl items-center border`,
@@ -1525,14 +1504,14 @@ export default function ProfileScreen({ navigation }) {
             )}
 
             <View style={tw`flex-row justify-end mt-4`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setDeleteAccountModalVisible(false)}
                 style={[styles.nameCancelBtn, isRTL ? tw`ml-2` : tw`mr-2`]}
               >
                 <Text style={styles.nameCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleDeleteAccountConfirm}
                 disabled={deletingAccount}
                 style={[styles.saveBtn, { backgroundColor: '#DC2626', minWidth: 100 }]}
@@ -1564,7 +1543,7 @@ export default function ProfileScreen({ navigation }) {
                   {t('profile.walletTxModalTitle')}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setShowWalletModal(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setShowWalletModal(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>

@@ -1,5 +1,8 @@
 export const getApiBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:5209/api';
+  return (
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:5209/api' : '/api')
+  );
 };
 
 export const BASE_URL = getApiBaseUrl();
@@ -42,7 +45,7 @@ export const getImageUrl = (path) => {
   const apiBase = import.meta.env.VITE_API_URL || BASE_URL;
   const host = apiBase.replace(/\/api\/?$/, '');
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return `${host}${cleanPath}`;
+  return host ? `${host}${cleanPath}` : cleanPath;
 };
 
 /**

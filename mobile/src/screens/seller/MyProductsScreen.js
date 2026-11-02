@@ -149,7 +149,7 @@ export default function MyProductsScreen({ navigation }) {
 
   const renderTopTabs = () => (
     <View style={tw`flex-row mb-3 bg-white p-1 rounded-xl border border-gray-200`}>
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         onPress={() => setActiveTab('products')}
         style={[
           tw`flex-1 py-2 rounded-lg items-center flex-row justify-center`,
@@ -171,7 +171,7 @@ export default function MyProductsScreen({ navigation }) {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         onPress={() => setActiveTab('reviews')}
         style={[
           tw`flex-1 py-2 rounded-lg items-center flex-row justify-center`,
@@ -217,7 +217,7 @@ export default function MyProductsScreen({ navigation }) {
               )}
             </View>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.85}
               onPress={() => navigation.navigate('AddEditProduct')}
               style={styles.addButtonWrap}
@@ -250,7 +250,7 @@ export default function MyProductsScreen({ navigation }) {
                 onChangeText={setSearchQuery}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={tw`p-1`}>
+                <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setSearchQuery('')} style={tw`p-1`}>
                   <MaterialCommunityIcons name="close-circle" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
@@ -320,7 +320,7 @@ export default function MyProductsScreen({ navigation }) {
           </Text>
         </View>
       ) : (
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => openReplyModal(rev)}
           style={[
             tw`self-start px-3 py-1.5 rounded-lg border flex-row items-center mt-1`,
@@ -343,6 +343,10 @@ export default function MyProductsScreen({ navigation }) {
           key="seller-products-grid"
           data={filteredProducts}
           numColumns={2}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={tw`justify-between`}
@@ -373,7 +377,7 @@ export default function MyProductsScreen({ navigation }) {
               <Text style={[tw`text-center text-sm mt-1 mb-5 max-w-xs`, { color: colors.textSecondary }]}>
                 {t('seller.welcome')}
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('AddEditProduct')}
                 style={styles.emptyButtonWrap}
@@ -395,6 +399,10 @@ export default function MyProductsScreen({ navigation }) {
         <FlatList
           key="seller-reviews-list"
           data={reviews}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
           keyExtractor={(item) => `srev-${item.id}`}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={renderHeader}
@@ -430,7 +438,7 @@ export default function MyProductsScreen({ navigation }) {
               <Text style={[tw`text-base font-bold`, { color: colors.textPrimary }]}>
                 {t('seller.replyToReviewBtn')}
               </Text>
-              <TouchableOpacity onPress={() => setReplyModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setReplyModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -475,7 +483,7 @@ export default function MyProductsScreen({ navigation }) {
               onChangeText={setReplyText}
             />
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={handleSendReply}
               disabled={submittingReply || !replyText.trim()}
               style={[

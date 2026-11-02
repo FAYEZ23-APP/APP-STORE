@@ -20,7 +20,7 @@ export default function BrandLogo({
   showSubtitle = true,
   alignCenter = false,
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
 
   const isDark = variant === 'dark';
@@ -88,11 +88,11 @@ export default function BrandLogo({
         >
           {isRTL ? (
             <>
-              سوق <Text style={{ color: colors.primary }}>مصر</Text>
+              {t('brand.shop')} <Text style={{ color: colors.primary }}>{t('brand.egypt')}</Text>
             </>
           ) : (
             <>
-              Egypt <Text style={{ color: colors.primary }}>Shop</Text>
+              {t('brand.egypt')} <Text style={{ color: colors.primary }}>{t('brand.shop')}</Text>
             </>
           )}
         </Text>
@@ -108,7 +108,7 @@ export default function BrandLogo({
               },
             ]}
           >
-            {isRTL ? 'المتجر المصري الرائد' : 'PREMIUM MARKETPLACE'}
+            {t('brand.tagline')}
           </Text>
         )}
       </View>

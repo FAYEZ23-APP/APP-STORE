@@ -1,9 +1,10 @@
 // POSTGRES suite (TEST_DB). Verifies D-002: OTP codes, full emails and full phone numbers never reach server logs/stdout.
 const http = require('http');
 const { spawn, execSync } = require('child_process');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5291;
-const BASE = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE = '';
 
 function getTestDb() {
   if (process.env.TEST_DB && process.env.TEST_DB.trim()) return process.env.TEST_DB.trim();
@@ -37,8 +38,12 @@ function check(cond, msg) { if (cond) console.log(`  [PASS] ${msg}`); else { fai
   console.log(`Suite provider: POSTGRES | DB name: ${dbName}`);
   if (!dbName.endsWith('_test')) { console.log('Database name does not end with "_test" -> ABORT'); process.exit(1); }
 
+  PORT = await getFreePort();
+  BASE = `http://localhost:${PORT}`;
+
   let logs = '';
-  const env = { ...process.env, TEST_DB: testDb, ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: BASE,
+  const env = { ...process.env, TEST_DB: testDb, ConnectionStrings__DefaultConnection: testDb, Database__AutoMigrate: 'false',
+    ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: BASE,
     'Auth__RequireVerification': 'true', 'Auth__PhoneSignupEnabled': 'true', 'Sms__Provider': 'Console',
     'Auth__CodeSecret': 'DedicatedVerificationCodeSecret_AtLeast32CharsLong!',
     'Admin__Email': 'admin@marketplace.eg', 'Admin__Password': 'AdminSecurePassword123!' };
@@ -83,7 +88,7 @@ function check(cond, msg) { if (cond) console.log(`  [PASS] ${msg}`); else { fai
   } catch (e) {
     failed++; console.log('  [FAIL] ' + e.message);
   } finally {
-    child.kill();
+    stopServer(child);
   }
   console.log(failed === 0 ? '\nALL OTP/PII LOG-MASKING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
   process.exit(failed === 0 ? 0 : 1);

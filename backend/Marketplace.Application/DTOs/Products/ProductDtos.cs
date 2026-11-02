@@ -62,6 +62,7 @@ public class ProductResponse
     public decimal Rating { get; set; }
     public int ReviewCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool AllowInspection { get; set; } = true;
 
     public List<ProductVariantDto> Variants { get; set; } = new();
 }
@@ -86,6 +87,7 @@ public class CreateProductRequest
     public int? HeightCm { get; set; }
     public List<string> ImageUrls { get; set; } = new();
     public int CategoryId { get; set; }
+    public bool AllowInspection { get; set; } = true;
     public List<CreateProductVariantRequest>? Variants { get; set; }
 }
 
@@ -109,6 +111,7 @@ public class UpdateProductRequest
     public int? HeightCm { get; set; }
     public List<string> ImageUrls { get; set; } = new();
     public int CategoryId { get; set; }
+    public bool? AllowInspection { get; set; }
     public List<CreateProductVariantRequest>? Variants { get; set; }
 }
 

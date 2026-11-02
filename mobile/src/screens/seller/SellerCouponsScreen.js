@@ -194,7 +194,7 @@ export default function SellerCouponsScreen({ navigation }) {
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center`}>
               {navigation?.canGoBack?.() && (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => navigation.goBack()}
                   style={tw`p-2 bg-slate-800 rounded-xl ${isRTL ? 'ml-2' : 'mr-2'}`}
                 >
@@ -213,12 +213,12 @@ export default function SellerCouponsScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={handleOpenCreateModal}
               style={[tw`px-3 py-2 rounded-xl flex-row items-center`, { backgroundColor: colors.accent }]}
             >
-              <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" style={isRTL ? tw`ml-1` : tw`mr-1`} />
-              <Text style={tw`text-white text-xs font-black`}>{t('coupons.createCoupon')}</Text>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.accentContrast} style={isRTL ? tw`ml-1` : tw`mr-1`} />
+              <Text style={[tw`text-xs font-black`, { color: colors.accentContrast }]}>{t('coupons.createCoupon')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -231,12 +231,12 @@ export default function SellerCouponsScreen({ navigation }) {
               <Text style={tw`text-xs font-bold text-slate-500 mt-2 text-center`}>
                 {t('coupons.noCoupons')}
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleOpenCreateModal}
                 style={[tw`mt-4 px-4 py-2.5 rounded-xl flex-row items-center`, { backgroundColor: colors.accent }]}
               >
-                <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" style={isRTL ? tw`ml-1` : tw`mr-1`} />
-                <Text style={tw`text-white text-xs font-bold`}>{t('coupons.createCoupon')}</Text>
+                <MaterialCommunityIcons name="plus" size={16} color={colors.accentContrast} style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                <Text style={[tw`text-xs font-bold`, { color: colors.accentContrast }]}>{t('coupons.createCoupon')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -345,7 +345,7 @@ export default function SellerCouponsScreen({ navigation }) {
                 <MaterialCommunityIcons name="ticket-percent" size={22} color={colors.accent} style={isRTL ? tw`ml-2` : tw`mr-2`} />
                 <Text style={tw`text-base font-black text-slate-900`}>{t('coupons.createCoupon')}</Text>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setShowCreateModal(false)}
                 disabled={submitting}
                 style={tw`p-1`}
@@ -365,7 +365,7 @@ export default function SellerCouponsScreen({ navigation }) {
               {/* Code */}
               <View style={tw`mb-4`}>
                 <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>{t('coupons.code')} *</Text>
-                <TextInput
+                <TextInput accessibilityLabel="Input" accessible={true}
                   value={code}
                   onChangeText={(val) => setCode(val.toUpperCase())}
                   autoCapitalize="characters"
@@ -388,7 +388,7 @@ export default function SellerCouponsScreen({ navigation }) {
                   ].map((m) => {
                     const isSelected = discountType === m.key;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         key={m.key}
                         onPress={() => setDiscountType(m.key)}
                         style={[
@@ -511,7 +511,7 @@ export default function SellerCouponsScreen({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleCreateCoupon}
                 disabled={submitting}
                 style={[

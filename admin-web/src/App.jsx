@@ -12,35 +12,50 @@ const DevCarrierDrawer = import.meta.env.DEV
   ? React.lazy(() => import('./components/DevCarrierDrawer'))
   : null;
 
-// Buyer Pages
-import HomePage from './pages/HomePage';
-import CategoriesPage from './pages/CategoriesPage';
-import ProductDetailsPage from './pages/ProductDetailsPage';
-import SellerStorePage from './pages/SellerStorePage';
-import SearchResultsPage from './pages/SearchResultsPage';
-import CartPage from './pages/CartPage';
-import CheckoutPage from './pages/CheckoutPage';
-import BuyerOrdersPage from './pages/BuyerOrdersPage';
-import WishlistPage from './pages/WishlistPage';
-import ProfilePage from './pages/ProfilePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import VerifyPage from './pages/VerifyPage';
+// Buyer Pages (Route-level Code Splitting)
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const CategoriesPage = React.lazy(() => import('./pages/CategoriesPage'));
+const ProductDetailsPage = React.lazy(() => import('./pages/ProductDetailsPage'));
+const SellerStorePage = React.lazy(() => import('./pages/SellerStorePage'));
+const SearchResultsPage = React.lazy(() => import('./pages/SearchResultsPage'));
+const CartPage = React.lazy(() => import('./pages/CartPage'));
+const CheckoutPage = React.lazy(() => import('./pages/CheckoutPage'));
+const BuyerOrdersPage = React.lazy(() => import('./pages/BuyerOrdersPage'));
+const WishlistPage = React.lazy(() => import('./pages/WishlistPage'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyPage = React.lazy(() => import('./pages/VerifyPage'));
 
-// Seller Pages
-import SellerLayout from './pages/seller/SellerLayout';
-import SellerDashboardPage from './pages/seller/SellerDashboardPage';
-import SellerProductsPage from './pages/seller/SellerProductsPage';
-import SellerShipmentsPage from './pages/seller/SellerShipmentsPage';
-import SellerReturnsPage from './pages/seller/SellerReturnsPage';
-import SellerCouponsPage from './pages/seller/SellerCouponsPage';
-import SellerWalletPage from './pages/seller/SellerWalletPage';
-import SellerProfilePage from './pages/seller/SellerProfilePage';
+// Seller Pages (Route-level Code Splitting)
+const SellerLayout = React.lazy(() => import('./pages/seller/SellerLayout'));
+const SellerDashboardPage = React.lazy(() => import('./pages/seller/SellerDashboardPage'));
+const SellerProductsPage = React.lazy(() => import('./pages/seller/SellerProductsPage'));
+const SellerShipmentsPage = React.lazy(() => import('./pages/seller/SellerShipmentsPage'));
+const SellerReturnsPage = React.lazy(() => import('./pages/seller/SellerReturnsPage'));
+const SellerCouponsPage = React.lazy(() => import('./pages/seller/SellerCouponsPage'));
+const SellerWalletPage = React.lazy(() => import('./pages/seller/SellerWalletPage'));
+const SellerProfilePage = React.lazy(() => import('./pages/seller/SellerProfilePage'));
 
-// Admin Pages
-import AdminPortalPage from './pages/admin/AdminPortalPage';
+// Admin Pages (Route-level Code Splitting)
+const AdminPortalPage = React.lazy(() => import('./pages/admin/AdminPortalPage'));
+
+function PageLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="min-h-[50vh] flex flex-col items-center justify-center gap-3 p-6 select-none"
+    >
+      <div className="w-10 h-10 border-4 border-[#C8102E] border-t-transparent rounded-full animate-spin" />
+      <span className="text-xs font-bold text-slate-500 tracking-wide">
+        جاري التحميل...
+      </span>
+    </div>
+  );
+}
 
 // Gating flag: isolates non-admin storefront/buyer/seller routes from the hardened admin perimeter.
 // When disabled (e.g. VITE_STOREFRONT_WEB_ENABLED=false), admin-web serves strictly as an admin back-office portal.
@@ -68,8 +83,9 @@ export default function App() {
       )}
 
       <main className="flex-1 max-w-[1440px] w-[calc(100%-48px)] mx-auto py-6">
-        <Routes>
-          {isStorefrontEnabled ? (
+        <React.Suspense fallback={<PageLoadingFallback />}>
+          <Routes>
+            {isStorefrontEnabled ? (
             <>
               {/* Public Storefront Routes (Guests & Buyers only; Sellers/Admins redirect to their portals) */}
               <Route path="/" element={<StorefrontRoute><HomePage /></StorefrontRoute>} />
@@ -165,6 +181,7 @@ export default function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to={isStorefrontEnabled ? "/" : "/admin"} replace />} />
         </Routes>
+      </React.Suspense>
       </main>
 
       <Footer />

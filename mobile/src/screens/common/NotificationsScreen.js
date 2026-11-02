@@ -163,7 +163,7 @@ export default function NotificationsScreen({ navigation }) {
     });
 
     return (
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         onPress={() => handleNotificationPress(item)}
         activeOpacity={0.7}
         style={[
@@ -227,7 +227,7 @@ export default function NotificationsScreen({ navigation }) {
       {/* Header */}
       <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-slate-100 flex-row items-center justify-between`}>
         <View style={tw`flex-row items-center gap-2`}>
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => navigation.goBack()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={tw`mr-1`}
@@ -256,7 +256,7 @@ export default function NotificationsScreen({ navigation }) {
         </View>
 
         {unreadCount > 0 && (
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={handleMarkAllRead}
             style={tw`bg-slate-100 px-3 py-1.5 rounded-xl flex-row items-center gap-1`}
           >
@@ -289,6 +289,10 @@ export default function NotificationsScreen({ navigation }) {
         <FlatList
           data={notifications}
           keyExtractor={(item) => String(item.id)}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
           contentContainerStyle={tw`py-3`}
           refreshControl={

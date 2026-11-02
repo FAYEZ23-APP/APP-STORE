@@ -93,6 +93,22 @@ public class ReturnsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Confirm physical receipt of returned package and complete refund & stock restock (Seller or Admin). (GAP-LOG-06)</summary>
+    [HttpPut("{id:int}/confirm-received")]
+    [Authorize(Roles = "Seller,Admin")]
+    [ProducesResponseType(typeof(ReturnResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ReturnResponse>> ConfirmReceived(int id, [FromBody] ConfirmReturnReceivedRequest? request = null)
+    {
+        var actorId = User.GetUserId();
+        var isAdmin = User.IsInRole("Admin");
+        var result = await _returnService.ConfirmReceivedAsync(actorId, isAdmin, id, request);
+        return Ok(result);
+    }
+
     /// <summary>List all return requests for items belonging to the logged-in seller.</summary>
     [HttpGet("seller")]
     [Authorize(Roles = "Seller")]

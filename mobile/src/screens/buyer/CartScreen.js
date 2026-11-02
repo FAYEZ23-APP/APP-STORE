@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { CartContext } from '../../context/CartContext';
+import { AuthContext } from '../../context/AuthContext';
 import { getProductById } from '../../api/productsApi';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -37,6 +38,7 @@ const cardShadow = Platform.select({
 export default function CartScreen({ navigation }) {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
+  const { userRole } = useContext(AuthContext);
   const {
     items,
     increase,
@@ -198,7 +200,7 @@ export default function CartScreen({ navigation }) {
         >
           {t('cart.empty')}
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           onPress={() => navigation.navigate('Catalog')}
           style={[
@@ -230,6 +232,10 @@ export default function CartScreen({ navigation }) {
       {/* Cart Items List */}
       <FlatList
         data={cartList}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         keyExtractor={(item) => item.cartKey || `cart-item-${item.productId}_${item.variantId || 'base'}`}
         contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
         refreshControl={
@@ -264,7 +270,7 @@ export default function CartScreen({ navigation }) {
               ]}
             >
               {/* Product Thumbnail */}
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 activeOpacity={0.85}
                 onPress={() =>
                   navigation.navigate('ProductDetails', {
@@ -302,7 +308,7 @@ export default function CartScreen({ navigation }) {
               <View style={tw`flex-1 ml-3 justify-between`}>
                 <View>
                   <View style={tw`flex-row items-start justify-between`}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       activeOpacity={0.85}
                       style={tw`flex-1 mr-2`}
                       onPress={() =>
@@ -324,7 +330,7 @@ export default function CartScreen({ navigation }) {
                     </TouchableOpacity>
 
                     {/* Delete button */}
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleRemoveConfirm(item)}
                       style={tw`p-1`}
                       accessibilityLabel={t('common.delete')}
@@ -387,7 +393,7 @@ export default function CartScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleStepMinus(item)}
                       activeOpacity={0.7}
                       style={[
@@ -411,7 +417,7 @@ export default function CartScreen({ navigation }) {
                       {item.quantity}
                     </Text>
 
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleStepPlus(item)}
                       activeOpacity={0.7}
                       disabled={isAtMaxStock}
@@ -457,7 +463,7 @@ export default function CartScreen({ navigation }) {
           </Text>
         </View>
 
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           onPress={handleProceedToCheckout}
           style={{ borderRadius: 14, overflow: 'hidden' }}

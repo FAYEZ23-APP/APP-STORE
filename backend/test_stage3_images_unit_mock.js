@@ -103,6 +103,10 @@ public class MockUow : IUnitOfWork
     public IRepository<UploadedFile> UploadedFiles => UploadedFilesRepo;
     public IRepository<ReviewReport> ReviewReports => throw new NotImplementedException();
     public IRepository<ExternalLogin> ExternalLogins => throw new NotImplementedException();
+    public IRepository<WishlistItem> WishlistItems => throw new NotImplementedException();
+    public IRepository<UserNotification> UserNotifications => throw new NotImplementedException();
+    public IRepository<AdminAuditLog> AdminAuditLogs => throw new NotImplementedException();
+    public void ClearChangeTracker() { }
 
     public Task RecomputeProductRatingAsync(int productId) => Task.CompletedTask;
 

@@ -222,7 +222,7 @@ export default function SellerWalletScreen({ navigation }) {
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center`}>
               {navigation?.canGoBack?.() && (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => navigation.goBack()}
                   style={tw`p-2 bg-slate-800 rounded-xl ${isRTL ? 'ml-2' : 'mr-2'}`}
                 >
@@ -241,7 +241,7 @@ export default function SellerWalletScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={onRefresh}
               style={tw`p-2 bg-slate-800 rounded-xl`}
             >
@@ -266,7 +266,7 @@ export default function SellerWalletScreen({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleOpenPayoutModal}
                 disabled={availableBalance < 50}
                 style={[
@@ -322,7 +322,7 @@ export default function SellerWalletScreen({ navigation }) {
 
           {/* Segmented Switcher */}
           <View style={tw`flex-row bg-slate-200 p-1 rounded-2xl mb-4`}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => setActiveTab('transactions')}
               style={[
                 tw`flex-1 py-2.5 rounded-xl items-center flex-row justify-center`,
@@ -345,7 +345,7 @@ export default function SellerWalletScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => setActiveTab('payouts')}
               style={[
                 tw`flex-1 py-2.5 rounded-xl items-center flex-row justify-center`,
@@ -520,7 +520,7 @@ export default function SellerWalletScreen({ navigation }) {
                 <MaterialCommunityIcons name="cash-fast" size={22} color={colors.accent} style={isRTL ? tw`ml-2` : tw`mr-2`} />
                 <Text style={tw`text-base font-black text-slate-900`}>{t('wallet.requestPayout')}</Text>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setShowPayoutModal(false)}
                 disabled={submittingPayout}
                 style={tw`p-1`}
@@ -570,7 +570,7 @@ export default function SellerWalletScreen({ navigation }) {
                   ].map((m) => {
                     const isSelected = payoutMethod === m.key;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         key={m.key}
                         onPress={() => setPayoutMethod(m.key)}
                         style={[
@@ -623,7 +623,7 @@ export default function SellerWalletScreen({ navigation }) {
                 />
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleSubmitPayout}
                 disabled={submittingPayout}
                 style={[

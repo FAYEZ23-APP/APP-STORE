@@ -218,7 +218,7 @@ export default function AdminCategoriesScreen({ navigation }) {
           </View>
 
           <View style={tw`flex-row items-center gap-2`}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleOpenEdit(item)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={tw`p-1.5 rounded-lg bg-slate-100`}
@@ -226,7 +226,7 @@ export default function AdminCategoriesScreen({ navigation }) {
               <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textDark} />
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleDelete(item)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={tw`p-1.5 rounded-lg bg-red-50`}
@@ -257,7 +257,7 @@ export default function AdminCategoriesScreen({ navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={handleOpenAdd}
           style={tw`bg-red-600 px-3.5 py-2 rounded-xl flex-row items-center gap-1 shadow-sm`}
         >
@@ -285,6 +285,10 @@ export default function AdminCategoriesScreen({ navigation }) {
           data={categories}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={tw`py-4`}
           refreshControl={
             <RefreshControl
@@ -312,7 +316,7 @@ export default function AdminCategoriesScreen({ navigation }) {
               <Text style={tw`text-slate-900 font-black text-base`}>
                 {editingCategory ? t('categoriesAdmin.editCategory') : t('categoriesAdmin.addCategory')}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -371,7 +375,7 @@ export default function AdminCategoriesScreen({ navigation }) {
               </View>
 
               <View style={tw`flex-row justify-end gap-2 pt-3 border-t border-slate-100`}>
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => setModalVisible(false)}
                   style={tw`px-4 py-2.5 rounded-xl bg-slate-100`}
                 >
@@ -380,7 +384,7 @@ export default function AdminCategoriesScreen({ navigation }) {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={handleSave}
                   disabled={submitting}
                   style={tw`px-5 py-2.5 rounded-xl bg-red-600 flex-row items-center gap-1 shadow-sm`}

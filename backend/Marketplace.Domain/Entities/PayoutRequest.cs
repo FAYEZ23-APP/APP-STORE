@@ -13,6 +13,7 @@ public class PayoutRequest
     public string? AdminNotes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ProcessedAt { get; set; }
+    public uint Version { get; set; }
 
     public User Seller { get; set; } = null!;
 }

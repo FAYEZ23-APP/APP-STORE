@@ -193,7 +193,7 @@ export default function SellerStoreScreen({ route, navigation }) {
           ]}
         >
           <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
-          <TextInput
+          <TextInput accessibilityLabel="Input" accessible={true}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={() => fetchStore()}
@@ -206,7 +206,7 @@ export default function SellerStoreScreen({ route, navigation }) {
             ]}
           />
           {searchQuery ? (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => {
                 setSearchQuery('');
                 getSellerStore(sellerId, {
@@ -227,7 +227,7 @@ export default function SellerStoreScreen({ route, navigation }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={tw`pb-2`}
           >
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => setSelectedCategoryId(null)}
               style={[
                 tw`flex-row items-center px-3 py-1.5 rounded-full mr-2 border`,
@@ -256,7 +256,7 @@ export default function SellerStoreScreen({ route, navigation }) {
               const active = selectedCategoryId === cat.id;
               const title = isRTL ? cat.nameAr : cat.nameEn;
               return (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   key={`cat-${cat.id}`}
                   onPress={() => setSelectedCategoryId(cat.id)}
                   style={[
@@ -290,7 +290,7 @@ export default function SellerStoreScreen({ route, navigation }) {
           {SORT_OPTIONS.map((opt) => {
             const active = sortBy === opt.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 key={opt.key}
                 onPress={() => setSortBy(opt.key)}
                 style={[
@@ -351,7 +351,7 @@ export default function SellerStoreScreen({ route, navigation }) {
         >
           {t('store.notFound')}
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={[
             tw`px-6 py-2.5 rounded-xl`,
@@ -379,7 +379,7 @@ export default function SellerStoreScreen({ route, navigation }) {
           },
         ]}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={tw`p-1 mr-2`}
           accessibilityRole="button"
@@ -409,6 +409,10 @@ export default function SellerStoreScreen({ route, navigation }) {
       <FlatList
         data={storeData.products || []}
         numColumns={2}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ padding: 8, paddingBottom: 24 }}
         columnWrapperStyle={tw`justify-between`}
@@ -449,7 +453,7 @@ export default function SellerStoreScreen({ route, navigation }) {
                 : t('store.emptyStore')}
             </Text>
             {searchQuery || selectedCategoryId ? (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => {
                   setSearchQuery('');
                   setSelectedCategoryId(null);

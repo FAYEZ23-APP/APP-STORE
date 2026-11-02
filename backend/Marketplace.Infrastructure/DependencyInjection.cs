@@ -4,6 +4,7 @@ using Marketplace.Infrastructure.Data;
 using Marketplace.Infrastructure.Delivery;
 using Marketplace.Infrastructure.Notifications;
 using Marketplace.Infrastructure.Repositories;
+using Marketplace.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddSingleton<ITwoFactorSecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         // Email and SMS Senders
@@ -107,6 +109,9 @@ public static class DependencyInjection
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.VerificationCodeCleanupService>();
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.NotificationCleanupService>();
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.PushNotificationBackgroundWorker>();
+        services.AddSingleton<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>();
+        services.AddSingleton<IRefreshTokenCleanupService>(sp => sp.GetRequiredService<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>());
+        services.AddHostedService(sp => sp.GetRequiredService<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>());
 
         return services;
     }

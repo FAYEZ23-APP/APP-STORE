@@ -10,6 +10,7 @@ export const createOrder = (data, idempotencyKey = null) => {
   return client.post('/orders', data, { headers });
 };
 export const cancelOrder = (id) => client.post(`/orders/${id}/cancel`);
+export const confirmOrder = (id) => client.post(`/orders/${id}/confirm`);
 export const getMyOrders = () => client.get('/orders/mine');
 export const getOrderById = (id) => client.get(`/orders/${id}`);
 
@@ -20,6 +21,7 @@ export const updateOrderStatus = (id, status) => client.put(`/orders/${id}/statu
 export default {
   createOrder,
   cancelOrder,
+  confirmOrder,
   getMyOrders,
   getOrderById,
   getSellerOrders,

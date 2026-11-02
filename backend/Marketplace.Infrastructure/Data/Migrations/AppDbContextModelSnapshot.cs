@@ -20,6 +20,7 @@ namespace Marketplace.Infrastructure.Data.Migrations
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Marketplace.Domain.Entities.AdminAuditLog", b =>
@@ -82,12 +83,21 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BuyerId")
                         .IsUnique();
 
-                    b.ToTable("BuyerWallets");
+                    b.ToTable("BuyerWallets", t =>
+                        {
+                            t.HasCheckConstraint("CK_BuyerWallets_Balance_NonNegative", "\"Balance\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.BuyerWalletTransaction", b =>
@@ -417,10 +427,18 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Apartment")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Area")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("BuildingNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<int>("BuyerId")
                         .HasColumnType("integer");
@@ -430,12 +448,21 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("CouponCode")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("DeliveryLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("DeliveryLongitude")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("DeliveryMethod")
                         .IsRequired()
@@ -449,6 +476,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
+                    b.Property<string>("Floor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Governorate")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -457,6 +488,15 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<string>("IdempotencyKey")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsBuyerConfirmed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Landmark")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<string>("PaymentMethod")
                         .IsRequired()
@@ -502,6 +542,9 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasDefaultValue(0m);
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BuyerId", "CreatedAt")
+                        .HasDatabaseName("IX_Orders_BuyerId_CreatedAt");
 
                     b.HasIndex("BuyerId", "IdempotencyKey")
                         .IsUnique()
@@ -550,7 +593,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasIndex("VariantId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderItems_Quantity_And_Price_Valid", "\"Quantity\" > 0 AND \"UnitPrice\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.PayoutRequest", b =>
@@ -592,11 +638,20 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("PayoutRequests");
+                    b.ToTable("PayoutRequests", t =>
+                        {
+                            t.HasCheckConstraint("CK_PayoutRequests_Amount_Positive", "\"Amount\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Product", b =>
@@ -606,6 +661,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowInspection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<decimal>("AverageRating")
                         .ValueGeneratedOnAdd()
@@ -706,11 +766,18 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("SearchVector");
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("IX_Products_SearchVector_GinTrgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("SearchVector"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_Stock_And_Price_NonNegative", "\"Stock\" >= 0 AND \"Price\" >= 0 AND (\"OldPrice\" IS NULL OR \"OldPrice\" >= 0)");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.ProductVariant", b =>
@@ -758,7 +825,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ProductVariants");
+                    b.ToTable("ProductVariants", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductVariants_Stock_And_Price_NonNegative", "\"Stock\" >= 0 AND (\"PriceOverride\" IS NULL OR \"PriceOverride\" >= 0)");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.RefreshToken", b =>
@@ -803,6 +873,8 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("ReplacedByTokenId");
 
                     b.HasIndex("TokenHash")
@@ -826,6 +898,13 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<int>("BuyerId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Standard14Day");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -847,6 +926,9 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("RefundAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -861,8 +943,8 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.HasKey("Id");
 
@@ -1021,6 +1103,19 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AllowInspection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Apartment")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("BuildingNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<decimal>("CodAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -1036,6 +1131,15 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<decimal>("DeliveryCost")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<double?>("DeliveryLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("DeliveryLongitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("EscrowReleaseAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("EtaMaxDays")
                         .HasColumnType("integer");
 
@@ -1047,10 +1151,18 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("Floor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<bool>("IsCodSettled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
+
+                    b.Property<string>("Landmark")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("integer");
@@ -1152,6 +1264,11 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CodRefusalCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1301,7 +1418,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserAddresses_UserId_SingleDefault")
+                        .HasFilter("\"IsDefault\" = TRUE");
 
                     b.ToTable("UserAddresses");
                 });
@@ -1449,12 +1569,21 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SellerId")
                         .IsUnique();
 
-                    b.ToTable("VendorWallets");
+                    b.ToTable("VendorWallets", t =>
+                        {
+                            t.HasCheckConstraint("CK_VendorWallets_Balances_NonNegative", "\"Balance\" >= 0 AND \"PendingBalance\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.VerificationCode", b =>

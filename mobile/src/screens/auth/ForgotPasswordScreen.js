@@ -13,15 +13,16 @@ import {
   StyleSheet,
   StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { forgotPassword as forgotPasswordApi } from '../../api/authApi';
 import { colors } from '../../theme/colors';
+import BrandLogo from '../../components/common/BrandLogo';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 
 const ForgotPasswordScreen = ({ route, navigation }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === 'ar';
   const initialIdentifier = route?.params?.initialIdentifier || '';
 
   const [identifier, setIdentifier] = useState(initialIdentifier);
@@ -79,28 +80,22 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.secondary} />
 
-      {/* Header gradient */}
-      <LinearGradient
-        colors={['#0F172A', '#1E3A5F', '#0F172A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+      {/* Header matching Web AuthHeader */}
+      <View style={styles.headerArea}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#fff" />
         </TouchableOpacity>
 
-        <View style={styles.logoGradient}>
-          <Ionicons name="key-outline" size={32} color="#fff" />
-        </View>
-        <Text style={styles.headerTitle}>{t('auth.forgotPasswordTitle')}</Text>
-      </LinearGradient>
+        <BrandLogo variant="dark" size="sm" showSubtitle={true} alignCenter={true} />
+      </View>
 
       {/* Form card */}
       <KeyboardAvoidingView
@@ -121,6 +116,10 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
               },
             ]}
           >
+            <View style={styles.iconCircle}>
+              <Ionicons name="key-outline" size={28} color={colors.primary} />
+            </View>
+
             <Text style={styles.title}>{t('auth.forgotPasswordTitle')}</Text>
             <Text style={styles.subtitle}>{t('auth.forgotPasswordSubtitle')}</Text>
 
@@ -136,7 +135,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={focusedField === 'identifier' ? colors.accent : colors.textSecondary}
+                  color={focusedField === 'identifier' ? colors.primary : colors.textSecondary}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -148,6 +147,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
                   onChangeText={setIdentifier}
                   onFocus={() => setFocusedField('identifier')}
                   onBlur={() => setFocusedField(null)}
+                  accessibilityLabel={t('auth.emailOrPhone')}
                 />
               </View>
             </View>
@@ -156,24 +156,24 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
             <TouchableOpacity
               onPress={handleSendCode}
               disabled={loading}
-              activeOpacity={0.85}
-              style={{ marginTop: 12 }}
+              activeOpacity={0.88}
+              style={[styles.primaryButton, loading && styles.disabledButton]}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.sendResetCode')}
             >
-              <LinearGradient
-                colors={loading ? [colors.disabledBg, colors.disabledBg] : [colors.accent, '#FF8C33']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.actionButton}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.actionButtonText}>{t('auth.sendResetCode')}</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
-                  </>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>{t('auth.sendResetCode')}</Text>
+                  <Ionicons
+                    name={isRTL ? 'arrow-back' : 'arrow-forward'}
+                    size={19}
+                    color="#fff"
+                    style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }}
+                  />
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Back to login */}
@@ -194,42 +194,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.screenBg,
   },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
-    paddingBottom: 46,
+  headerArea: {
+    backgroundColor: colors.secondary,
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    paddingBottom: 44,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D323B',
+    position: 'relative',
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 44,
-    left: 20,
+    top: Platform.OS === 'ios' ? 54 : 42,
+    left: 16,
     zIndex: 10,
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
-  },
-  logoGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.3,
   },
   formWrapper: {
     flex: 1,
@@ -237,94 +221,130 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 30,
+    paddingBottom: 28,
   },
   formCard: {
     backgroundColor: colors.cardBg,
     marginHorizontal: 16,
     borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    paddingHorizontal: 22,
+    paddingVertical: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
+  },
+  iconCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 24,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 10,
+    lineHeight: 20,
+    paddingHorizontal: 8,
   },
   inputGroup: {
-    marginBottom: 18,
+    width: '100%',
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
-    letterSpacing: 0.3,
+    marginBottom: 6,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.screenBg,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    paddingHorizontal: 14,
-    height: 52,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    height: 50,
   },
   inputFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
     height: '100%',
   },
-  actionButton: {
-    height: 54,
+  primaryButton: {
+    width: '100%',
+    height: 50,
     borderRadius: 14,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+      default: {},
+    }),
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  disabledButton: {
+    backgroundColor: colors.disabledBg,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   bottomLink: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 22,
   },
   bottomLinkAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
   },
 });
 

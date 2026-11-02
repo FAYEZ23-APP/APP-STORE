@@ -3,6 +3,10 @@
   "common": {
     "loading": "جاري التحميل...",
     "error": "حدث خطأ، يرجى المحاولة مرة أخرى",
+    "errorBoundaryTitle": "حدث خطأ أثناء تشغيل التطبيق",
+    "errorBoundarySubtitle": "تم التقاط هذا الخطأ لمنع إغلاق التطبيق فجأة.",
+    "errorBoundaryDetails": "تفاصيل الخطأ:",
+    "errorBoundaryProductionMsg": "نعتذر عن حدوث هذا الخطأ غير المتوقع، تم تسجيل المشكلة وجارٍ العمل على حلها.",
     "success": "تم بنجاح",
     "ok": "حسناً",
     "retry": "إعادة المحاولة",
@@ -50,7 +54,8 @@
     "days_two": "يومان",
     "days_few": "{{count}} أيام",
     "days_many": "{{count}} يوماً",
-    "days_other": "{{count}} يوم"
+    "days_other": "{{count}} يوم",
+    "appName": "سوق مصر"
   },
   "nav": {
     "home": "الرئيسية",
@@ -188,7 +193,10 @@
     "reportReasonAbuse": "ألفاظ مسيئة أو غير لائقة",
     "reportReasonFake": "تقييم مضلل أو غير حقيقي",
     "reportSubmitSuccess": "تم استلام بلاغك بنجاح وسيتم مراجعته من الإدارة.",
-    "editedTag": "(معدّل)"
+    "editedTag": "(معدّل)",
+    "allowInspectionTitle": "معاينة الطرد عند الاستلام أمام المندوب",
+    "allowInspectionDesc": "يحق لك فتح الطرد وفحص المنتج والتأكد من مطابقته قبل سداد القيمة للمندوب.",
+    "whatsappInquiry": "تواصل عبر واتساب للاستفسار عن المنتج"
   },
   "cart": {
     "title": "عربة التسوق",
@@ -212,7 +220,9 @@
     "empty": "عربة التسوق فارغة",
     "goToCatalog": "تصفح المنتجات",
     "total": "الإجمالي",
-    "checkout": "إتمام الطلب"
+    "checkout": "إتمام الطلب",
+    "multiSellerParcelTitle": "شحنات متعددة من أكثر من تاجر",
+    "multiSellerParcelDesc": "سلتك تحتوي على منتجات من {{count}} تجار مختلفين، سيتم شحنها وتوصيلها في طرود منفصلة."
   },
   "checkout": {
     "title": "إتمام الطلب",
@@ -307,7 +317,9 @@
     "cancelOrderConfirmMessage": "هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم استرداد أي مبالغ مدفوعة من المحفظة وإعادة المنتجات للمخزون.",
     "cancelOrderSuccess": "تم إلغاء الطلب بنجاح واسترداد المبلغ.",
     "cancelling": "جاري الإلغاء...",
-    "orderCancelledBadge": "ملغي"
+    "orderCancelledBadge": "ملغي",
+    "confirmed": "تم تأكيد رغبتك في الاستلام",
+    "confirmOrder": "تأكيد الطلب"
   },
   "shipmentStatus": {
     "Created": "تم إنشاء الشحنة",
@@ -327,6 +339,7 @@
   "returnStatus": {
     "Pending": "قيد المراجعة",
     "Approved": "تمت الموافقة على الإرجاع",
+    "ApprovedAwaitingReturn": "تمت الموافقة، بانتظار استلام الشحنة",
     "Rejected": "تم رفض طلب الإرجاع",
     "Completed": "مكتمل وتم استرداد المبلغ"
   },
@@ -519,6 +532,16 @@
     "marketingCheckbox": "أوافق على استلام العروض والرسائل الترويجية (اختياري)",
     "mustAgreeTerms": "يجب الموافقة الصريحة على الشروط وسياسة الخصوصية للمتابعة",
     "viewPrivacyPolicy": "عرض سياسة الخصوصية والشروط",
+    "privacyPolicyLink": "عرض سياسة الخصوصية والشروط",
+    "privacyPolicyModalTitle": "سياسة الخصوصية وحماية البيانات الشخصية",
+    "twoFactorTitle": "التحقق بخطوتين (2FA)",
+    "twoFactorPrompt": "أدخل رمز التحقق المكون من 6 أرقام من تطبيق المصادقة للمتابعة",
+    "twoFactorCodeLabel": "رمز التحقق (6 أرقام)",
+    "twoFactorCodePlaceholder": "000000",
+    "twoFactorInvalidCode": "يرجى إدخال رمز التحقق المكون من 6 أرقام",
+    "twoFactorFailed": "فشل التحقق من الرمز، يرجى المحاولة مرة أخرى",
+    "backToLogin": "العودة لتسجيل الدخول",
+    "confirm2FA": "تأكيد الدخول",
     "logout": "تسجيل الخروج",
     "signingIn": "جاري الدخول...",
     "demoAccount": "حساب تجريبي للاختبار:",
@@ -564,7 +587,6 @@
     "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
     "passwordResetSuccess": "تمت إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.",
     "resetPasswordButton": "حفظ كلمة المرور الجديدة",
-    "backToLogin": "العودة لتسجيل الدخول",
     "changeIdentifier": "تغيير البريد أو الرقم",
     "invalidCodeLength": "يرجى إدخال رمز التحقق المكون من 6 أرقام كاملاً",
     "passwordMinLength": "يجب ألا تقل كلمة المرور عن 6 أحرف"
@@ -1133,5 +1155,24 @@
     "notFound": "المتجر غير موجود أو تم إيقافه",
     "visitStore": "زيارة المتجر",
     "sortBy": "الترتيب"
+  },
+  "brand": {
+    "egypt": "مصر",
+    "shop": "سوق",
+    "tagline": "المتجر المصري الرائد"
+  },
+  "unlock": {
+    "appName": "سوق مصر",
+    "subtitle": "Marketplace",
+    "registeredUser": "مستخدم مسجل"
+  },
+  "network": {
+    "offlineTitle": "لا يوجد اتصال بالإنترنت",
+    "offlineDesc": "تحقق من اتصال الشبكة للمتابعة",
+    "retry": "إعادة المحاولة"
+  },
+  "catalog": {
+    "brandBadge": "مصر 🇪🇬",
+    "deliveryBadge": "شحن لكافة المحافظات"
   }
 }

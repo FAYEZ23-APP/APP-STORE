@@ -6,12 +6,20 @@ public class CreateReturnRequest
     public int Quantity { get; set; } = 1;
     public string Reason { get; set; } = string.Empty;
     public string? DefectImageUrl { get; set; }
+    public string? Category { get; set; }
 }
 
 public class ResolveReturnRequest
 {
     public string Status { get; set; } = string.Empty;
     public string? SellerNote { get; set; }
+    public bool AdminOverride { get; set; } = false;
+    public bool ConfirmItemReceived { get; set; } = false;
+}
+
+public class ConfirmReturnReceivedRequest
+{
+    public string? Note { get; set; }
     public bool AdminOverride { get; set; } = false;
 }
 
@@ -33,7 +41,9 @@ public class ReturnResponse
     public decimal RefundAmount { get; set; }
     public string Reason { get; set; } = string.Empty;
     public string? DefectImageUrl { get; set; }
+    public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public DateTime? ReceivedAt { get; set; }
 }

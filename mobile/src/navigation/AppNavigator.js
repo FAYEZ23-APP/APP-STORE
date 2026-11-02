@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
@@ -42,8 +42,10 @@ export default function AppNavigator() {
   }
 
   const navigationTheme = {
+    ...DefaultTheme,
     dark: false,
     colors: {
+      ...DefaultTheme.colors,
       primary: colors.primary,
       background: colors.screenBg,
       card: colors.cardBg,
@@ -53,8 +55,29 @@ export default function AppNavigator() {
     },
   };
 
+  const linking = {
+    prefixes: ['marketplace://', 'https://marketplace.com'],
+    config: {
+      screens: {
+        BuyerRoot: {
+          screens: {
+            Catalog: 'catalog',
+            Categories: 'categories',
+            Cart: 'cart',
+            MyOrders: 'orders',
+            Profile: 'profile',
+          },
+        },
+        ProductDetails: 'product/:productId',
+        SellerStore: 'store/:sellerId',
+        Checkout: 'checkout',
+        Login: 'login',
+      },
+    },
+  };
+
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} linking={linking}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -72,14 +95,54 @@ export default function AppNavigator() {
         }}
       >
         {userRole == null ? (
-          // No token -> Auth Stack
-          <>
+          // Guest User -> Can browse Catalog, Categories, Cart, Search, ProductDetails (GAP-BUY-02 & GAP-COM-02)
+          <Stack.Group>
+            <Stack.Screen name="BuyerRoot" component={BuyerTabs} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="Verify" component={VerifyScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          </>
+            <Stack.Screen
+              name="Search"
+              component={MobileSearchScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="ProductDetails"
+              component={ProductDetailsScreen}
+              options={{
+                headerShown: true,
+                title: t('buyer.productDetails'),
+              }}
+            />
+            <Stack.Screen
+              name="SellerStore"
+              component={SellerStoreScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Wishlist"
+              component={WishlistScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Checkout"
+              component={CheckoutScreen}
+              options={{
+                headerShown: true,
+                title: t('buyer.checkout'),
+              }}
+            />
+            <Stack.Screen
+              name="LocationPicker"
+              component={MobileLocationPicker}
+              options={{
+                presentation: 'modal',
+                headerShown: false,
+              }}
+            />
+          </Stack.Group>
         ) : userRole === 'Admin' ? (
           // Role = Admin
           <Stack.Group>

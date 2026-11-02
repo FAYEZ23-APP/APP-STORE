@@ -8,6 +8,7 @@ public class VendorWallet
     public decimal PendingBalance { get; set; } = 0m;
     public decimal TotalEarned { get; set; } = 0m;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public uint Version { get; set; }
 
     public User Seller { get; set; } = null!;
     public ICollection<WalletTransaction> Transactions { get; set; } = new List<WalletTransaction>();

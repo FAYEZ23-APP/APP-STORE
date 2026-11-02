@@ -1,8 +1,8 @@
-import tw from 'twrnc';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { colors } from '../theme/colors';
 
 export default function OrderStatusBadge({ status }) {
   const { t } = useTranslation();
@@ -12,9 +12,9 @@ export default function OrderStatusBadge({ status }) {
       case 'Created':
       case 'Pending':
         return {
-          bg: '#FEF3C7',
-          border: '#FDE68A',
-          text: '#92400E',
+          bg: colors.accentSoft,
+          border: colors.accentBorder,
+          text: colors.accentText,
           icon: 'clock-outline',
         };
       case 'HandedToCarrier':
@@ -28,14 +28,14 @@ export default function OrderStatusBadge({ status }) {
         };
       case 'ReadyForPickup':
         return {
-          bg: '#F5F3FF',
-          border: '#DDD6FE',
-          text: '#5B21B6',
+          bg: colors.primarySoft,
+          border: colors.primaryBorder,
+          text: colors.primary,
           icon: 'storefront-outline',
         };
       case 'Delivered':
         return {
-          bg: '#F0FDF4',
+          bg: colors.successSoft,
           border: '#BBF7D0',
           text: '#166534',
           icon: 'check-circle-outline',
@@ -43,16 +43,16 @@ export default function OrderStatusBadge({ status }) {
       case 'Cancelled':
       case 'Returned':
         return {
-          bg: '#FEF2F2',
-          border: '#FECACA',
-          text: '#991B1B',
+          bg: colors.dangerSoft,
+          border: colors.primaryBorder,
+          text: colors.primary,
           icon: 'close-circle-outline',
         };
       default:
         return {
-          bg: '#F1F5F9',
-          border: '#E2E8F0',
-          text: '#475569',
+          bg: colors.screenBg,
+          border: colors.border,
+          text: colors.textSecondary,
           icon: 'information-outline',
         };
     }
@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
     borderRadius: 8,
     borderWidth: 1,
     alignSelf: 'flex-start',
@@ -101,7 +101,8 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   text: {
-    fontWeight: '700',
     fontSize: 11,
+    fontWeight: '700',
+    includeFontPadding: false,
   },
 });

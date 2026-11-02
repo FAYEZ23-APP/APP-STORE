@@ -4,9 +4,10 @@
 const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5234;
-const BASE = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE = '';
 
 function getTestDb() {
   if (process.env.TEST_DB && process.env.TEST_DB.trim()) return process.env.TEST_DB.trim();
@@ -48,16 +49,20 @@ async function waitForHealth(ms = 60000) {
 }
 
 async function main() {
+  PORT = await getFreePort();
+  BASE = `http://localhost:${PORT}`;
   const logPath = path.join(__dirname, 'server_batch9_rate_limit.log');
   const fd = fs.openSync(logPath, 'w');
-  const proc = spawn('dotnet', ['run', '--no-build', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
+  const proc = spawn('dotnet', ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
     cwd: path.join(__dirname, '..'),
     env: {
       ...process.env,
       ASPNETCORE_ENVIRONMENT: 'Development',
+      TEST_DB: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       ConnectionStrings__DefaultConnection: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       Jwt__Key: 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch9!',
       Auth__CodeSecret: 'IntegrationTestCodeSecret_AtLeast32CharsLong!',
+      Database__AutoMigrate: 'false',
       RateLimiting__GeneralRequestsPerMinute: '180',
       RateLimiting__AuthPermitLimit: '15',
     },
@@ -143,8 +148,7 @@ async function main() {
     check(authThrottled, `Sensitive auth endpoint is strictly throttled with 429 when exceeding 15 req/min (Throttled at request #${authThrottledAt})`);
 
   } finally {
-    proc.kill('SIGTERM');
-    try { fs.closeSync(fd); } catch {}
+    stopServer(proc, fd, logPath);
   }
 
   console.log(failed === 0 ? '\nALL RATE-LIMIT AND HEALTH HARDENING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

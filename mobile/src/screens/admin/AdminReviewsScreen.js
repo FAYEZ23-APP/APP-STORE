@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -196,7 +197,7 @@ export default function AdminReviewsScreen() {
             {imageList.map((imgUri, idx) => {
               const fullUrl = getImageUrl(imgUri);
               return (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   key={`rev-img-${idx}`}
                   onPress={() => setLightboxUri(fullUrl)}
                   activeOpacity={0.8}
@@ -228,7 +229,7 @@ export default function AdminReviewsScreen() {
         ) : null}
 
         {/* Reports Expandable Toggle */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => toggleReportsExpand(item.reviewId)}
           activeOpacity={0.7}
           style={styles.reportsHeaderToggle}
@@ -274,7 +275,7 @@ export default function AdminReviewsScreen() {
         {/* Action Button: Hide or Unhide */}
         <View style={tw`mt-3 pt-2.5 border-t border-gray-100 flex-row justify-end`}>
           {item.isHidden ? (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleUnhide(item)}
               activeOpacity={0.8}
               style={[styles.actionBtn, { borderColor: '#16A34A', backgroundColor: '#F0FDF4' }]}
@@ -285,7 +286,7 @@ export default function AdminReviewsScreen() {
               </Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => openHideModal(item)}
               activeOpacity={0.8}
               style={[styles.actionBtn, { borderColor: colors.discount }]}
@@ -342,6 +343,10 @@ export default function AdminReviewsScreen() {
           data={reviews}
           keyExtractor={(item) => `adm-rev-${item.reviewId}`}
           renderItem={renderReviewItem}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -375,7 +380,7 @@ export default function AdminReviewsScreen() {
                 <MaterialCommunityIcons name="eye-off" size={24} color={colors.discount} style={tw`mr-2`} />
                 <Text style={styles.modalTitle}>{t('admin.hideReviewTitle')}</Text>
               </View>
-              <TouchableOpacity onPress={() => setHideModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setHideModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -395,7 +400,7 @@ export default function AdminReviewsScreen() {
             />
 
             <View style={tw`flex-row justify-end mt-4`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setHideModalVisible(false)}
                 disabled={submittingAction}
                 style={[styles.modalCancelBtn, tw`mr-2`]}
@@ -403,7 +408,7 @@ export default function AdminReviewsScreen() {
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleConfirmHide}
                 disabled={submittingAction}
                 style={[styles.modalConfirmBtn, { backgroundColor: colors.discount }]}
@@ -427,7 +432,7 @@ export default function AdminReviewsScreen() {
         onRequestClose={() => setLightboxUri(null)}
       >
         <View style={tw`flex-1 bg-black/90 justify-center items-center p-4`}>
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => setLightboxUri(null)}
             style={styles.lightboxCloseBtn}
           >

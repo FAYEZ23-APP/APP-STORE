@@ -450,7 +450,7 @@ export default function MobileLocationPicker({
             alignItems: 'center',
           }}
         >
-          <MaterialCommunityIcons name="map-marker" size={48} color="#EF4444" />
+          <MaterialCommunityIcons name="map-marker" size={48} color={colors.primary} />
         </Animated.View>
 
         {/* Pin Ground Shadow */}
@@ -469,7 +469,7 @@ export default function MobileLocationPicker({
           { zIndex: 20 },
         ]}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={handleClose}
           style={[
             tw`w-10 h-10 rounded-full bg-white items-center justify-center shadow-md border border-gray-100`,
@@ -477,7 +477,7 @@ export default function MobileLocationPicker({
           ]}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="close" size={22} color={colors.text || '#1E293B'} />
+          <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View
@@ -497,7 +497,7 @@ export default function MobileLocationPicker({
       </View>
 
       {/* ─── Floating "My Location" Button ───────────────────── */}
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         activeOpacity={0.8}
         onPress={handleLocateMe}
         disabled={isLocating}
@@ -632,7 +632,7 @@ export default function MobileLocationPicker({
         </View>
 
         {/* Confirm Location Button */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           onPress={handleConfirm}
           disabled={isGeocoding}

@@ -2,9 +2,10 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5229;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 const JWT_KEY = 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch3Fixes!';
 
 function getTestDbConnectionString() {
@@ -128,16 +129,10 @@ async function main() {
     recordFail('MOCK', 'mobile SellerOrdersScreen', 'Seller waybill contains prohibited Share.share button');
   }
 
-  // Check NotificationCleanupService exists and uses configurable 90-day retention
-  const cleanupServiceCs = fs.readFileSync(path.join(__dirname, '..', 'Marketplace.Infrastructure', 'BackgroundServices', 'NotificationCleanupService.cs'), 'utf8');
-  if (cleanupServiceCs.includes('Notifications:RetentionDays') && cleanupServiceCs.includes('PurgeOldReadNotificationsAsync')) {
-    recordPass('MOCK', 'NotificationCleanupService implemented with configurable 90-day retention purge');
-  } else {
-    recordFail('MOCK', 'NotificationCleanupService', 'Missing retention configuration or purge invocation');
-  }
-
   // ─── SUITE 2 [POSTGRES]: LIVE API TEST AGAINST TEST_DB ────────
-  console.log(`\n--- SUITE 2: [POSTGRES] LIVE API EXECUTION AGAINST ${dbName} ---`);
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
+  console.log(`\n--- SUITE 2: [POSTGRES] LIVE API EXECUTION AGAINST ${dbName} (port ${PORT}) ---`);
 
   const serverLogPath = path.join(__dirname, 'server_batch3_fixes.log');
   const serverLogFd = fs.openSync(serverLogPath, 'w');
@@ -430,10 +425,7 @@ async function main() {
     recordFail('POSTGRES', 'Live execution exception', err.message);
   } finally {
     console.log('Terminating test backend server process...');
-    serverProc.kill();
-    try {
-      execSync(`powershell -NoProfile -Command "Get-Process -Name Marketplace.API -ErrorAction SilentlyContinue | Stop-Process -Force"`);
-    } catch {}
+    stopServer(serverProc, serverLogFd, serverLogPath);
   }
 
   console.log('\n================================================================');

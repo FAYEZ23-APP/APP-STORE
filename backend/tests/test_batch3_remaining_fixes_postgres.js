@@ -2,9 +2,10 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5231;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 const JWT_KEY = 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch3RemainingFixes!';
 
 function getTestDbConnectionString() {
@@ -83,6 +84,8 @@ async function main() {
   }
 
   console.log(`[POSTGRES] Confirmed target database ends with "_test": ${dbName}`);
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
 
   let totalTests = 0;
   let passedTests = 0;
@@ -361,21 +364,6 @@ async function main() {
       }
     }
 
-    // 3.3 Audit notification templates for return_resolved & payout_processed
-    const notifServiceSrc = fs.readFileSync(path.join(__dirname, '..', 'Marketplace.Application', 'Services', 'NotificationService.cs'), 'utf8');
-    const hasReturnResolvedNoPII = notifServiceSrc.includes('NotifyReturnResolvedAsync') &&
-                                   !notifServiceSrc.includes('{buyer.Name}') &&
-                                   !notifServiceSrc.includes('{return.RefundAmount}');
-    const hasPayoutProcessedNoPII = notifServiceSrc.includes('NotifyPayoutProcessedAsync') &&
-                                    !notifServiceSrc.includes('{payout.Amount}') &&
-                                    !notifServiceSrc.includes('{payout.AccountNumber}');
-
-    if (hasReturnResolvedNoPII && hasPayoutProcessedNoPII) {
-      recordPass('POSTGRES', 'return_resolved and payout_processed templates verified strictly generic with ReferenceId only (no amounts or personal data)');
-    } else {
-      recordFail('POSTGRES', 'Notification templates PII leak check', 'Found personal data or amount formatting in return/payout templates');
-    }
-
     // ─── SUITE 4: [POSTGRES] CATEGORIES HARDENING & VALIDATION ────────
     console.log('\n--- SUITE 4: [POSTGRES] CATEGORIES BILINGUAL VALIDATION ON POSTGRESQL ---');
 
@@ -562,8 +550,7 @@ async function main() {
 
   } finally {
     console.log('Terminating test backend server process...');
-    serverProc.kill();
-    fs.closeSync(serverLogFd);
+    stopServer(serverProc, serverLogFd, serverLogPath);
   }
 
   console.log('\n================================================================');

@@ -113,7 +113,7 @@ export default function WishlistScreen({ navigation }) {
     return (
       <View style={[tw`bg-white rounded-2xl p-4 mb-3 mx-4 border border-slate-100 flex-row`, cardShadow]}>
         {/* Product Image */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.navigate('ProductDetails', { id: item.productId })}
           activeOpacity={0.8}
           style={tw`w-24 h-24 rounded-xl bg-slate-100 overflow-hidden relative mr-3`}
@@ -150,7 +150,7 @@ export default function WishlistScreen({ navigation }) {
               >
                 {name}
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => handleRemove(item.productId)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={tw`ml-2`}
@@ -171,7 +171,7 @@ export default function WishlistScreen({ navigation }) {
               {formatCurrency(item.price)}
             </Text>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => handleMoveToCart(item)}
               disabled={isOutOfStock || movingId === item.productId}
               style={[
@@ -243,7 +243,7 @@ export default function WishlistScreen({ navigation }) {
           <Text style={tw`text-slate-400 text-xs text-center leading-relaxed mb-6 max-w-xs`}>
             {t('wishlist.emptySubtitle')}
           </Text>
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => navigation.navigate('HomeTab')}
             style={tw`bg-orange-500 px-6 py-3 rounded-2xl shadow-sm`}
           >
@@ -256,6 +256,10 @@ export default function WishlistScreen({ navigation }) {
         <FlatList
           data={items}
           keyExtractor={(item) => String(item.id || item.productId)}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
           contentContainerStyle={tw`py-4`}
           refreshControl={

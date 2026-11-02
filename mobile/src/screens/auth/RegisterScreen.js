@@ -12,14 +12,17 @@ import {
   Animated,
   StyleSheet,
   StatusBar,
+  I18nManager,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
 import { useGoogleAuth } from '../../utils/googleAuth';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
+import BrandLogo from '../../components/common/BrandLogo';
 import { getAppConfig } from '../../api/configApi';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 
@@ -28,21 +31,14 @@ const RoleCard = ({ roleKey, icon, isSelected, onSelect, t }) => (
     onPress={() => onSelect(roleKey)}
     activeOpacity={0.8}
     style={[styles.roleCard, isSelected && styles.roleCardSelected]}
+    accessibilityRole="button"
+    accessibilityLabel={t(`auth.role${roleKey}`)}
   >
-    {isSelected && (
-      <LinearGradient
-        colors={[colors.accent, '#FF8C33']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-    )}
     <View style={[styles.roleIconWrap, isSelected && styles.roleIconWrapSelected]}>
       <Ionicons
         name={icon}
         size={24}
-        color={isSelected ? colors.accent : colors.textSecondary}
+        color={isSelected ? colors.primary : colors.textSecondary}
       />
     </View>
     <Text style={[styles.roleTitle, isSelected && styles.roleTitleSelected]}>
@@ -53,14 +49,15 @@ const RoleCard = ({ roleKey, icon, isSelected, onSelect, t }) => (
     </Text>
     {isSelected && (
       <View style={styles.roleCheck}>
-        <Ionicons name="checkmark-circle" size={22} color="#fff" />
+        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
       </View>
     )}
   </TouchableOpacity>
 );
 
 const RegisterScreen = ({ navigation }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === 'ar';
   const { register } = useContext(AuthContext);
 
   const [signupMethod, setSignupMethod] = useState('email'); // 'email' | 'phone'
@@ -100,18 +97,16 @@ const RegisterScreen = ({ navigation }) => {
   useEffect(() => {
     getAppConfig()
       .then((res) => {
-        if (res?.data) {
-          if (res.data.googleEnabled != null) {
-            setGoogleEnabled(Boolean(res.data.googleEnabled));
-          }
-          if (res.data.phoneSignupEnabled != null) {
-            setPhoneSignupEnabled(Boolean(res.data.phoneSignupEnabled));
-          }
+        if (res?.data?.phoneSignupEnabled != null) {
+          setPhoneSignupEnabled(Boolean(res.data.phoneSignupEnabled));
+        }
+        if (res?.data?.googleEnabled != null) {
+          setGoogleEnabled(Boolean(res.data.googleEnabled));
         }
       })
       .catch(() => {
-        setGoogleEnabled(false);
         setPhoneSignupEnabled(false);
+        setGoogleEnabled(false);
       });
 
     Animated.parallel([
@@ -135,33 +130,29 @@ const RegisterScreen = ({ navigation }) => {
   }, [fadeAnim, slideAnim, logoScale]);
 
   const handleRegister = async () => {
-    if (!name.trim()) {
+    const rawName = name.trim();
+    const rawEmail = email.trim();
+    const rawPhone = phone.trim();
+
+    if (!rawName || !password) {
       Alert.alert(t('common.error'), t('common.fillAllFields'));
       return;
     }
 
-    let targetEmail = null;
-    let targetPhone = null;
-
-    if (signupMethod === 'email') {
-      const cleanEmail = email.trim();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        Alert.alert(t('common.error'), t('common.fillAllFields'));
-        return;
-      }
-      targetEmail = cleanEmail.toLowerCase();
-    } else {
-      const cleanPhone = phone.trim();
-      if (!cleanPhone || !isValidEgyptianPhone(cleanPhone)) {
-        Alert.alert(t('common.error'), t('common.invalidPhone'));
-        return;
-      }
-      targetPhone = normalizeEgyptianPhone(cleanPhone);
+    if (signupMethod === 'email' && !rawEmail) {
+      Alert.alert(t('common.error'), t('auth.emailRequired'));
+      return;
     }
 
-    if (!password || password.length < 6) {
-      Alert.alert(t('common.error'), t('auth.passwordMinLength'));
-      return;
+    if (signupMethod === 'phone') {
+      if (!rawPhone) {
+        Alert.alert(t('common.error'), t('auth.phoneRequired'));
+        return;
+      }
+      if (!isValidEgyptianPhone(rawPhone)) {
+        Alert.alert(t('common.error'), t('auth.invalidEgyptianPhone'));
+        return;
+      }
     }
 
     if (!acceptedTerms) {
@@ -171,29 +162,37 @@ const RegisterScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const res = await register({
-        name: name.trim(),
-        email: targetEmail,
-        phone: targetPhone,
+      const payload = {
+        name: rawName,
         password,
         role,
-        acceptedTermsAndPrivacy: acceptedTerms,
+        acceptedTermsAndPrivacy: true,
         marketingConsent,
-      });
+      };
 
-      const effectiveTarget = signupMethod === 'email' ? targetEmail : targetPhone;
+      if (signupMethod === 'phone') {
+        payload.phoneNumber = normalizeEgyptianPhone(rawPhone);
+      } else {
+        payload.email = rawEmail;
+        if (rawPhone && isValidEgyptianPhone(rawPhone)) {
+          payload.phoneNumber = normalizeEgyptianPhone(rawPhone);
+        }
+      }
+
+      const res = await register(payload);
+
+      const targetIdentifier = signupMethod === 'phone'
+        ? normalizeEgyptianPhone(rawPhone)
+        : rawEmail.toLowerCase();
+
       navigation.navigate('Verify', {
-        target: effectiveTarget,
-        maskedTarget: res?.target || effectiveTarget,
+        target: targetIdentifier,
+        maskedTarget: res?.data?.target || targetIdentifier,
         purpose: 'Verify',
+        initialCountdown: 60,
       });
     } catch (err) {
-      let msg = err.response?.data?.error || err.message;
-      if (err.response?.data?.errors) {
-        const details = Object.values(err.response.data.errors).flat().join('\n');
-        if (details) msg = details;
-      }
-      Alert.alert(t('common.error'), msg);
+      Alert.alert(t('common.error'), err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -201,21 +200,18 @@ const RegisterScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.secondary} />
 
-      {/* Top gradient header */}
-      <LinearGradient
-        colors={['#0F172A', '#1E3A5F', '#0F172A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+      {/* Top Header matching Web AuthHeader */}
+      <View style={styles.headerArea}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#fff" />
         </TouchableOpacity>
 
         <View style={styles.decorCircle1} />
@@ -230,17 +226,9 @@ const RegisterScreen = ({ navigation }) => {
             },
           ]}
         >
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={[colors.accent, '#FF8C33']}
-              style={styles.logoGradient}
-            >
-              <Ionicons name="person-add" size={28} color="#fff" />
-            </LinearGradient>
-          </View>
-          <Text style={styles.headerTitle}>{t('auth.registerTitle')}</Text>
+          <BrandLogo variant="dark" size="sm" showSubtitle={true} alignCenter={true} />
         </Animated.View>
-      </LinearGradient>
+      </View>
 
       {/* Form card */}
       <KeyboardAvoidingView
@@ -261,11 +249,11 @@ const RegisterScreen = ({ navigation }) => {
               },
             ]}
           >
-            {/* Subtitle */}
+            <Text style={styles.title}>{t('auth.registerTitle')}</Text>
             <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
 
-            {/* Role selection */}
-            <Text style={styles.sectionLabel}>{t('auth.chooseRole')}</Text>
+            {/* Role selector */}
+            <Text style={styles.sectionLabel}>{t('auth.selectRole')}</Text>
             <View style={styles.roleRow}>
               <RoleCard
                 roleKey="Buyer"
@@ -283,63 +271,59 @@ const RegisterScreen = ({ navigation }) => {
               />
             </View>
 
-            {/* Method selection (Email vs Phone) */}
-            <View style={styles.methodToggleContainer}>
-              <Text style={styles.sectionLabel}>{t('auth.chooseMethod')}</Text>
-              <View style={styles.toggleRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    signupMethod === 'email' && styles.toggleButtonActive,
-                  ]}
-                  onPress={() => setSignupMethod('email')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="mail-outline"
-                    size={18}
-                    color={signupMethod === 'email' ? '#fff' : colors.textSecondary}
-                    style={{ marginHorizontal: 6 }}
-                  />
-                  <Text
-                    style={[
-                      styles.toggleButtonText,
-                      signupMethod === 'email' && styles.toggleButtonTextActive,
-                    ]}
+            {/* Signup Method Toggle (only if phone signup enabled) */}
+            {phoneSignupEnabled && (
+              <View style={styles.methodToggleContainer}>
+                <Text style={styles.sectionLabel}>{t('auth.signupMethod')}</Text>
+                <View style={styles.toggleRow}>
+                  <TouchableOpacity
+                    style={[styles.toggleButton, signupMethod === 'email' && styles.toggleButtonActive]}
+                    onPress={() => setSignupMethod('email')}
+                    activeOpacity={0.8}
                   >
-                    {t('auth.registerWithEmail')}
-                  </Text>
-                </TouchableOpacity>
+                    <Ionicons
+                      name="mail-outline"
+                      size={16}
+                      color={signupMethod === 'email' ? colors.white : colors.textSecondary}
+                      style={{ marginEnd: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.toggleButtonText,
+                        signupMethod === 'email' && styles.toggleButtonTextActive,
+                      ]}
+                    >
+                      {t('auth.email')}
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    signupMethod === 'phone' && styles.toggleButtonActive,
-                  ]}
-                  onPress={() => setSignupMethod('phone')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="call-outline"
-                    size={18}
-                    color={signupMethod === 'phone' ? '#fff' : colors.textSecondary}
-                    style={{ marginHorizontal: 6 }}
-                  />
-                  <Text
-                    style={[
-                      styles.toggleButtonText,
-                      signupMethod === 'phone' && styles.toggleButtonTextActive,
-                    ]}
+                  <TouchableOpacity
+                    style={[styles.toggleButton, signupMethod === 'phone' && styles.toggleButtonActive]}
+                    onPress={() => setSignupMethod('phone')}
+                    activeOpacity={0.8}
                   >
-                    {t('auth.registerWithPhone')}
-                  </Text>
-                </TouchableOpacity>
+                    <Ionicons
+                      name="call-outline"
+                      size={16}
+                      color={signupMethod === 'phone' ? colors.white : colors.textSecondary}
+                      style={{ marginEnd: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.toggleButtonText,
+                        signupMethod === 'phone' && styles.toggleButtonTextActive,
+                      ]}
+                    >
+                      {t('auth.phone')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Name input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('auth.name')}</Text>
+              <Text style={styles.inputLabel}>{t('auth.fullName')}</Text>
               <View
                 style={[
                   styles.inputContainer,
@@ -349,23 +333,24 @@ const RegisterScreen = ({ navigation }) => {
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={focusedField === 'name' ? colors.accent : colors.textSecondary}
+                  color={focusedField === 'name' ? colors.primary : colors.textSecondary}
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder={t('auth.namePlaceholder')}
+                  placeholder={t('auth.fullNamePlaceholder')}
                   placeholderTextColor={colors.oldPrice}
                   value={name}
                   onChangeText={setName}
                   onFocus={() => setFocusedField('name')}
                   onBlur={() => setFocusedField(null)}
+                  accessibilityLabel={t('auth.fullName')}
                 />
               </View>
             </View>
 
-            {/* Email OR Phone input based on signupMethod */}
-            {signupMethod === 'email' ? (
+            {/* Email input (when method is email) */}
+            {signupMethod === 'email' && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('auth.email')}</Text>
                 <View
@@ -377,7 +362,7 @@ const RegisterScreen = ({ navigation }) => {
                   <Ionicons
                     name="mail-outline"
                     size={20}
-                    color={focusedField === 'email' ? colors.accent : colors.textSecondary}
+                    color={focusedField === 'email' ? colors.primary : colors.textSecondary}
                     style={styles.inputIcon}
                   />
                   <TextInput
@@ -390,12 +375,18 @@ const RegisterScreen = ({ navigation }) => {
                     onChangeText={setEmail}
                     onFocus={() => setFocusedField('email')}
                     onBlur={() => setFocusedField(null)}
+                    accessibilityLabel={t('auth.email')}
                   />
                 </View>
               </View>
-            ) : (
+            )}
+
+            {/* Phone input (when method is phone, OR optional for email) */}
+            {(signupMethod === 'phone' || phoneSignupEnabled) && (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('auth.phone')}</Text>
+                <Text style={styles.inputLabel}>
+                  {signupMethod === 'phone' ? t('auth.phone') : t('auth.phoneOptional')}
+                </Text>
                 <View
                   style={[
                     styles.inputContainer,
@@ -404,17 +395,18 @@ const RegisterScreen = ({ navigation }) => {
                   ]}
                 >
                   <View style={styles.countryPrefixBadge}>
-                    <Text style={styles.countryPrefixText}>🇪🇬 +20</Text>
+                    <Text style={styles.countryPrefixText}>+20</Text>
                   </View>
                   <TextInput
                     style={[styles.input, styles.phoneInputLtr]}
-                    placeholder="1012345678 / 01012345678"
+                    placeholder={t('auth.egyptianPhonePlaceholder')}
                     placeholderTextColor={colors.oldPrice}
                     keyboardType="phone-pad"
                     value={phone}
                     onChangeText={setPhone}
                     onFocus={() => setFocusedField('phone')}
                     onBlur={() => setFocusedField(null)}
+                    accessibilityLabel={t('auth.phone')}
                   />
                 </View>
               </View>
@@ -432,7 +424,7 @@ const RegisterScreen = ({ navigation }) => {
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={focusedField === 'password' ? colors.accent : colors.textSecondary}
+                  color={focusedField === 'password' ? colors.primary : colors.textSecondary}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -444,11 +436,14 @@ const RegisterScreen = ({ navigation }) => {
                   onChangeText={setPassword}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField(null)}
+                  accessibilityLabel={t('auth.password')}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? t('common.close') : t('common.viewAll')}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -459,14 +454,16 @@ const RegisterScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {/* PDPL 151/2020 Mandatory Terms & Privacy Checkbox */}
+            {/* Required Terms Checkbox */}
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.checkboxRow}
               onPress={() => setAcceptedTerms(!acceptedTerms)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: acceptedTerms }}
             >
               <View style={[styles.checkboxBox, acceptedTerms && styles.checkboxBoxChecked]}>
-                {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+                {acceptedTerms && <Ionicons name="checkmark" size={15} color="#fff" />}
               </View>
               <Text style={styles.checkboxLabel}>
                 {t('auth.termsCheckbox')}{' '}
@@ -477,11 +474,13 @@ const RegisterScreen = ({ navigation }) => {
             {/* Optional Marketing Consent Checkbox */}
             <TouchableOpacity
               activeOpacity={0.8}
-              style={[styles.checkboxRow, { marginBottom: 16 }]}
+              style={[styles.checkboxRow, { marginBottom: 14 }]}
               onPress={() => setMarketingConsent(!marketingConsent)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: marketingConsent }}
             >
               <View style={[styles.checkboxBox, marketingConsent && styles.checkboxBoxChecked]}>
-                {marketingConsent && <Ionicons name="checkmark" size={16} color="#fff" />}
+                {marketingConsent && <Ionicons name="checkmark" size={15} color="#fff" />}
               </View>
               <Text style={styles.checkboxLabel}>
                 {t('auth.marketingCheckbox')}
@@ -492,27 +491,27 @@ const RegisterScreen = ({ navigation }) => {
             <TouchableOpacity
               onPress={handleRegister}
               disabled={loading}
-              activeOpacity={0.85}
-              style={{ marginTop: 4 }}
+              activeOpacity={0.88}
+              style={[styles.primaryButton, loading && styles.disabledButton]}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.register')}
             >
-              <LinearGradient
-                colors={loading ? [colors.disabledBg, colors.disabledBg] : [colors.accent, '#FF8C33']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.registerButton}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.registerButtonText}>{t('auth.register')}</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
-                  </>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>{t('auth.register')}</Text>
+                  <Ionicons
+                    name={isRTL ? 'arrow-back' : 'arrow-forward'}
+                    size={19}
+                    color="#fff"
+                    style={{ marginStart: 8 }}
+                  />
+                </>
+              )}
             </TouchableOpacity>
 
-            {/* Google Register button (only rendered when enabled by server config) */}
+            {/* Google Register button */}
             {googleEnabled && (
               <>
                 <View style={styles.divider}>
@@ -529,14 +528,27 @@ const RegisterScreen = ({ navigation }) => {
               </>
             )}
 
-            {/* Terms */}
-            <Text style={styles.termsText}>{t('auth.agreeTerms')}</Text>
+            {/* Terms link */}
+            <TouchableOpacity
+              accessibilityRole="link"
+              accessibilityLabel={t('auth.agreeTerms')}
+              onPress={() => {
+                const url = Constants.expoConfig?.extra?.privacyPolicyUrl || 'https://egyptianmarketplace.eg/privacy';
+                WebBrowser.openBrowserAsync(url).catch((err) => console.warn(err));
+              }}
+            >
+              <Text style={styles.termsText}>{t('auth.agreeTerms')}</Text>
+            </TouchableOpacity>
 
             {/* Login link */}
             <View style={styles.bottomLink}>
-              <Text style={styles.bottomLinkText}>{t('auth.haveAccount')} </Text>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
-                <Text style={styles.bottomLinkAction}>{t('auth.signInNow')}</Text>
+              <Text style={styles.bottomLinkText}>{t('auth.alreadyHaveAccount')} </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Login')}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.login')}
+              >
+                <Text style={styles.bottomLinkAction}>{t('auth.login')}</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -551,23 +563,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.screenBg,
   },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+  headerArea: {
+    backgroundColor: colors.secondary,
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
     paddingBottom: 44,
     alignItems: 'center',
     overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D323B',
+    position: 'relative',
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 44,
-    left: 20,
+    top: Platform.OS === 'ios' ? 54 : 42,
+    left: 16,
     zIndex: 10,
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   decorCircle1: {
     position: 'absolute',
@@ -576,7 +592,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    backgroundColor: 'rgba(200, 16, 46, 0.18)',
   },
   decorCircle2: {
     position: 'absolute',
@@ -585,106 +601,101 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 107, 0, 0.08)',
+    backgroundColor: 'rgba(214, 163, 58, 0.12)',
   },
   headerContent: {
     alignItems: 'center',
   },
-  logoContainer: {
-    marginBottom: 10,
-  },
-  logoGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
   formWrapper: {
     flex: 1,
-    marginTop: -24,
+    marginTop: -26,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 30,
+    paddingBottom: 28,
   },
   formCard: {
     backgroundColor: colors.cardBg,
     marginHorizontal: 16,
     borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 22,
-    lineHeight: 20,
+    marginBottom: 20,
+    lineHeight: 18,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 10,
-    letterSpacing: 0.3,
+    marginBottom: 8,
   },
   roleRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 16,
   },
   roleCard: {
     flex: 1,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: colors.primarySoft,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
+    backgroundColor: colors.screenBg,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    overflow: 'hidden',
     position: 'relative',
   },
   roleCardSelected: {
-    borderColor: colors.accent,
-    borderWidth: 0,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   roleIconWrap: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   roleIconWrapSelected: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.white,
+    borderColor: colors.primaryBorder,
   },
   roleTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   roleTitleSelected: {
-    color: '#fff',
+    color: colors.primary,
   },
   roleSub: {
     fontSize: 11,
@@ -692,7 +703,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   roleSubSelected: {
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.primary,
+    fontWeight: '600',
   },
   roleCheck: {
     position: 'absolute',
@@ -700,13 +712,15 @@ const styles = StyleSheet.create({
     right: 8,
   },
   methodToggleContainer: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   toggleRow: {
     flexDirection: 'row',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.screenBg,
     borderRadius: 12,
-    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 3,
     gap: 4,
   },
   toggleButton: {
@@ -714,46 +728,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 10,
   },
   toggleButtonActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
   },
   toggleButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textSecondary,
   },
   toggleButtonTextActive: {
-    color: '#fff',
+    color: colors.white,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
-    letterSpacing: 0.3,
+    marginBottom: 6,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.screenBg,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    paddingHorizontal: 14,
-    height: 52,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    height: 48,
   },
   inputFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
   },
   inputIcon: {
-    marginRight: 10,
+    marginEnd: 8,
   },
   phoneInputContainer: {
     direction: 'ltr',
@@ -771,7 +784,7 @@ const styles = StyleSheet.create({
   },
   countryPrefixText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   phoneInputLtr: {
@@ -781,37 +794,51 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
     height: '100%',
   },
   eyeButton: {
     padding: 4,
   },
-  registerButton: {
-    height: 54,
+  primaryButton: {
+    height: 50,
     borderRadius: 14,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+      default: {},
+    }),
   },
-  registerButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  disabledButton: {
+    backgroundColor: colors.disabledBg,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   termsText: {
     fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 14,
+    marginBottom: 14,
     lineHeight: 16,
   },
   bottomLink: {
@@ -820,51 +847,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bottomLinkText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   bottomLinkAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginVertical: 6,
+    marginVertical: 4,
     paddingHorizontal: 2,
   },
   checkboxBox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
-    backgroundColor: '#fff',
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
-    marginTop: 2,
+    marginEnd: 8,
+    marginTop: 1,
   },
   checkboxBoxChecked: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   checkboxLabel: {
     flex: 1,
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     color: colors.textSecondary,
-    textAlign: 'left',
+    textAlign: I18nManager.isRTL ? 'right' : 'left',
   },
   requiredAsterisk: {
-    color: colors.danger || '#DC2626',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '800',
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
+    marginVertical: 16,
   },
   dividerLine: {
     flex: 1,
@@ -872,10 +899,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   dividerText: {
-    marginHorizontal: 14,
-    fontSize: 12,
+    marginHorizontal: 12,
+    fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

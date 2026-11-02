@@ -24,6 +24,19 @@ export const processAdminPayout = (id, data) =>
 export const settleAdminCod = (shipmentId, notes = null) =>
   client.post(`/admin/shipments/${shipmentId}/settle-cod`, { notes });
 
+export const getAdminShipments = (params = {}) => {
+  const cleanParams = {};
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      cleanParams[key] = value;
+    }
+  });
+  return client.get('/admin/shipments', { params: cleanParams });
+};
+
+export const updateAdminShipmentStatus = (id, data) =>
+  client.put(`/admin/shipments/${id}/status`, data);
+
 // Reported Reviews Moderation endpoints
 export const getReportedReviews = (params = {}) =>
   client.get('/admin/reviews/reported', { params: { page: 1, pageSize: 50, ...params } });
@@ -52,6 +65,8 @@ export default {
   getAdminPayouts,
   processAdminPayout,
   settleAdminCod,
+  getAdminShipments,
+  updateAdminShipmentStatus,
   getReportedReviews,
   hideReview,
   unhideReview,

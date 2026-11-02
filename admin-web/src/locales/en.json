@@ -166,7 +166,9 @@
     "ratingExcellent": "Excellent",
     "ratingVeryGood": "Very Good",
     "ratingGood": "Good",
-    "ratingNeedsImprovement": "Needs improvement"
+    "ratingNeedsImprovement": "Needs improvement",
+    "allowInspection": "Open-Box Inspection",
+    "whatsappChat": "WhatsApp Inquiry"
   },
   "cart": {
     "title": "Shopping Cart",
@@ -284,7 +286,9 @@
     "cancelOrderConfirmMessage": "Are you sure you want to cancel this order? Any wallet payment will be refunded and items returned to stock.",
     "cancelOrderSuccess": "Order cancelled successfully and funds refunded.",
     "cancelling": "Cancelling...",
-    "orderCancelledBadge": "Cancelled"
+    "orderCancelledBadge": "Cancelled",
+    "confirmed": "Confirmed for Delivery",
+    "confirmOrder": "Confirm Order"
   },
   "shipmentStatus": {
     "Created": "Shipment Created",
@@ -304,6 +308,7 @@
   "returnStatus": {
     "Pending": "Pending Review",
     "Approved": "Return Approved",
+    "ApprovedAwaitingReturn": "Approved, Awaiting Item Return",
     "Rejected": "Return Rejected",
     "Completed": "Completed & Refunded"
   },
@@ -988,7 +993,8 @@
   "adminPortal": {
     "tabs": {
       "auditLogs": "Audit Logs",
-      "security": "Security & 2FA"
+      "security": "Security & 2FA",
+      "shipments": "Shipments & Delivery"
     },
     "twoFactor": {
       "title": "Admin Two-Factor Authentication (TOTP 2FA)",
@@ -1038,6 +1044,14 @@
       "colDetails": "Details",
       "system": "System",
       "totalCount": "Total logs: {{count}}"
+    },
+    "shipments": {
+      "title": "Shipments & Field Operations",
+      "subtitle": "Track waybills, update carrier delivery status, and settle COD remittance",
+      "filterStatus": "Shipment Status",
+      "filterOrderId": "Order ID",
+      "filterSellerId": "Seller ID",
+      "settleCod": "Settle COD Cash"
     }
   },
   "invoice": {

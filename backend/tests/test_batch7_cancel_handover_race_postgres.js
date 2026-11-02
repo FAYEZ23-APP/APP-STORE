@@ -5,9 +5,10 @@
 const { spawn, execFileSync, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5232;
-const BASE = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const ROUNDS = Number(process.env.RACE_ROUNDS || 12);
 const INITIAL_STOCK = 5;
 
@@ -26,8 +27,15 @@ if (!dbName || !dbName.endsWith('_test')) { console.log(`ABORT: database name '$
 console.log(`Suite provider: POSTGRES | DB name: ${dbName} | rounds: ${ROUNDS}`);
 
 const pgCheckDll = path.join(__dirname, 'tools', 'PgCheck', 'out', 'PgCheck.dll');
+const pgCheckConn = `${testDb};Pooling=false;Timeout=45;Command Timeout=45`;
 function pgCheck(...args) {
-  return JSON.parse(execFileSync('dotnet', [pgCheckDll, ...args], { env: { ...process.env, PGCHECK_CONN: testDb }, encoding: 'utf8' }).trim());
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return JSON.parse(execFileSync('dotnet', [pgCheckDll, ...args], { env: { ...process.env, PGCHECK_CONN: pgCheckConn }, encoding: 'utf8' }).trim());
+    } catch (err) {
+      if (attempt === 1) throw err;
+    }
+  }
 }
 
 let failed = 0;
@@ -46,17 +54,21 @@ async function waitForHealth(ms = 60000) {
 }
 
 async function main() {
+  PORT = await getFreePort();
+  BASE = `http://localhost:${PORT}`;
   const logPath = path.join(__dirname, 'server_batch7_cancel_race.log');
   const fd = fs.openSync(logPath, 'w');
-  const proc = spawn('dotnet', ['run', '--no-build', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
+  const proc = spawn('dotnet', ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
     cwd: path.join(__dirname, '..'),
     env: {
       ...process.env,
       ASPNETCORE_ENVIRONMENT: 'Development',
+      TEST_DB: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       ConnectionStrings__DefaultConnection: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       Jwt__Key: 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch7Race!',
       Auth__CodeSecret: 'IntegrationTestCodeSecret_AtLeast32CharsLong!',
       Auth__RequireVerification: 'false',
+      Database__AutoMigrate: 'false',
       RateLimiting__AuthPermitLimit: '500',
     },
     stdio: ['ignore', fd, fd],
@@ -143,8 +155,7 @@ async function main() {
     }
     console.log(`\n  INFO: cancel won ${cancelWins} round(s), handover won ${handoverWins} round(s)`);
   } finally {
-    proc.kill('SIGTERM');
-    try { fs.closeSync(fd); } catch {}
+    stopServer(proc, fd, logPath);
   }
 
   console.log(failed === 0 ? '\nALL CANCEL-VS-HANDOVER RACE CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

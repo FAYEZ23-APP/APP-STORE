@@ -255,7 +255,7 @@ export default function SellerOrdersScreen({ route }) {
         </View>
 
         {/* Waybill Button */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => setWaybillShipment(item)}
           style={[tw`w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-center mt-2`]}
         >
@@ -267,7 +267,7 @@ export default function SellerOrdersScreen({ route }) {
 
         {/* Action Button: Handed to Carrier */}
         {isHandedActionAvailable && (
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             activeOpacity={0.85}
             disabled={updatingId === item.id}
             onPress={() => handleHandedToCarrier(item.id)}
@@ -386,7 +386,7 @@ export default function SellerOrdersScreen({ route }) {
 
         {isPending && (
           <View style={tw`flex-row items-center justify-between pt-2 border-t border-gray-100`}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isUpdating}
               onPress={() => handleResolveReturn(item.id, 'Approved')}
@@ -404,7 +404,7 @@ export default function SellerOrdersScreen({ route }) {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isUpdating}
               onPress={() => handleResolveReturn(item.id, 'Rejected')}
@@ -435,7 +435,7 @@ export default function SellerOrdersScreen({ route }) {
           renderItem={({ item }) => {
             const isSelected = activeFilter === item.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setActiveFilter(item.key)}
                 style={[
                   tw`px-3.5 py-1.5 rounded-full mr-2 border`,
@@ -461,6 +461,10 @@ export default function SellerOrdersScreen({ route }) {
       <FlatList
         data={activeFilter === 'ReturnRequests' ? returnsList : filteredShipments}
         keyExtractor={(item) => (activeFilter === 'ReturnRequests' ? `return-${item.id}` : `seller-shipment-${item.id}`)}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -500,7 +504,7 @@ export default function SellerOrdersScreen({ route }) {
                       {waybillShipment.trackingNumber || `EGM-SH-${waybillShipment.id}-TRK`}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setWaybillShipment(null)}>
+                  <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setWaybillShipment(null)}>
                     <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>

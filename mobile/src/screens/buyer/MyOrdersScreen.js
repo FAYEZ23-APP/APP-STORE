@@ -14,7 +14,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
-import { getMyOrders, getOrderById, cancelOrder } from '../../api/ordersApi';
+import { getMyOrders, getOrderById, cancelOrder, confirmOrder } from '../../api/ordersApi';
 import { getBuyerReturns } from '../../api/returnsApi';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import ReviewModal from '../../components/ReviewModal';
@@ -74,6 +74,7 @@ export default function MyOrdersScreen({ route, navigation }) {
   const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'returns'
   const [buyerReturns, setBuyerReturns] = useState([]);
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState(null);
 
   // 14-Day Return Modal State
   const [returnModalVisible, setReturnModalVisible] = useState(false);
@@ -214,6 +215,24 @@ export default function MyOrdersScreen({ route, navigation }) {
     }
   };
 
+  const handleConfirmOrder = async (orderId) => {
+    setConfirmingOrderId(orderId);
+    try {
+      await confirmOrder(orderId);
+      Alert.alert(
+        isRTL ? 'تم تأكيد الطلب' : 'Order Confirmed',
+        isRTL
+          ? 'تم تأكيد رغبتك في استلام الطلب بنجاح وسيتم تجهيز الشحنة والتواصل معك.'
+          : 'Order confirmed successfully. Your items will be dispatched promptly.'
+      );
+      await fetchOrders();
+    } catch (err) {
+      Alert.alert(t('common.error'), err?.response?.data?.message || t('common.error'));
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
 
   if (loading && !refreshing) {
     return (
@@ -264,7 +283,7 @@ export default function MyOrdersScreen({ route, navigation }) {
         >
           {t('orders.emptySubtitle')}
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.85}
           onPress={() => navigation.navigate('Catalog')}
           style={[
@@ -293,7 +312,7 @@ export default function MyOrdersScreen({ route, navigation }) {
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       {/* Main Tab Switcher: Orders vs Returns */}
       <View style={tw`flex-row bg-white px-4 pt-3 pb-2 border-b border-gray-200 gap-2`}>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => setMainTab('orders')}
           style={[
             tw`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center`,
@@ -316,7 +335,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => setMainTab('returns')}
           style={[
             tw`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center`,
@@ -345,6 +364,10 @@ export default function MyOrdersScreen({ route, navigation }) {
         <FlatList
           data={buyerReturns}
           keyExtractor={(ret) => `buyer-return-${ret.id}`}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={{ padding: 12, paddingBottom: 28 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -444,7 +467,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           renderItem={({ item }) => {
             const isSelected = activeFilter === item.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setActiveFilter(item.key)}
                 style={[
                   tw`px-3.5 py-1.5 rounded-full mr-2 border`,
@@ -470,6 +493,10 @@ export default function MyOrdersScreen({ route, navigation }) {
       <FlatList
         data={filteredOrders}
         keyExtractor={(item) => `buyer-order-${item.id}`}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         contentContainerStyle={{ padding: 12, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -582,7 +609,7 @@ export default function MyOrdersScreen({ route, navigation }) {
 
                       {shipment.status === 'Delivered' && (
                         <View style={tw`mt-2 pt-2 border-t border-gray-100 flex-row items-center justify-between`}>
-                          <TouchableOpacity
+                          <TouchableOpacity accessible={true} accessibilityRole="button"
                             activeOpacity={0.7}
                             onPress={() => {
                               const firstItem = itemsList.find(it => it.shipmentId === shipment.id) || itemsList[0];
@@ -606,7 +633,7 @@ export default function MyOrdersScreen({ route, navigation }) {
                           </TouchableOpacity>
 
                           {isWithin14Days(shipment.deliveredAt, item.createdAt) && (
-                            <TouchableOpacity
+                            <TouchableOpacity accessible={true} accessibilityRole="button"
                               activeOpacity={0.7}
                               onPress={() => {
                                 const firstItem = itemsList.find(it => it.shipmentId === shipment.id) || itemsList[0];
@@ -667,7 +694,7 @@ export default function MyOrdersScreen({ route, navigation }) {
 
                     if (canCancel) {
                       return (
-                        <TouchableOpacity
+                        <TouchableOpacity accessible={true} accessibilityRole="button"
                           onPress={() => handlePromptCancel(item)}
                           disabled={cancellingOrderId === item.id}
                           style={[
@@ -690,7 +717,34 @@ export default function MyOrdersScreen({ route, navigation }) {
                   })()}
 
 
-                  <TouchableOpacity
+                  {/* Buyer Confirmation Button (GAP-ORD-01) */}
+                  {!isCancelled && (
+                    item.isBuyerConfirmed ? (
+                      <View style={tw`px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 flex-row items-center`}>
+                        <MaterialCommunityIcons name="check-decagram" size={15} color="#059669" style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                        <Text style={tw`text-xs font-bold text-emerald-800`}>{t('orders.confirmed')}</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        accessible={true}
+                        accessibilityRole="button"
+                        onPress={() => handleConfirmOrder(item.id)}
+                        disabled={confirmingOrderId === item.id}
+                        style={tw`px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-600 flex-row items-center shadow-xs`}
+                      >
+                        {confirmingOrderId === item.id ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <MaterialCommunityIcons name="check-circle-outline" size={15} color="#FFFFFF" style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                            <Text style={tw`text-xs font-bold text-white`}>{t('orders.confirmOrder')}</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )
+                  )}
+
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => setInvoiceOrder(item)}
                     style={tw`px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center`}
                   >

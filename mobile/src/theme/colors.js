@@ -28,6 +28,8 @@ export const colors = {
   accentHover: '#C08F2D',       // Darker gold on press
   accentSoft: '#FBF6EC',        // Soft warm gold tint
   accentBorder: '#EBD6A7',      // Border for gold highlight banners
+  accentText: '#7A4F00',        // WCAG AA compliant dark gold/amber for text on light backgrounds (6.72:1)
+  accentContrast: '#1F2329',    // High-contrast charcoal text for elements on gold backgrounds (6.88:1)
 
   // Surfaces & Backgrounds
   screenBg: '#FAF8F5',          // Warm white dominant surface
@@ -44,18 +46,23 @@ export const colors = {
   // Typography
   textPrimary: '#1F2329',       // Charcoal black for prices, titles, headings
   textSecondary: '#595F69',     // Balanced dark gray for secondary labels and subtitles
+  textMuted: '#595F69',         // High-contrast muted hints and timestamps (WCAG AA compliant)
+  textDark: '#1F2329',          // Alias for primary dark text
+  text: '#1F2329',              // Alias for primary text
   textName: '#1F2329',          // Product card titles
-  oldPrice: '#8C929B',          // Struck-through previous price
+  oldPrice: '#595F69',          // High-contrast struck-through previous price (>6.0:1 WCAG AA)
 
   // Badges & Statuses
   discount: '#C8102E',          // Deep Red: Discount percentage badge, urgent alerts
   star: '#D6A33A',              // Calm Gold: Product rating stars
   newBadge: '#16A34A',          // Green: In-stock / verified badge
+  newBadgeSoft: '#DCFCE7',      // Soft green tint for badges
   success: '#16A34A',           // Standard success green
   successSoft: '#DCFCE7',       // Light green pill background
-  warning: '#D6A33A',           // Amber warning
+  warning: '#7A4F00',           // High-contrast Amber warning text (>6.5:1)
   warningSoft: '#FBF6EC',       // Amber pill background
   danger: '#C8102E',            // Danger red
+  error: '#C8102E',             // Alias for danger/error red
   dangerSoft: '#FDF2F4',        // Danger pill background
 
   // UI States & Helpers
@@ -67,7 +74,7 @@ export const colors = {
   favoriteButtonBg: 'rgba(255, 255, 255, 0.95)',
   counterOverlayBg: 'rgba(31, 35, 41, 0.75)',
   disabledBg: '#ECE9E6',
-  disabledText: '#8C929B',
+  disabledText: '#595F69',      // High-contrast disabled text (>6.0:1 WCAG AA)
 };
 
 export default colors;

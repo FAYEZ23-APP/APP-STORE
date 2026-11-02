@@ -70,47 +70,47 @@ export default function OrderDetailsModal({
       onRequestClose={onClose}
     >
       <View style={tw`flex-1 bg-black/60 justify-end sm:justify-center p-0 sm:p-4`}>
-        <View style={tw`bg-white rounded-t-3xl sm:rounded-3xl p-6 max-h-[85%]`}>
+        <View style={[tw`rounded-t-3xl sm:rounded-3xl p-6 max-h-[85%]`, { backgroundColor: colors.cardBg }]}>
           {/* Header */}
-          <View style={tw`flex-row items-center justify-between pb-3 border-b border-slate-100 mb-4`}>
+          <View style={[tw`flex-row items-center justify-between pb-3 border-b mb-4`, { borderColor: colors.border }]}>
             <View>
-              <Text style={tw`text-slate-900 font-black text-base`}>
+              <Text style={[tw`font-black text-base`, { color: colors.textPrimary }]}>
                 {t('invoice.title')}
               </Text>
-              <Text style={tw`text-orange-600 font-mono text-xs`}>
+              <Text style={[tw`font-mono text-xs font-bold`, { color: colors.primary }]}>
                 #{order.id}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
+            <TouchableOpacity accessible={true} accessibilityRole="button" onPress={onClose}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Meta info */}
-            <View style={tw`bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-3`}>
-              <View style={tw`flex-row justify-between mb-1`}>
-                <Text style={tw`text-slate-400 text-xs`}>{t('invoice.date')}</Text>
-                <Text style={tw`text-slate-700 font-bold text-xs`}>
+            <View style={[tw`p-3.5 rounded-2xl border mb-3`, { backgroundColor: colors.screenBg, borderColor: colors.border }]}>
+              <View style={tw`flex-row justify-between mb-1.5`}>
+                <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>{t('invoice.date')}</Text>
+                <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
                   {formatDate(order.createdAt, isRTL)}
                 </Text>
               </View>
-              <View style={tw`flex-row justify-between mb-1`}>
-                <Text style={tw`text-slate-400 text-xs`}>{t('invoice.paymentMethod')}</Text>
-                <Text style={tw`text-slate-700 font-bold text-xs`}>
+              <View style={tw`flex-row justify-between mb-1.5`}>
+                <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>{t('invoice.paymentMethod')}</Text>
+                <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
                   {order.paymentMethod || 'COD'}
                 </Text>
               </View>
               <View style={tw`flex-row justify-between`}>
-                <Text style={tw`text-slate-400 text-xs`}>{t('invoice.shippingAddress')}</Text>
-                <Text style={tw`text-slate-700 font-bold text-xs flex-1 text-right ml-2`}>
+                <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>{t('invoice.shippingAddress')}</Text>
+                <Text style={[tw`font-bold text-xs flex-1 text-right ml-2`, { color: colors.textPrimary }]}>
                   {shippingAddressText}
                 </Text>
               </View>
             </View>
 
             {/* Items List */}
-            <Text style={tw`text-slate-800 font-bold text-xs mb-2`}>
+            <Text style={[tw`font-bold text-xs mb-2`, { color: colors.textPrimary }]}>
               {t('invoice.item')}
             </Text>
             {allItems.map((it, idx) => {
@@ -121,21 +121,21 @@ export default function OrderDetailsModal({
               const qty = it.quantity || 1;
 
               return (
-                <View key={`inv-it-${idx}`} style={tw`flex-row justify-between py-2 border-b border-slate-50`}>
+                <View key={`inv-it-${idx}`} style={[tw`flex-row justify-between py-2.5 border-b`, { borderColor: colors.border }]}>
                   <View style={tw`flex-1 mr-2`}>
-                    <Text numberOfLines={1} style={tw`text-slate-800 font-bold text-xs`}>
+                    <Text numberOfLines={1} style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
                       {itemName}
                     </Text>
                     {it.variantSummary ? (
-                      <Text style={[tw`text-[10px] font-semibold`, { color: colors.primary }]}>
+                      <Text style={[tw`text-[10px] font-semibold mt-0.5`, { color: colors.primary }]}>
                         {it.variantSummary}
                       </Text>
                     ) : null}
-                    <Text style={tw`text-slate-400 text-[10px]`}>
+                    <Text style={[tw`text-[10px] mt-0.5`, { color: colors.textSecondary }]}>
                       {qty} x {formatCurrency(price)}
                     </Text>
                   </View>
-                  <Text style={tw`text-slate-900 font-extrabold text-xs`}>
+                  <Text style={[tw`font-extrabold text-xs`, { color: colors.textPrimary }]}>
                     {formatCurrency(price * qty)}
                   </Text>
                 </View>
@@ -143,38 +143,38 @@ export default function OrderDetailsModal({
             })}
 
             {/* Financials Breakdown */}
-            <View style={tw`pt-3 border-t border-slate-200 mt-2`}>
-              <View style={tw`flex-row justify-between mb-1`}>
-                <Text style={tw`text-slate-500 text-xs`}>{t('invoice.subtotal', { defaultValue: isRTL ? 'المجموع الفرعي' : 'Subtotal' })}</Text>
-                <Text style={tw`text-slate-700 font-mono text-xs`}>
+            <View style={[tw`pt-3 border-t mt-2`, { borderColor: colors.border }]}>
+              <View style={tw`flex-row justify-between mb-1.5`}>
+                <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>{t('invoice.subtotal', { defaultValue: isRTL ? 'المجموع الفرعي' : 'Subtotal' })}</Text>
+                <Text style={[tw`font-mono text-xs font-bold`, { color: colors.textPrimary }]}>
                   {formatCurrency(order.itemsSubtotal || 0)}
                 </Text>
               </View>
-              <View style={tw`flex-row justify-between mb-1`}>
-                <Text style={tw`text-slate-500 text-xs`}>{t('invoice.shippingFee')}</Text>
-                <Text style={tw`text-slate-700 font-mono text-xs`}>
+              <View style={tw`flex-row justify-between mb-1.5`}>
+                <Text style={[tw`text-xs`, { color: colors.textSecondary }]}>{t('invoice.shippingFee')}</Text>
+                <Text style={[tw`font-mono text-xs font-bold`, { color: colors.textPrimary }]}>
                   {formatCurrency(order.shippingFee || order.deliveryCost || 0)}
                 </Text>
               </View>
               {Number(order.discountAmount) > 0 && (
-                <View style={tw`flex-row justify-between mb-1`}>
-                  <Text style={tw`text-emerald-600 text-xs font-bold`}>{t('invoice.discount')}</Text>
-                  <Text style={tw`text-emerald-600 font-mono text-xs font-bold`}>
+                <View style={tw`flex-row justify-between mb-1.5`}>
+                  <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>{t('invoice.discount')}</Text>
+                  <Text style={[tw`font-mono text-xs font-bold`, { color: colors.primary }]}>
                     -{formatCurrency(order.discountAmount)}
                   </Text>
                 </View>
               )}
               {Number(order.walletAmountUsed) > 0 && (
-                <View style={tw`flex-row justify-between mb-1`}>
+                <View style={tw`flex-row justify-between mb-1.5`}>
                   <Text style={tw`text-blue-600 text-xs font-bold`}>{isRTL ? 'رصيد المحفظة المستخدم' : 'Wallet Credit'}</Text>
                   <Text style={tw`text-blue-600 font-mono text-xs font-bold`}>
                     -{formatCurrency(order.walletAmountUsed)}
                   </Text>
                 </View>
               )}
-              <View style={tw`flex-row justify-between pt-2 border-t border-slate-100`}>
-                <Text style={tw`text-slate-900 font-black text-sm`}>{t('invoice.codNetDue')}</Text>
-                <Text style={tw`text-orange-600 font-black text-sm`}>
+              <View style={[tw`flex-row justify-between pt-2.5 border-t`, { borderColor: colors.border }]}>
+                <Text style={[tw`font-black text-sm`, { color: colors.textPrimary }]}>{t('invoice.codNetDue')}</Text>
+                <Text style={[tw`font-black text-base`, { color: colors.primary }]}>
                   {formatCurrency(order.totalAmount)}
                 </Text>
               </View>
@@ -182,12 +182,12 @@ export default function OrderDetailsModal({
           </ScrollView>
 
           {/* Share Button */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={handleShare}
-            style={tw`mt-4 bg-orange-500 py-3 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm`}
+            style={[tw`mt-4 py-3.5 rounded-xl flex-row items-center justify-center gap-2 shadow-sm`, { backgroundColor: colors.primary }]}
           >
-            <MaterialCommunityIcons name="share-variant" size={18} color="#FFF" />
-            <Text style={tw`text-white font-bold text-xs`}>
+            <MaterialCommunityIcons name="share-variant" size={18} color={colors.white} />
+            <Text style={[tw`font-bold text-xs`, { color: colors.white }]}>
               {t('invoice.share')}
             </Text>
           </TouchableOpacity>

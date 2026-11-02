@@ -14,6 +14,7 @@ public class User
     public string? PasswordHash { get; set; }
     public UserRole Role { get; set; }
     public bool IsActive { get; set; } = true;
+    public int CodRefusalCount { get; set; } = 0;
     public bool IsTwoFactorEnabled { get; set; } = false;
     public string? TwoFactorSecret { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

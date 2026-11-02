@@ -104,4 +104,19 @@ public class OrdersController : ControllerBase
         await _orderService.UpdateOrderStatusAsync(id, request.Status);
         return NoContent();
     }
+
+    /// <summary>Confirm order placement/receipt (Buyer or Admin). (GAP-ORD-01)</summary>
+    [HttpPost("{id:int}/confirm")]
+    [Authorize(Roles = "Buyer,Admin")]
+    [ProducesResponseType(typeof(ConfirmOrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ConfirmOrderResponse>> ConfirmOrder(int id)
+    {
+        var userId = User.GetUserId();
+        var isAdmin = User.IsInRole("Admin");
+        var result = await _orderService.ConfirmOrderAsync(userId, isAdmin, id);
+        return Ok(result);
+    }
 }

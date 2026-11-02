@@ -8,6 +8,7 @@ import { WishlistProvider } from './src/context/WishlistContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import UnlockScreen from './src/screens/auth/UnlockScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import OfflineBanner from './src/components/OfflineBanner';
 import { colors } from './src/theme/colors';
 
 function AppContent() {
@@ -24,13 +25,18 @@ function AppContent() {
     );
   }
 
-  return <AppNavigator />;
+  return (
+    <View style={styles.contentContainer}>
+      <OfflineBanner />
+      <AppNavigator />
+    </View>
+  );
 }
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider style={styles.root}>
+    <SafeAreaProvider style={styles.root}>
+      <ErrorBoundary>
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
@@ -38,8 +44,8 @@ export default function App() {
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 
@@ -47,5 +53,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.screenBg,
+  },
+  contentContainer: {
+    flex: 1,
   },
 });

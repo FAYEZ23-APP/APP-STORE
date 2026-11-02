@@ -26,6 +26,13 @@ module.exports = {
       resizeMode: 'contain',
       backgroundColor: '#FFFFFF',
     },
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
+    updates: {
+      url: 'https://u.expo.dev/29c03258-b731-4ab9-870f-ea3571f77f3f',
+      fallbackToCacheTimeout: 0,
+    },
     ios: {
       supportsTablet: true,
       infoPlist: {
@@ -66,6 +73,7 @@ module.exports = {
       favicon: './assets/favicon.png',
     },
     plugins: [
+      './plugins/withAndroidSecurity',
       ...(allowCleartext ? ['./plugins/withCleartextTraffic'] : []),
       'expo-image',
       'expo-web-browser',
@@ -100,6 +108,7 @@ module.exports = {
     ],
     extra: {
       supportsRTL: true,
+      privacyPolicyUrl: 'https://marketplace.eg/privacy',
       eas: {
         projectId: '29c03258-b731-4ab9-870f-ea3571f77f3f',
       },

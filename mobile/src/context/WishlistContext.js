@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { AuthContext } from './AuthContext';
 import { getWishlistIds, toggleWishlist as apiToggleWishlist } from '../api/wishlistApi';
 
@@ -81,14 +81,17 @@ export const WishlistProvider = ({ children }) => {
     [wishlistIds]
   );
 
-  const value = {
-    wishlistIds,
-    wishlistCount: wishlistIds.size,
-    isLoading,
-    isWishlisted,
-    toggleWishlist,
-    refreshWishlist,
-  };
+  const value = useMemo(
+    () => ({
+      wishlistIds,
+      wishlistCount: wishlistIds.size,
+      isLoading,
+      isWishlisted,
+      toggleWishlist,
+      refreshWishlist,
+    }),
+    [wishlistIds, isLoading, isWishlisted, toggleWishlist, refreshWishlist]
+  );
 
   return (
     <WishlistContext.Provider value={value}>

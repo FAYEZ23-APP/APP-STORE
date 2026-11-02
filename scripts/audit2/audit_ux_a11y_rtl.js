@@ -34,17 +34,28 @@ function getContrast(hex1, hex2) {
 }
 
 console.log('=================== 1. THEME TOKEN CONTRAST RATIOS ===================');
+// Import actual theme colors from mobile/src/theme/colors.js
+const colorsPath = path.resolve(__dirname, '../../mobile/src/theme/colors.js');
+const colorsContent = fs.readFileSync(colorsPath, 'utf8');
+const oldPriceMatch = colorsContent.match(/oldPrice:\s*'([^']+)'/);
+const accentTextMatch = colorsContent.match(/accentText:\s*'([^']+)'/);
+const accentContrastMatch = colorsContent.match(/accentContrast:\s*'([^']+)'/);
+
+const currentOldPrice = oldPriceMatch ? oldPriceMatch[1] : '#595F69';
+const currentAccentText = accentTextMatch ? accentTextMatch[1] : '#7A4F00';
+const currentAccentContrast = accentContrastMatch ? accentContrastMatch[1] : '#1F2329';
+
 const pairs = [
   { fg: '#1F2329', bg: '#FAF8F5', name: 'textPrimary on screenBg' },
   { fg: '#1F2329', bg: '#FFFFFF', name: 'textPrimary on cardBg' },
   { fg: '#595F69', bg: '#FAF8F5', name: 'textSecondary on screenBg' },
   { fg: '#595F69', bg: '#FFFFFF', name: 'textSecondary on cardBg' },
-  { fg: '#8C929B', bg: '#FAF8F5', name: 'oldPrice/disabledText on screenBg' },
-  { fg: '#8C929B', bg: '#FFFFFF', name: 'oldPrice/disabledText on cardBg' },
+  { fg: currentOldPrice, bg: '#FAF8F5', name: 'oldPrice/disabledText on screenBg' },
+  { fg: currentOldPrice, bg: '#FFFFFF', name: 'oldPrice/disabledText on cardBg' },
   { fg: '#FFFFFF', bg: '#C8102E', name: 'white on primary red' },
-  { fg: '#FFFFFF', bg: '#D6A33A', name: 'white on accent gold' },
-  { fg: '#D6A33A', bg: '#FAF8F5', name: 'accent gold on screenBg' },
-  { fg: '#D6A33A', bg: '#FFFFFF', name: 'accent gold on cardBg' },
+  { fg: currentAccentContrast, bg: '#D6A33A', name: 'accentContrast on accent gold' },
+  { fg: currentAccentText, bg: '#FAF8F5', name: 'accentText dark gold on screenBg' },
+  { fg: currentAccentText, bg: '#FFFFFF', name: 'accentText dark gold on cardBg' },
   { fg: '#16A34A', bg: '#DCFCE7', name: 'success green on successSoft' },
   { fg: '#C8102E', bg: '#FDF2F4', name: 'danger red on dangerSoft' },
   { fg: '#475569', bg: '#FFFFFF', name: 'tabBarInactive on cardBg' },

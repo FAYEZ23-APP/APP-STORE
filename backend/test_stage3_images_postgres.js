@@ -13,15 +13,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
+const { getFreePort, getValidatedTestDb, stopServer, waitForHealth } = require('./tests/helpers/test_harness');
 
-const BASE_URL = process.env.API_URL || 'http://localhost:5099';
-const TEST_DB = process.env.TEST_DB;
-
-if (!TEST_DB) {
-  console.log('SKIPPED: TEST_DB environment variable is unset. Per global rules, refusing to run against InMemory or default production DB.');
-  process.exit(0);
-}
+let BASE_URL = '';
 
 /**
  * Builds a valid 2000x1500 JPEG in memory with an embedded APP1 EXIF segment containing GPS IFD tags
@@ -144,11 +139,35 @@ async function uploadSingleFile(token, fileName, contentType, buffer) {
 }
 
 async function run() {
-  if (TEST_DB.includes('<الباسورد>') || TEST_DB.includes('<password>')) {
-    console.log('SKIPPED: TEST_DB still contains a placeholder password (<الباسورد>) and is not ready.');
-    process.exit(0);
-  }
-  console.log(`Running Stage 3 PostgreSQL E2E tests against ${BASE_URL} (using configured TEST_DB [REDACTED])...`);
+  const { connStr, dbName } = getValidatedTestDb();
+  const port = await getFreePort();
+  BASE_URL = `http://localhost:${port}`;
+  console.log(`Running Stage 3 PostgreSQL E2E tests against ${BASE_URL} (DB: ${dbName})...`);
+
+  const logPath = path.join(__dirname, 'server_stage3_images.log');
+  const logFd = fs.openSync(logPath, 'w');
+  const serverProc = spawn(
+    'dotnet',
+    ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE_URL],
+    {
+      cwd: __dirname,
+      env: {
+        ...process.env,
+        ASPNETCORE_ENVIRONMENT: 'Development',
+        TEST_DB: `${connStr};Minimum Pool Size=5;Maximum Pool Size=25;Timeout=45`,
+        ConnectionStrings__DefaultConnection: `${connStr};Minimum Pool Size=5;Maximum Pool Size=25;Timeout=45`,
+        Jwt__Key: 'Stage3IntegrationTestJwtSecretKey_AtLeast32CharsLong!',
+        Auth__CodeSecret: 'Stage3IntegrationTestCodeSecret_AtLeast32CharsLong!',
+        Auth__RequireVerification: 'false',
+        Database__AutoMigrate: 'false',
+        RateLimiting__UploadPermitLimit: '200',
+      },
+      stdio: ['ignore', logFd, logFd],
+    }
+  );
+
+  try {
+    await waitForHealth(BASE_URL);
 
   const sellerA = await registerVerifiedSeller('A');
   const sellerB = await registerVerifiedSeller('B');
@@ -287,7 +306,10 @@ async function run() {
     throw new Error('Expected 201 and identical ordered imageUrls');
   }
 
-  console.log('ALL STAGE 3 POSTGRESQL TESTS PASSED!');
+    console.log('ALL STAGE 3 POSTGRESQL TESTS PASSED!');
+  } finally {
+    stopServer(serverProc, logFd, logPath);
+  }
 }
 
 run().catch(err => {

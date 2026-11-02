@@ -1,11 +1,12 @@
 import client from './client';
 
 /**
- * Submit a 14-day return request for a delivered order item (Buyer)
+ * Submit a return request for a delivered order item (Buyer)
  * @param {{
  *   orderItemId: number,
  *   quantity: number,
  *   reason: string,
+ *   category?: string,
  *   defectImageUrl?: string
  * }} data
  */
@@ -32,8 +33,24 @@ export const getBuyerReturns = () => client.get('/returns/buyer');
 export const getSellerReturns = () => client.get('/returns/seller');
 
 /**
- * Resolve return request (Seller approves/rejects)
+ * Resolve return request (Seller preliminary approval or rejection)
  * @param {number} id
- * @param {{ status: 'Approved' | 'Rejected', sellerNote?: string }} data
+ * @param {{ status: 'Approved' | 'Completed' | 'Rejected', confirmItemReceived?: boolean, sellerNote?: string }} data
  */
 export const resolveReturn = (id, data) => client.put(`/returns/${id}/resolve`, data);
+
+/**
+ * Confirm receipt of returned package and complete buyer refund & restock
+ * @param {number} id
+ * @param {{ adminOverride?: boolean, notes?: string }} data
+ */
+export const confirmReturnReceived = (id, data = {}) => client.put(`/returns/${id}/confirm-received`, data);
+
+export default {
+  createReturnRequest,
+  uploadReturnEvidence,
+  getBuyerReturns,
+  getSellerReturns,
+  resolveReturn,
+  confirmReturnReceived,
+};

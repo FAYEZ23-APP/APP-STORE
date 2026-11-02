@@ -11,12 +11,14 @@ public class ReturnRequest
     public int BuyerId { get; set; }
     public int SellerId { get; set; }
     public int Quantity { get; set; }
+    public ReturnCategory Category { get; set; } = ReturnCategory.Standard14Day;
     public string Reason { get; set; } = string.Empty;
     public string? DefectImageUrl { get; set; }
     public ReturnStatus Status { get; set; } = ReturnStatus.Pending;
     public decimal RefundAmount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }
+    public DateTime? ReceivedAt { get; set; }
 
     public Order Order { get; set; } = null!;
     public Shipment Shipment { get; set; } = null!;

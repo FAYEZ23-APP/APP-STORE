@@ -14,12 +14,20 @@ public class CreateOrderRequest
     public string? Area { get; set; }
     public string? StreetBuilding { get; set; }
     public string? AddressLine { get; set; }
+    public string? BuildingNumber { get; set; }
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
     public string PaymentMethod { get; set; } = "OnReceipt";
     public string? CouponCode { get; set; }
     public bool UseWalletBalance { get; set; } = false;
     public string? IdempotencyKey { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    public double? DeliveryLatitude { get => _deliveryLat ?? Latitude; set => _deliveryLat = value; }
+    public double? DeliveryLongitude { get => _deliveryLng ?? Longitude; set => _deliveryLng = value; }
+    private double? _deliveryLat;
+    private double? _deliveryLng;
 }
 
 public class OrderItemRequest
@@ -48,6 +56,14 @@ public class OrderResponse
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
     public string? AddressLine { get; set; }
+    public string? BuildingNumber { get; set; }
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double? DeliveryLatitude { get; set; }
+    public double? DeliveryLongitude { get; set; }
+    public bool IsBuyerConfirmed { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
     public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -78,9 +94,22 @@ public class SellerOrderResponse
     public decimal TotalPrice { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public string? BuildingNumber { get; set; }
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public bool IsBuyerConfirmed { get; set; }
 }
 
 public class UpdateOrderStatusRequest
 {
     public string Status { get; set; } = string.Empty;
+}
+
+public class ConfirmOrderResponse
+{
+    public int OrderId { get; set; }
+    public bool IsBuyerConfirmed { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public string Message { get; set; } = string.Empty;
 }

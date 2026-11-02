@@ -166,7 +166,9 @@
     "ratingExcellent": "ممتاز",
     "ratingVeryGood": "جيد جداً",
     "ratingGood": "جيد",
-    "ratingNeedsImprovement": "يحتاج تحسين"
+    "ratingNeedsImprovement": "يحتاج تحسين",
+    "allowInspection": "معاينة عند الاستلام",
+    "whatsappChat": "تواصل عبر واتساب"
   },
   "cart": {
     "title": "عربة التسوق",
@@ -284,7 +286,9 @@
     "cancelOrderConfirmMessage": "هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم استرداد أي مبالغ مدفوعة من المحفظة وإعادة المنتجات للمخزون.",
     "cancelOrderSuccess": "تم إلغاء الطلب بنجاح واسترداد المبلغ.",
     "cancelling": "جاري الإلغاء...",
-    "orderCancelledBadge": "ملغي"
+    "orderCancelledBadge": "ملغي",
+    "confirmed": "تم تأكيد رغبتك في الاستلام",
+    "confirmOrder": "تأكيد الطلب"
   },
   "shipmentStatus": {
     "Created": "تم إنشاء الشحنة",
@@ -304,6 +308,7 @@
   "returnStatus": {
     "Pending": "قيد المراجعة",
     "Approved": "تمت الموافقة على الإرجاع",
+    "ApprovedAwaitingReturn": "تمت الموافقة، بانتظار استلام الشحنة",
     "Rejected": "تم رفض طلب الإرجاع",
     "Completed": "مكتمل وتم استرداد المبلغ"
   },
@@ -988,7 +993,8 @@
   "adminPortal": {
     "tabs": {
       "auditLogs": "سجل التدقيق",
-      "security": "الأمان والمصادقة (2FA)"
+      "security": "الأمان والمصادقة (2FA)",
+      "shipments": "إدارة الشحنات والتوصيل"
     },
     "twoFactor": {
       "title": "المصادقة الثنائية لحساب المدير (Admin TOTP 2FA)",
@@ -1038,6 +1044,14 @@
       "colDetails": "تفاصيل العملية",
       "system": "النظام",
       "totalCount": "إجمالي السجلات: {{count}}"
+    },
+    "shipments": {
+      "title": "إدارة الشحنات والعمليات الميدانية",
+      "subtitle": "متابعة بوالص الشحن وتحديث حالات التوصيل وتسوية نقدية الدفع عند الاستلام (COD)",
+      "filterStatus": "حالة الشحنة",
+      "filterOrderId": "رقم الطلب",
+      "filterSellerId": "معرّف البائع",
+      "settleCod": "تسوية نقدية COD"
     }
   },
   "invoice": {

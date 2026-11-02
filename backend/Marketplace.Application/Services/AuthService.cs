@@ -20,6 +20,7 @@ public class AuthService : IAuthService
     private readonly IVerificationService _verificationService;
     private readonly IConfiguration _configuration;
     private readonly ITotpService _totp;
+    private readonly ITwoFactorSecretProtector _secretProtector;
 
     public AuthService(
         IUnitOfWork uow,
@@ -28,7 +29,8 @@ public class AuthService : IAuthService
         IGoogleTokenValidator googleValidator,
         IVerificationService verificationService,
         IConfiguration configuration,
-        ITotpService totp)
+        ITotpService totp,
+        ITwoFactorSecretProtector secretProtector)
     {
         _uow = uow;
         _hasher = hasher;
@@ -37,6 +39,7 @@ public class AuthService : IAuthService
         _verificationService = verificationService;
         _configuration = configuration;
         _totp = totp;
+        _secretProtector = secretProtector;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, string? clientIp = null, CancellationToken cancellationToken = default)
@@ -867,7 +870,7 @@ public class AuthService : IAuthService
         if (!isValid)
             throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
 
-        user.TwoFactorSecret = request.Secret.Trim();
+        user.TwoFactorSecret = _secretProtector.Protect(request.Secret.Trim());
         user.IsTwoFactorEnabled = true;
         _uow.Users.Update(user);
         await _uow.SaveChangesAsync();
@@ -929,7 +932,7 @@ public class AuthService : IAuthService
             if (!isSetupValid)
                 throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
 
-            user.TwoFactorSecret = request.Secret.Trim();
+            user.TwoFactorSecret = _secretProtector.Protect(request.Secret.Trim());
             user.IsTwoFactorEnabled = true;
             _uow.Users.Update(user);
             await _uow.SaveChangesAsync();
@@ -944,6 +947,14 @@ public class AuthService : IAuthService
         var isValid = _totp.VerifyCode(user.TwoFactorSecret, request.Code);
         if (!isValid)
             throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+
+        // Transparent upgrade of legacy unencrypted secret
+        if (!user.TwoFactorSecret.StartsWith("ENC:v1:", StringComparison.Ordinal))
+        {
+            user.TwoFactorSecret = _secretProtector.Protect(user.TwoFactorSecret);
+            _uow.Users.Update(user);
+            await _uow.SaveChangesAsync();
+        }
 
         return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
     }

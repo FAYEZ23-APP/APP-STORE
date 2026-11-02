@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { AppState, Alert } from 'react-native';
 import { jwtDecode } from 'jwt-decode';
 import {
@@ -22,6 +22,7 @@ import {
   login as loginApi,
   register as registerApi,
   verify as verifyApi,
+  verifyTwoFactorLogin as verifyTwoFactorLoginApi,
   googleAuth as googleAuthApi,
   refresh as refreshApi,
   logout as logoutApi,
@@ -208,6 +209,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
   // ─── Background / Resume Timeout Listener ───────────────────
   useEffect(() => {
     let isMounted = true;
@@ -247,7 +253,7 @@ export const AuthProvider = ({ children }) => {
           backgroundTimestampRef.current = null;
 
           if (elapsed >= DEFAULT_LOCK_TIMEOUT_MS) {
-            const currentUserId = userId || (await getLastAuthenticatedUserId());
+            const currentUserId = userIdRef.current || (await getLastAuthenticatedUserId());
             if (currentUserId) {
               const bioEnabled = await isBiometricsEnabled(currentUserId);
               const rt = await getRefreshToken(currentUserId);
@@ -265,7 +271,7 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       subscription.remove();
     };
-  }, [userId]);
+  }, []);
 
   // ─── Unlock Handlers ────────────────────────────────────────
   const unlockWithBiometrics = async () => {
@@ -349,19 +355,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ─── Login Flow ─────────────────────────────────────────────
-  const login = async (identifier, password) => {
+  const login = useCallback(async (identifier, password) => {
     const deviceId = await getDeviceId();
     const response = await loginApi({ identifier, password, deviceId });
-    const { token, accessToken, refreshToken } = response.data;
-    const effectiveToken = accessToken || token;
+    const data = response.data || {};
+    const requiresTwoFactor = Boolean(data.requiresTwoFactor || data.RequiresTwoFactor);
+    const twoFactorToken = data.twoFactorToken || data.TwoFactorToken;
+
+    // Check if 2FA verification challenge is required
+    if (requiresTwoFactor && twoFactorToken) {
+      return {
+        requiresTwoFactor: true,
+        twoFactorToken,
+        userId: data.userId,
+      };
+    }
+
+    const effectiveToken = data.accessToken || data.token;
 
     if (effectiveToken) {
       await setToken(effectiveToken);
       const decoded = jwtDecode(effectiveToken);
-      const uid = String(decoded.sub || decoded.nameid || decoded.id || response.data?.userId);
+      const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
 
-      if (refreshToken && uid) {
-        await setRefreshToken(uid, refreshToken);
+      if (data.refreshToken && uid) {
+        await setRefreshToken(uid, data.refreshToken);
         await setLastAuthenticatedUserId(uid);
       }
 
@@ -372,11 +390,41 @@ export const AuthProvider = ({ children }) => {
         offerBiometricsIfSupported(uid);
       }
     }
-    return response.data;
-  };
+    return data;
+  }, []);
+
+  // ─── Two-Factor Verification Flow ───────────────────────────
+  const completeTwoFactorLogin = useCallback(async (twoFactorToken, code) => {
+    const deviceId = await getDeviceId();
+    const response = await verifyTwoFactorLoginApi({
+      twoFactorToken,
+      code: code?.trim(),
+      deviceId,
+    });
+    const data = response.data || {};
+    const effectiveToken = data.accessToken || data.token;
+
+    if (effectiveToken) {
+      await setToken(effectiveToken);
+      const decoded = jwtDecode(effectiveToken);
+      const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
+
+      if (data.refreshToken && uid) {
+        await setRefreshToken(uid, data.refreshToken);
+        await setLastAuthenticatedUserId(uid);
+      }
+
+      await loadUserFromToken();
+
+      if (uid) {
+        offerBiometricsIfSupported(uid);
+      }
+    }
+    return data;
+  }, []);
 
   // ─── Verify Flow ────────────────────────────────────────────
-  const verify = async (target, code) => {
+  const verify = useCallback(async (target, code) => {
     const deviceId = await getDeviceId();
     const response = await verifyApi({ target, code, deviceId });
     const { token, accessToken, refreshToken } = response.data;
@@ -399,10 +447,10 @@ export const AuthProvider = ({ children }) => {
       }
     }
     return response.data;
-  };
+  }, []);
 
   // ─── Register Flow ──────────────────────────────────────────
-  const register = async ({
+  const register = useCallback(async ({
     name,
     email,
     phone,
@@ -424,10 +472,10 @@ export const AuthProvider = ({ children }) => {
       deviceId,
     });
     return response.data;
-  };
+  }, []);
 
   // ─── Google Auth Flow ───────────────────────────────────────
-  const loginWithGoogle = async (idToken, role = 'Buyer', acceptedTermsAndPrivacy = true, marketingConsent = false) => {
+  const loginWithGoogle = useCallback(async (idToken, role = 'Buyer', acceptedTermsAndPrivacy = true, marketingConsent = false) => {
     const deviceId = await getDeviceId();
     const response = await googleAuthApi({
       idToken,
@@ -457,10 +505,10 @@ export const AuthProvider = ({ children }) => {
       }
     }
     return response.data;
-  };
+  }, []);
 
   // ─── Logout Flows ───────────────────────────────────────────
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       const deviceToken = await getDevicePushToken().catch(() => null);
       if (deviceToken) {
@@ -485,9 +533,9 @@ export const AuthProvider = ({ children }) => {
       setUserEmail(null);
       setIsLocked(false);
     }
-  };
+  }, [userId]);
 
-  const logoutAll = async () => {
+  const logoutAll = useCallback(async () => {
     try {
       await unregisterCurrentPushToken().catch(() => {});
       await logoutAllApi().catch(() => {});
@@ -503,28 +551,50 @@ export const AuthProvider = ({ children }) => {
       setUserEmail(null);
       setIsLocked(false);
     }
-  };
+  }, [userId]);
+
+  // Memoized context value to prevent re-render storms (MOB-007)
+  const contextValue = useMemo(
+    () => ({
+      userRole,
+      userId,
+      userName,
+      userEmail,
+      isLoading,
+      isLocked,
+      login,
+      completeTwoFactorLogin,
+      verify,
+      register,
+      loginWithGoogle,
+      logout,
+      logoutAll,
+      unlockWithBiometrics,
+      unlockWithPassword,
+      reloadUser: loadUserFromToken,
+    }),
+    [
+      userRole,
+      userId,
+      userName,
+      userEmail,
+      isLoading,
+      isLocked,
+      login,
+      completeTwoFactorLogin,
+      verify,
+      register,
+      loginWithGoogle,
+      logout,
+      logoutAll,
+      unlockWithBiometrics,
+      unlockWithPassword,
+      loadUserFromToken,
+    ]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        userRole,
-        userId,
-        userName,
-        userEmail,
-        isLoading,
-        isLocked,
-        login,
-        verify,
-        register,
-        loginWithGoogle,
-        logout,
-        logoutAll,
-        unlockWithBiometrics,
-        unlockWithPassword,
-        reloadUser: loadUserFromToken,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

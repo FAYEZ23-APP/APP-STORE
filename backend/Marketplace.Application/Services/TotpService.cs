@@ -7,6 +7,12 @@ namespace Marketplace.Application.Services;
 public class TotpService : ITotpService
 {
     private const string Base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    private readonly ITwoFactorSecretProtector? _protector;
+
+    public TotpService(ITwoFactorSecretProtector? protector = null)
+    {
+        _protector = protector;
+    }
 
     public string GenerateSecret(int byteCount = 20)
     {
@@ -27,6 +33,7 @@ public class TotpService : ITotpService
         if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(code))
             return false;
 
+        var cleanSecret = _protector != null ? _protector.Unprotect(secret) : secret;
         var cleanCode = code.Trim();
         if (cleanCode.Length != 6 || !cleanCode.All(char.IsAsciiDigit))
             return false;
@@ -35,7 +42,7 @@ public class TotpService : ITotpService
 
         for (int i = -toleranceSteps; i <= toleranceSteps; i++)
         {
-            var expectedCode = GenerateCode(secret, currentStep + i);
+            var expectedCode = GenerateCode(cleanSecret, currentStep + i);
             if (CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expectedCode), Encoding.UTF8.GetBytes(cleanCode)))
             {
                 return true;
@@ -47,7 +54,8 @@ public class TotpService : ITotpService
 
     public string GenerateCode(string secret, long? stepOverride = null)
     {
-        byte[] key = FromBase32String(secret);
+        var cleanSecret = _protector != null ? _protector.Unprotect(secret) : secret;
+        byte[] key = FromBase32String(cleanSecret);
         long step = stepOverride ?? (DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
 
         byte[] stepBytes = BitConverter.GetBytes(step);

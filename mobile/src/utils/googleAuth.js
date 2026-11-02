@@ -23,6 +23,7 @@ export const useGoogleAuth = ({
   acceptedTermsAndPrivacy = true,
   marketingConsent = false,
   onError,
+  onIdToken,
 } = {}) => {
   const { loginWithGoogle } = useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +43,9 @@ export const useGoogleAuth = ({
 
   const handleToken = useCallback(
     async (idToken) => {
+      if (onIdToken) {
+        return onIdToken(idToken);
+      }
       setIsSubmitting(true);
       try {
         await loginWithGoogle(idToken, role, acceptedTermsAndPrivacy, marketingConsent);
@@ -57,7 +61,7 @@ export const useGoogleAuth = ({
         setIsSubmitting(false);
       }
     },
-    [loginWithGoogle, role, acceptedTermsAndPrivacy, marketingConsent, onError]
+    [loginWithGoogle, role, acceptedTermsAndPrivacy, marketingConsent, onError, onIdToken]
   );
 
   useEffect(() => {

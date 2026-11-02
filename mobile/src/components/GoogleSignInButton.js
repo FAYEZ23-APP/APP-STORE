@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   View,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,7 @@ const GoogleSignInButton = ({
 
   if (compact) {
     return (
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         onPress={onPress}
         disabled={loading || disabled}
         activeOpacity={0.8}
@@ -37,7 +38,7 @@ const GoogleSignInButton = ({
   }
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessible={true} accessibilityRole="button"
       onPress={onPress}
       disabled={loading || disabled}
       activeOpacity={0.85}
@@ -57,19 +58,26 @@ const GoogleSignInButton = ({
 
 const styles = StyleSheet.create({
   fullButton: {
-    height: 52,
+    height: 50,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.2,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
     paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 1.5 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 1,
+      },
+      default: {},
+    }),
   },
   contentRow: {
     flexDirection: 'row',
@@ -80,20 +88,20 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   buttonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
-    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    letterSpacing: 0.1,
   },
   compactButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: colors.primarySoft || '#F8FAFC',
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: colors.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border || '#E2E8F0',
+    borderColor: colors.border,
   },
   disabled: {
     opacity: 0.6,

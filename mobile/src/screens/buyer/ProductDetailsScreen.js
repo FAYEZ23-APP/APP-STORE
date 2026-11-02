@@ -10,6 +10,7 @@ import {
   Platform,
   ToastAndroid,
   Alert,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -347,7 +348,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         >
           {t('product.loadError')}
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           activeOpacity={0.8}
           onPress={fetchDetails}
           style={[
@@ -471,6 +472,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 ref={galleryListRef}
                 data={rawImages}
                 horizontal
+                initialNumToRender={2}
+                maxToRenderPerBatch={2}
+                windowSize={3}
+                removeClippedSubviews={Platform.OS === 'android'}
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(uri, idx) => `${uri}-${idx}`}
@@ -562,7 +567,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             {rawImages.map((uri, idx) => {
               const isSelected = idx === activeImageIndex;
               return (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   key={`thumb-${uri}-${idx}`}
                   activeOpacity={0.8}
                   onPress={() => {
@@ -688,7 +693,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
           {/* Category chip + Stock status row */}
           <View style={[tw`flex-row flex-wrap items-center justify-between`, { marginBottom: 12 }]}>
             {categoryKey ? (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 activeOpacity={0.75}
                 onPress={handleCategoryNavigate}
                 style={[
@@ -742,9 +747,54 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </View>
           </View>
 
+          {/* Open-Box Inspection Badge (GAP-BUY-01) */}
+          {product.allowInspection !== false && (
+            <View
+              style={[
+                tw`flex-row items-center p-3 rounded-2xl mb-3 border`,
+                { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+              ]}
+            >
+              <MaterialCommunityIcons name="shield-check" size={22} color="#059669" />
+              <View style={tw`ml-2.5 flex-1`}>
+                <Text style={[tw`font-bold text-xs`, { color: '#065F46' }]}>
+                  {t('product.allowInspectionTitle')}
+                </Text>
+                <Text style={[tw`text-[11px] mt-0.5`, { color: '#047857' }]}>
+                  {t('product.allowInspectionDesc')}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* WhatsApp Direct Inquiry Button (GAP-BUY-03) */}
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={() => {
+              const text = encodeURIComponent(
+                (isRTL ? 'مرحباً، أود الاستفسار عن المنتج: ' : 'Hello, I have an inquiry about product: ') +
+                  (product.name || '') + ' (#' + (product.id || '') + ')'
+              );
+              Linking.openURL(`https://wa.me/201000000000?text=${text}`).catch(() => {
+                Alert.alert(t('common.error'), isRTL ? 'تعذر فتح تطبيق واتساب' : 'Could not open WhatsApp');
+              });
+            }}
+            style={[
+              tw`flex-row items-center justify-center p-3 rounded-2xl mb-3 border`,
+              { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' },
+            ]}
+          >
+            <MaterialCommunityIcons name="whatsapp" size={20} color="#16A34A" />
+            <Text style={[tw`font-bold text-xs ml-2`, { color: '#15803D' }]}>
+              {t('product.whatsappInquiry')}
+            </Text>
+          </TouchableOpacity>
+
           {/* Seller row: "Продавец: <sellerName>" */}
           {product.sellerName ? (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={product.sellerId ? 0.75 : 1}
               disabled={!product.sellerId}
               onPress={() => {
@@ -837,7 +887,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 ].filter(Boolean).join(' • ') || `${t('common.details')} #${v.id}`;
 
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     key={`variant-chip-${v.id}`}
                     activeOpacity={0.8}
                     onPress={() => setSelectedVariant(v)}
@@ -919,7 +969,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   activeOpacity={0.7}
                   onPress={handleQtyDecrease}
                   disabled={effectiveQty <= 1 && cartQty === 0}
@@ -944,7 +994,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   {effectiveQty}
                 </Text>
 
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   activeOpacity={0.7}
                   onPress={handleQtyIncrease}
                   disabled={effectiveQty >= stock}
@@ -1004,7 +1054,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </Text>
 
             {showReadMoreToggle && (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 activeOpacity={0.7}
                 onPress={() => setDescExpanded((prev) => !prev)}
                 style={[
@@ -1046,7 +1096,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </View>
 
             {canReview ? (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => {
                   setEditingReview(null);
                   setShowReviewModal(true);
@@ -1065,7 +1115,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             ) : eligibilityData?.alreadyReviewed && eligibilityData?.existingReview ? (
               <View style={tw`flex-row items-center`}>
                 {eligibilityData.canEditExisting && (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => {
                       setEditingReview(eligibilityData.existingReview);
                       setShowReviewModal(true);
@@ -1081,7 +1131,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                     </Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={() => handleDeleteOwnReview(eligibilityData.existingReview.id)}
                   style={[
                     tw`p-1.5 rounded-lg border`,
@@ -1152,7 +1202,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               ].map((opt) => {
                 const active = reviewSort === opt.key;
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     key={`sort-${opt.key}`}
                     onPress={() => {
                       setReviewSort(opt.key);
@@ -1219,7 +1269,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                         </View>
 
                         {!isOwnReview && (
-                          <TouchableOpacity
+                          <TouchableOpacity accessible={true} accessibilityRole="button"
                             onPress={() => handleReportReview(rev.id)}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             style={tw`flex-row items-center`}
@@ -1303,7 +1353,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               {/* Pagination Controls */}
               {(reviewsData.totalPages || 1) > 1 && (
                 <View style={tw`flex-row items-center justify-between pt-3 mt-1 border-t border-gray-100`}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     disabled={reviewPage <= 1}
                     onPress={() => setReviewPage((p) => Math.max(1, p - 1))}
                     style={[
@@ -1326,7 +1376,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                     })}
                   </Text>
 
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     disabled={reviewPage >= (reviewsData.totalPages || 1)}
                     onPress={() =>
                       setReviewPage((p) => Math.min(reviewsData.totalPages || 1, p + 1))
@@ -1368,6 +1418,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <FlatList
               data={similarProducts}
               horizontal
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS === 'android'}
               showsHorizontalScrollIndicator={false}
               keyExtractor={(item) => `similar-${item.id}`}
               renderItem={({ item }) => (
@@ -1422,7 +1476,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         </View>
 
         {isOutOfStock ? (
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             disabled={true}
             style={[
               tw`flex-1 rounded-xl items-center justify-center`,
@@ -1436,7 +1490,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         ) : (
           <View style={tw`flex-1 flex-row items-center justify-between`}>
             {/* Wishlist Heart Button */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.8}
               onPress={handleToggleWishlist}
               style={[
@@ -1454,7 +1508,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </TouchableOpacity>
 
             {/* 1. "В корзину" button */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.85}
               onPress={handleAddToCart}
               style={[
@@ -1484,7 +1538,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             </TouchableOpacity>
 
             {/* 2. Buy Now button with vibrant gradient */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.85}
               onPress={handleBuyNow}
               style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}

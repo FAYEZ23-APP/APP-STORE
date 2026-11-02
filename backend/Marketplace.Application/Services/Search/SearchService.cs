@@ -296,8 +296,8 @@ public class SearchService : ISearchService
         var response = new ProductSearchResponse
         {
             Query = request.Q,
-            PageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber,
-            PageSize = request.PageSize <= 0 ? 20 : request.PageSize
+            PageNumber = Math.Clamp(request.PageNumber <= 0 ? 1 : request.PageNumber, 1, 1000),
+            PageSize = Math.Clamp(request.PageSize <= 0 ? 20 : request.PageSize, 1, 100)
         };
 
         var queryText = request.Q?.Trim();

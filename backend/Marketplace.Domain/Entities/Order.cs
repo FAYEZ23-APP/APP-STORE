@@ -19,6 +19,14 @@ public class Order
     public string City { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public string StreetBuilding { get; set; } = string.Empty;
+    public string? BuildingNumber { get; set; }
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double? DeliveryLatitude { get; set; }
+    public double? DeliveryLongitude { get; set; }
+    public bool IsBuyerConfirmed { get; set; } = false;
+    public DateTime? ConfirmedAt { get; set; }
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.OnReceipt;
     public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

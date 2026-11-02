@@ -533,7 +533,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                       </View>
                     )}
 
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleRemoveImage(item.id)}
                       style={[
                         tw`w-6 h-6 rounded-full items-center justify-center`,
@@ -576,7 +576,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                       >
                         {item.errorMsg || t('seller.uploadImageFailed')}
                       </Text>
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         onPress={() => handleRetryUpload(item.id)}
                         style={[
                           tw`px-2.5 py-1 rounded-full flex-row items-center`,
@@ -600,7 +600,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                   ]}
                 >
                   {!isMain ? (
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleMakeMain(idx)}
                       style={[
                         tw`px-2 py-1 rounded-md flex-row items-center`,
@@ -622,7 +622,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                   )}
 
                   <View style={tw`flex-row items-center`}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleMoveImage(idx, -1)}
                       disabled={idx === 0}
                       style={[
@@ -634,7 +634,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                       <MaterialCommunityIcons name="arrow-up" size={14} color={colors.textPrimary} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleMoveImage(idx, 1)}
                       disabled={idx === images.length - 1}
                       style={[
@@ -656,7 +656,7 @@ export default function AddEditProductScreen({ route, navigation }) {
 
           {/* Add Images Tile (shown when < 8 images) */}
           {images.length < MAX_IMAGES && (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={pickImages}
               style={[
                 tw`rounded-xl items-center justify-center border mb-2`,
@@ -699,7 +699,7 @@ export default function AddEditProductScreen({ route, navigation }) {
           {categories.map((cat) => {
             const isSelected = selectedCategoryKey === cat.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 key={cat.key}
                 onPress={() => setSelectedCategoryKey(cat.key)}
                 style={[
@@ -860,7 +860,7 @@ export default function AddEditProductScreen({ route, navigation }) {
               {t('seller.variantTitle')}
             </Text>
           </View>
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => setShowAddVariant(!showAddVariant)}
             style={[
               tw`px-3 py-1.5 rounded-full flex-row items-center border`,
@@ -925,7 +925,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => handleRemoveVariant(idx)}
                     style={tw`p-2 rounded-full bg-red-50`}
                   >
@@ -1042,7 +1042,7 @@ export default function AddEditProductScreen({ route, navigation }) {
             </View>
 
             <View style={tw`flex-row justify-end`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setShowAddVariant(false)}
                 style={[tw`px-3 py-2 rounded-lg border mr-2`, { borderColor: colors.border }]}
               >
@@ -1051,7 +1051,7 @@ export default function AddEditProductScreen({ route, navigation }) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleAddVariant}
                 style={[tw`px-4 py-2 rounded-lg`, { backgroundColor: colors.accent }]}
               >
@@ -1064,7 +1064,7 @@ export default function AddEditProductScreen({ route, navigation }) {
         )}
       </View>
 
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         style={{ borderRadius: 14, overflow: 'hidden', marginTop: 8 }}
         onPress={handleSave}
         disabled={loading || anyUploading || loadingCategories}

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import { setNetworkOffline } from '../utils/networkState';
 import {
   getToken,
   setToken,
@@ -38,6 +39,7 @@ export const setOnUnauthorized = (callback) => {
 
 const client = axios.create({
   baseURL: BASE_URL,
+  timeout: 15000, // 15s timeout for mobile resilience (MOB-002)
   headers: {
     'Content-Type': 'application/json',
   },
@@ -115,11 +117,41 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Response Interceptor: Silent Token Refresh on 401 ──────
+// ─── Response Interceptor: Silent Token Refresh on 401 & 429/Network Retries ──────
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    setNetworkOffline(false);
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle 429 Too Many Requests with Retry-After backoff (MOB-002)
+    if (error.response && error.response.status === 429 && originalRequest) {
+      originalRequest._retry429Count = (originalRequest._retry429Count || 0) + 1;
+      if (originalRequest._retry429Count <= 2) {
+        const retryAfterHeader = error.response.headers?.['retry-after'];
+        const retryAfterSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 2;
+        const delayMs = (!isNaN(retryAfterSec) && retryAfterSec > 0) ? Math.min(retryAfterSec * 1000, 5000) : 2000;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return client(originalRequest);
+      }
+    }
+
+    // Handle transient network errors / timeouts on idempotent GET requests (MOB-002)
+    const isGet = (originalRequest?.method || '').toLowerCase() === 'get';
+    const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+    if (isNetworkOrTimeout) {
+      setNetworkOffline(true);
+    }
+    if (isGet && isNetworkOrTimeout && originalRequest) {
+      originalRequest._networkRetryCount = (originalRequest._networkRetryCount || 0) + 1;
+      if (originalRequest._networkRetryCount <= 2) {
+        const backoffMs = originalRequest._networkRetryCount * 1000;
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return client(originalRequest);
+      }
+    }
 
     if (!error.response || error.response.status !== 401 || !originalRequest) {
       return Promise.reject(error);

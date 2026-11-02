@@ -1,8 +1,10 @@
 const { spawn, execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const { getFreePort, getValidatedTestDb, stopServer } = require('./tests/helpers/test_harness');
 
-const PORT = 5194;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 
 function getTestDbConnectionString() {
   if (process.env.TEST_DB && process.env.TEST_DB.trim()) {
@@ -147,9 +149,12 @@ async function createAndDeliverOrder(buyerToken, sellerToken, productId) {
 }
 
 async function main() {
-  const testDb = getTestDbConnectionString();
-  console.log('Running Stage 4 Reviews E2E tests against PostgreSQL TEST_DB...');
-  const serverLogFd = require('fs').openSync(require('path').join(__dirname, 'server_stage4.log'), 'w');
+  const { connStr: testDb, dbName } = getValidatedTestDb();
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
+  console.log(`Running Stage 4 Reviews E2E tests against PostgreSQL TEST_DB (${dbName}) on ${BASE_URL}...`);
+  const serverLogPath = path.join(__dirname, 'server_stage4.log');
+  const serverLogFd = fs.openSync(serverLogPath, 'w');
 
   const serverProc = spawn(
     'dotnet',
@@ -463,8 +468,15 @@ async function main() {
     if (unhideRes.status !== 200) throw new Error(`Unhide failed with ${unhideRes.status}`);
 
     console.log('ALL STAGE 4 POSTGRESQL E2E CHECKS PASSED!');
+  } catch (err) {
+    try {
+      const logTxt = fs.readFileSync(serverLogPath, 'utf8');
+      const idx = logTxt.indexOf('Unhandled exception');
+      console.error('SERVER LOG EXCEPTION:\n', idx >= 0 ? logTxt.slice(idx, idx + 1500) : logTxt.slice(-1500));
+    } catch {}
+    throw err;
   } finally {
-    try { require('child_process').execSync('taskkill /pid ' + serverProc.pid + ' /T /F', { stdio: 'ignore' }); } catch { serverProc.kill(); }
+    stopServer(serverProc, serverLogFd, serverLogPath);
   }
 }
 

@@ -337,7 +337,7 @@ public class NotificationService : INotificationService
 
     public async Task<NotificationsListResponse> GetUserNotificationsAsync(int userId, int page = 1, int pageSize = 30)
     {
-        page = Math.Max(1, page);
+        page = Math.Clamp(page, 1, 1000);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         var allUserNotes = (await _uow.UserNotifications.FindAsync(n => n.UserId == userId))

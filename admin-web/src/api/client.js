@@ -4,39 +4,52 @@ export const TOKEN_KEY = '@marketplace_token';
 export const REFRESH_TOKEN_KEY = '@marketplace_refresh_token';
 export const DEVICE_ID_KEY = '@marketplace_device_id';
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
+// In-Memory Token management with HttpOnly Cookie backing (WEB-003)
+let inMemoryToken = null;
+
+export const getToken = () => inMemoryToken;
 export const setToken = (token) => {
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  } else {
+  inMemoryToken = token || null;
+  try {
     localStorage.removeItem(TOKEN_KEY);
-  }
+  } catch (_) {}
 };
 
-export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
-export const setRefreshToken = (token) => {
-  if (token) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token);
-  } else {
+export const getRefreshToken = () => null; // Refresh token stored securely in HttpOnly cookie
+export const setRefreshToken = () => {
+  try {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
+  } catch (_) {}
 };
 
 export const removeToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  inMemoryToken = null;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  } catch (_) {}
 };
 
 export const getDeviceId = () => {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-  if (!deviceId) {
-    deviceId = 'web_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+  try {
+    let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+    if (!deviceId) {
+      deviceId =
+        'web_' +
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
+      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    }
+    return deviceId;
+  } catch (_) {
+    return 'web_fallback_device';
   }
-  return deviceId;
 };
 
-export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5209/api';
+export const BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5209/api' : '/api');
 
 let onUnauthorizedCallback = null;
 
@@ -46,6 +59,7 @@ export const setOnUnauthorized = (callback) => {
 
 const client = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -63,38 +77,29 @@ export const performSingleFlightRefresh = async () => {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const refreshToken = getRefreshToken();
       const deviceId = getDeviceId();
 
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      // Use a clean axios instance to bypass interceptor recursion
+      // Send refresh request with credentials to transmit HttpOnly refresh_token cookie
       const refreshResponse = await axios.post(
         `${BASE_URL}/auth/refresh`,
         {
-          refreshToken,
           deviceId,
           deviceName: 'Admin Web Browser',
         },
         {
+          withCredentials: true,
           headers: { 'Content-Type': 'application/json' },
         }
       );
 
-      const newAccessToken = refreshResponse.data?.accessToken || refreshResponse.data?.token;
-      const newRefreshToken = refreshResponse.data?.refreshToken;
+      const newAccessToken =
+        refreshResponse.data?.accessToken || refreshResponse.data?.token;
 
       if (!newAccessToken) {
         throw new Error('No access token in refresh response');
       }
 
       setToken(newAccessToken);
-      if (newRefreshToken) {
-        setRefreshToken(newRefreshToken);
-      }
-
       return newAccessToken;
     } finally {
       isRefreshing = false;

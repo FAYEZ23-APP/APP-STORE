@@ -6,9 +6,11 @@
 const { spawn, execSync, execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { getFreePort, getValidatedTestDb, stopServer, emitCheckResult } = require('./tests/helpers/test_harness');
 
-const PORT = 5210;
-const BASE_URL = `http://localhost:${PORT}`;
+const SUITE_ID = 'backend_verification_pack_postgres';
+let PORT = 0;
+let BASE_URL = '';
 
 const origFetch = globalThis.fetch;
 globalThis.fetch = async function (url, options = {}) {
@@ -204,17 +206,19 @@ function killProcessTree(pid) {
 }
 
 async function main() {
-  const testDb = getTestDbConnectionString();
+  const { connStr: testDb, dbName } = getValidatedTestDb();
   verifyNotInMemory(testDb);
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
 
   console.log('===============================================================');
   console.log('🚀 RUNNING VERIFICATION PACK ON REAL POSTGRESQL (TEST_DB)');
   console.log('===============================================================');
-  console.log(`Database: ${testDb.split(';').filter(p => !p.toLowerCase().includes('password')).join(';')}`);
+  console.log(`Database Name: ${dbName} | Host URL: ${BASE_URL}`);
 
   let connStr = testDb;
   if (!connStr.toLowerCase().includes('maximum pool size')) {
-    connStr = connStr.replace(/;?$/, ';Minimum Pool Size=15;Maximum Pool Size=50;Timeout=60');
+    connStr = connStr.replace(/;?$/, ';Minimum Pool Size=2;Maximum Pool Size=20;Timeout=45');
   }
 
   const results = {
@@ -333,9 +337,11 @@ async function main() {
     if (statusesCheck1[0] === 201 && statusesCheck1[1] === 400 && p1After?.stock === 0) {
       console.log('✅ Check 1 PASSED: Exactly 1 order succeeded (201), 1 rejected (400), stock is exactly 0 (never negative).');
       results.passed.push('Two parallel orders on LAST unit (Stock=1): exactly 1 succeeded, stock=0');
+      emitCheckResult({ suite: SUITE_ID, id: 1, name: '2 Parallel Orders on LAST Unit (Stock=1)', status: 'PASS', notes: `Statuses=[${statusesCheck1.join(',')}], stock=${p1After?.stock}` });
     } else {
       console.error('❌ Check 1 FAILED');
       results.failed.push('Two parallel orders on LAST unit');
+      emitCheckResult({ suite: SUITE_ID, id: 1, name: '2 Parallel Orders on LAST Unit (Stock=1)', status: 'FAIL', notes: `Statuses=[${statusesCheck1.join(',')}], stock=${p1After?.stock}` });
     }
 
     // =========================================================================
@@ -392,9 +398,11 @@ async function main() {
     if (successes === 1 && failures === 9 && p2After?.stock === 0) {
       console.log('✅ Check 2 PASSED: Exactly 1 of 10 succeeded (201), 9 rejected (400), stock is 0 (never negative).');
       results.passed.push('Ten parallel orders on LAST unit (Stock=1): exactly 1 succeeded, 9 rejected (400), stock=0');
+      emitCheckResult({ suite: SUITE_ID, id: 2, name: '10 Parallel Orders on LAST Unit (Stock=1)', status: 'PASS', notes: `201=${successes}, 400=${failures}, stock=${p2After?.stock}` });
     } else {
       console.error('❌ Check 2 FAILED');
       results.failed.push('Ten parallel orders on LAST unit');
+      emitCheckResult({ suite: SUITE_ID, id: 2, name: '10 Parallel Orders on LAST Unit (Stock=1)', status: 'FAIL', notes: `201=${successes}, 400=${failures}, stock=${p2After?.stock}` });
     }
 
     // =========================================================================
@@ -418,9 +426,9 @@ async function main() {
     if (!p3Res.ok) throw new Error(`Create product 3 failed (${p3Res.status}): ${JSON.stringify(p3)}`);
 
     const idempotencyKey = `idemp_${ts}_${Math.random()}`;
-    const makeIdempOrder = () => {
-      const phone = '010' + Math.floor(10000000 + Math.random() * 90000000);
-      return fetch(`${BASE_URL}/api/orders`, {
+    const idempPhone = '010' + Math.floor(10000000 + Math.random() * 90000000);
+    const makeIdempOrder = () =>
+      fetch(`${BASE_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -431,7 +439,7 @@ async function main() {
           deliveryMethod: 'Courier',
           paymentMethod: 'OnReceipt',
           recipientName: 'المستلم الفاحص',
-          recipientPhone: phone,
+          recipientPhone: idempPhone,
           governorate: 'القاهرة',
           city: 'القاهرة',
           area: 'المعادي',
@@ -439,39 +447,103 @@ async function main() {
           items: [{ productId: p3.id, quantity: 1 }],
         }),
       });
-    };
 
     const [idempRes1, idempRes2] = await Promise.all([makeIdempOrder(), makeIdempOrder()]);
+    const [idempBody1, idempBody2] = await Promise.all([jsonOrNull(idempRes1), jsonOrNull(idempRes2)]);
+    const p3AfterRes = await fetch(`${BASE_URL}/api/products/${p3.id}`);
+    const p3After = await jsonOrNull(p3AfterRes);
+
     console.log('Check 3 Responses:', {
       status1: idempRes1.status,
       status2: idempRes2.status,
+      orderId1: idempBody1?.id,
+      orderId2: idempBody2?.id,
+      stockRemaining: p3After?.stock,
     });
-    // Check if duplicate order creation occurred
-    if (idempRes1.status === 201 && idempRes2.status === 201) {
-      console.log('⚠️ CHECK 3: NOT DONE - Double tap with Idempotency-Key created two orders. OrdersController has no Idempotency-Key deduplication.');
-      results.notDone.push('Idempotency Key on POST /api/orders (NOT DONE - No deduplication middleware/store on orders)');
-    } else if (idempRes1.status === 201 && idempRes2.status === 409) {
-      console.log('✅ Check 3 PASSED: Second order deduplicated.');
+
+    if (
+      (idempRes1.status === 200 || idempRes1.status === 201) &&
+      (idempRes2.status === 200 || idempRes2.status === 201) &&
+      idempBody1?.id > 0 &&
+      idempBody1.id === idempBody2?.id &&
+      p3After?.stock === 9
+    ) {
+      console.log(`✅ Check 3 PASSED: Parallel double-tap returned identical Order #${idempBody1.id} and decremented stock once (10 -> ${p3After.stock}).`);
       results.passed.push('Idempotency Key on POST /api/orders');
+      emitCheckResult({ suite: SUITE_ID, id: 3, name: 'Idempotency Key on POST /api/orders', status: 'PASS', notes: `Both returned Order #${idempBody1.id}, stock 10->${p3After.stock}` });
     } else {
-      results.notDone.push('Idempotency Key on POST /api/orders (NOT DONE)');
+      console.error('❌ Check 3 FAILED');
+      results.failed.push('Idempotency Key on POST /api/orders');
+      emitCheckResult({ suite: SUITE_ID, id: 3, name: 'Idempotency Key on POST /api/orders', status: 'FAIL', notes: `orderIds=[${idempBody1?.id},${idempBody2?.id}], stock=${p3After?.stock}` });
     }
 
     // =========================================================================
     // CHECK 4: Buyer cancel before HandedToCarrier restores stock exactly once
     // =========================================================================
     console.log('\n--- CHECK 4: Buyer cancel before HandedToCarrier ---');
-    // Check if buyer cancel endpoint exists
-    const cancelRes = await fetch(`${BASE_URL}/api/orders/99999/cancel`, {
+    const p4Res = await fetch(`${BASE_URL}/api/products`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${buyer1.token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${seller.token}` },
+      body: JSON.stringify({
+        name: `منتج اختبار الإلغاء (${ts})`,
+        description: 'فحص استرجاع المخزون عند إلغاء المشتري',
+        price: 75,
+        stock: 5,
+        weightGrams: 200,
+        categoryId: 1,
+        imageUrls: [prodImgUrl],
+      }),
     });
-    console.log('Check 4 Endpoint Probe (/api/orders/99999/cancel):', { status: cancelRes.status });
-    if (cancelRes.status === 404 || cancelRes.status === 405) {
-      console.log('⚠️ CHECK 4: NOT DONE - Buyer cancellation endpoint does not exist in OrdersController.');
-      results.notDone.push('Buyer cancel before HandedToCarrier restores stock (NOT DONE - Endpoint not implemented)');
+    const p4 = await jsonOrNull(p4Res);
+    if (!p4Res.ok) throw new Error(`Create product 4 failed (${p4Res.status}): ${JSON.stringify(p4)}`);
+
+    const order4Phone = '010' + Math.floor(10000000 + Math.random() * 90000000);
+    const order4Res = await fetch(`${BASE_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${buyer1.token}` },
+      body: JSON.stringify({
+        deliveryMethod: 'Courier',
+        paymentMethod: 'OnReceipt',
+        recipientName: 'المشتري الملغي',
+        recipientPhone: order4Phone,
+        governorate: 'القاهرة',
+        city: 'القاهرة',
+        area: 'المعادي',
+        streetBuilding: 'شارع 9 عمارة 2',
+        items: [{ productId: p4.id, quantity: 2 }],
+      }),
+    });
+    const order4 = await jsonOrNull(order4Res);
+    if (!order4Res.ok) throw new Error(`Create order 4 failed (${order4Res.status}): ${JSON.stringify(order4)}`);
+
+    const [cancelRes1, cancelRes2] = await Promise.all([
+      fetch(`${BASE_URL}/api/orders/${order4.id}/cancel`, { method: 'POST', headers: { Authorization: `Bearer ${buyer1.token}` } }),
+      fetch(`${BASE_URL}/api/orders/${order4.id}/cancel`, { method: 'POST', headers: { Authorization: `Bearer ${buyer1.token}` } }),
+    ]);
+    const cancelBody1 = await jsonOrNull(cancelRes1);
+    const p4AfterRes = await fetch(`${BASE_URL}/api/products/${p4.id}`);
+    const p4After = await jsonOrNull(p4AfterRes);
+
+    console.log('Check 4 Results:', {
+      cancelStatus1: cancelRes1.status,
+      cancelStatus2: cancelRes2.status,
+      orderStatus: cancelBody1?.status,
+      stockAfterCancel: p4After?.stock,
+    });
+
+    if (
+      cancelRes1.status === 200 &&
+      cancelRes2.status === 200 &&
+      cancelBody1?.status === 'Cancelled' &&
+      p4After?.stock === 5
+    ) {
+      console.log('✅ Check 4 PASSED: Buyer cancel succeeded, idempotent under parallel double-cancel, stock restored once (3 -> 5).');
+      results.passed.push('Buyer cancel before HandedToCarrier restores stock once');
+      emitCheckResult({ suite: SUITE_ID, id: 4, name: 'Buyer Cancel before HandedToCarrier', status: 'PASS', notes: `Order #${order4.id} Cancelled, parallel cancel=[${cancelRes1.status},${cancelRes2.status}], stock=${p4After?.stock}` });
     } else {
-      results.passed.push('Buyer cancel before HandedToCarrier');
+      console.error('❌ Check 4 FAILED');
+      results.failed.push('Buyer cancel before HandedToCarrier');
+      emitCheckResult({ suite: SUITE_ID, id: 4, name: 'Buyer Cancel before HandedToCarrier', status: 'FAIL', notes: `cancel=[${cancelRes1.status},${cancelRes2.status}], stock=${p4After?.stock}` });
     }
 
     // =========================================================================
@@ -530,12 +602,22 @@ async function main() {
       phoneBStatus: regPhone2.status,
     });
 
-    if (loginCaseRes.status === 200 && (regPhone1.status === 409 || regPhone2.status === 409 || regPhone1.status === 202 || regPhone2.status === 202)) {
+    const emailStatuses = [regEmail1.status, regEmail2.status].sort();
+    const phoneStatuses = [regPhone1.status, regPhone2.status].sort();
+    if (
+      loginCaseRes.status === 200 &&
+      (emailStatuses[0] === 200 || emailStatuses[0] === 202) &&
+      emailStatuses[1] === 409 &&
+      (phoneStatuses[0] === 200 || phoneStatuses[0] === 202) &&
+      phoneStatuses[1] === 409
+    ) {
       console.log('✅ Check 5 PASSED: Case-insensitive email and normalized phone uniqueness preserved in parallel.');
       results.passed.push('Email/phone uniqueness case-insensitively and in parallel');
+      emitCheckResult({ suite: SUITE_ID, id: 5, name: 'Email & Phone Uniqueness in Parallel & Case-Insensitive', status: 'PASS', notes: `Email=[${emailStatuses.join(',')}], Phone=[${phoneStatuses.join(',')}], UpperLogin=${loginCaseRes.status}` });
     } else {
       console.error('❌ Check 5 FAILED');
       results.failed.push('Email/phone uniqueness case-insensitively and in parallel');
+      emitCheckResult({ suite: SUITE_ID, id: 5, name: 'Email & Phone Uniqueness in Parallel & Case-Insensitive', status: 'FAIL', notes: `Email=[${emailStatuses.join(',')}], Phone=[${phoneStatuses.join(',')}], UpperLogin=${loginCaseRes.status}` });
     }
 
     // =========================================================================
@@ -546,6 +628,7 @@ async function main() {
     const deleteBuyerPassword = 'DeletePass123!';
     const delBuyer = await registerUser(BASE_URL, deleteBuyerEmail, deleteBuyerPassword, 'حساب سيُحذف', 'Buyer');
 
+    const delPhone = '010' + Math.floor(10000000 + Math.random() * 90000000);
     // Add an address to verify cascading scrub/removal
     await fetch(`${BASE_URL}/api/users/me/addresses`, {
       method: 'POST',
@@ -553,7 +636,7 @@ async function main() {
       body: JSON.stringify({
         label: 'المنزل',
         recipientName: 'حساب سيُحذف',
-        recipientPhone: '01012345678',
+        recipientPhone: delPhone,
         governorate: 'القاهرة',
         city: 'القاهرة',
         area: 'المعادي',
@@ -587,9 +670,11 @@ async function main() {
     if ((deleteRes.status === 200 || deleteRes.status === 204) && loginDeletedRes.status === 401 && oldTokenRes.status === 401) {
       console.log('✅ Check 6 PASSED: Real table account deletion scrubbed PII, revoked tokens, and blocked future logins.');
       results.passed.push('Account deletion on real tables (PII scrubbed, login blocked, tokens revoked)');
+      emitCheckResult({ suite: SUITE_ID, id: 6, name: 'Account Deletion on Real Tables', status: 'PASS', notes: `DELETE=${deleteRes.status}, Relogin=${loginDeletedRes.status}, OldToken=${oldTokenRes.status}` });
     } else {
       console.error('❌ Check 6 FAILED');
       results.failed.push('Account deletion on real tables');
+      emitCheckResult({ suite: SUITE_ID, id: 6, name: 'Account Deletion on Real Tables', status: 'FAIL', notes: `DELETE=${deleteRes.status}, Relogin=${loginDeletedRes.status}, OldToken=${oldTokenRes.status}` });
     }
 
     // =========================================================================
@@ -675,7 +760,7 @@ async function main() {
     });
 
     if (
-      ineligReviewRes.status === 400 || ineligReviewRes.status === 403 &&
+      (ineligReviewRes.status === 400 || ineligReviewRes.status === 403) &&
       revStatuses.every(s => s === 201 || s === 200) &&
       dupRes.status === 400 &&
       p7After.ratingCount === 10 &&
@@ -683,9 +768,11 @@ async function main() {
     ) {
       console.log('✅ Check 7 PASSED: Eligibility enforced, 1 review per buyer, 10 parallel reviews gave exact 4.0 average.');
       results.passed.push('Review eligibility, 1 review per buyer/product, 10 parallel reviews rating avg=4.0');
+      emitCheckResult({ suite: SUITE_ID, id: 7, name: 'Review Eligibility & 10 Parallel Reviews', status: 'PASS', notes: `Ineligible=${ineligReviewRes.status}, 10-parallel avg=${p7After.ratingAverage} (count=${p7After.ratingCount}), dup=${dupRes.status}` });
     } else {
       console.error('❌ Check 7 FAILED');
       results.failed.push('Review eligibility and 10 parallel reviews');
+      emitCheckResult({ suite: SUITE_ID, id: 7, name: 'Review Eligibility & 10 Parallel Reviews', status: 'FAIL', notes: `Ineligible=${ineligReviewRes.status}, avg=${p7After?.ratingAverage}, count=${p7After?.ratingCount}, dup=${dupRes.status}` });
     }
 
     // =========================================================================
@@ -764,9 +851,11 @@ async function main() {
     ) {
       console.log('✅ Check 8 PASSED: All image rules enforced (fake rejected, foreign URL rejected, EXIF stripped, 9th rejected).');
       results.passed.push('Image upload rules (fake ext rejected, foreign URL rejected, EXIF removed, 9th rejected)');
+      emitCheckResult({ suite: SUITE_ID, id: 8, name: 'Image Upload Rules Enforcement', status: 'PASS', notes: `Fake=${fakeUploadRes.status}, Foreign=${foreignProdRes.status}, ExifRemoved=${!hasExifAfter}, 9th=${nineImgProdRes.status}` });
     } else {
       console.error('❌ Check 8 FAILED');
       results.failed.push('Image upload rules');
+      emitCheckResult({ suite: SUITE_ID, id: 8, name: 'Image Upload Rules Enforcement', status: 'FAIL', notes: `Fake=${fakeUploadRes.status}, Foreign=${foreignProdRes.status}, ExifAfter=${hasExifAfter}, 9th=${nineImgProdRes.status}` });
     }
 
     // =========================================================================
@@ -798,9 +887,11 @@ async function main() {
     if ((ref1.status === 200 || ref1.status === 401) && (ref2.status === 200 || ref2.status === 401) && (ref1.status === 200 || ref2.status === 200)) {
       console.log('✅ Check 9 PASSED: Parallel refresh executed safely under concurrency.');
       results.passed.push('Refresh rotation under parallel calls');
+      emitCheckResult({ suite: SUITE_ID, id: 9, name: 'Refresh Token Rotation under Parallel Calls', status: 'PASS', notes: `Parallel statuses=[${ref1.status},${ref2.status}]` });
     } else {
       console.error('❌ Check 9 FAILED');
       results.failed.push('Refresh rotation under parallel calls');
+      emitCheckResult({ suite: SUITE_ID, id: 9, name: 'Refresh Token Rotation under Parallel Calls', status: 'FAIL', notes: `Parallel statuses=[${ref1.status},${ref2.status}]` });
     }
 
     // =========================================================================
@@ -818,35 +909,50 @@ async function main() {
     if (inactiveLoginRes.status === 401) {
       console.log('✅ Check 10 PASSED: Inactive and deleted accounts rejected with 401 Unauthorized.');
       results.passed.push('Login rejects inactive and legacy deleted accounts (401 Unauthorized)');
+      emitCheckResult({ suite: SUITE_ID, id: 10, name: 'Login Rejects Inactive and Deleted Accounts', status: 'PASS', notes: `HTTP ${inactiveLoginRes.status}` });
     } else {
       console.error('❌ Check 10 FAILED');
       results.failed.push('Login rejects inactive and legacy accounts');
+      emitCheckResult({ suite: SUITE_ID, id: 10, name: 'Login Rejects Inactive and Deleted Accounts', status: 'FAIL', notes: `HTTP ${inactiveLoginRes.status}` });
     }
 
+  } catch (err) {
+    try {
+      const logTxt = fs.readFileSync(serverLogPath, 'utf8');
+      console.error('VERIFICATION PACK SERVER LOG TAIL:\n', logTxt.slice(-1500));
+    } catch {}
+    throw err;
   } finally {
-    killProcessTree(serverProc.pid);
+    stopServer(serverProc, serverLogFd, serverLogPath);
   }
 
   // =========================================================================
   // CHECK 11: /api/dev/* and Swagger absent in Staging and Production
   // =========================================================================
   console.log('\n--- CHECK 11: /api/dev/* and Swagger absent in Staging & Production ---');
-  async function testEnvironmentIsolation(envName, port) {
+  async function testEnvironmentIsolation(envName) {
+    const port = await getFreePort();
     const url = `http://localhost:${port}`;
-    const logFd = fs.openSync(path.join(__dirname, `server_${envName.toLowerCase()}.log`), 'w');
+    const envLogPath = path.join(__dirname, `server_${envName.toLowerCase()}.log`);
+    const logFd = fs.openSync(envLogPath, 'w');
+    const childEnv = {
+      ...process.env,
+      ASPNETCORE_ENVIRONMENT: envName,
+      ConnectionStrings__DefaultConnection: connStr,
+      Database__AutoMigrate: 'false',
+      Jwt__Key: 'Stage4IntegrationTestJwtSecretKey_AtLeast32CharsLong!',
+      Auth__CodeSecret: 'Stage4IntegrationTestCodeSecret_AtLeast32CharsLong!',
+      AUTH_CODE_SECRET: 'stage4-auth-code-secret-for-testing-only-12345',
+      Admin__Require2FA: 'true',
+      Admin__RequireHttpsBehindProxy: 'true',
+    };
+    delete childEnv.TEST_DB;
     const proc = spawn(
       'dotnet',
       ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', url],
       {
         cwd: __dirname,
-        env: {
-          ...process.env,
-          ASPNETCORE_ENVIRONMENT: envName,
-          ConnectionStrings__DefaultConnection: connStr,
-          Database__AutoMigrate: 'false',
-          Jwt__Key: 'Stage4IntegrationTestJwtSecretKey_AtLeast32CharsLong!',
-          AUTH_CODE_SECRET: 'stage4-auth-code-secret-for-testing-only-12345',
-        },
+        env: childEnv,
         stdio: ['ignore', logFd, logFd],
       }
     );
@@ -861,7 +967,7 @@ async function main() {
         body: JSON.stringify({ status: 'Delivered' }),
       });
 
-      console.log(`Environment ${envName} check:`, {
+      console.log(`Environment ${envName} check (port ${port}):`, {
         swagger: swaggerRes.status,
         swaggerJson: swaggerJsonRes.status,
         devCarrier: devCarrierRes.status,
@@ -873,19 +979,21 @@ async function main() {
         devCarrierRes.status === 404
       );
     } finally {
-      killProcessTree(proc.pid);
+      stopServer(proc, logFd, envLogPath);
     }
   }
 
-  const stagingPassed = await testEnvironmentIsolation('Staging', 5211);
-  const prodPassed = await testEnvironmentIsolation('Production', 5212);
+  const stagingPassed = await testEnvironmentIsolation('Staging');
+  const prodPassed = await testEnvironmentIsolation('Production');
 
   if (stagingPassed && prodPassed) {
     console.log('✅ Check 11 PASSED: Swagger and /api/dev/* return 404 in Staging and Production.');
     results.passed.push('/api/dev/* and Swagger absent in Staging and Production (404)');
+    emitCheckResult({ suite: SUITE_ID, id: 11, name: '/api/dev/* and Swagger Absent in Staging & Production', status: 'PASS', notes: `Staging404=${stagingPassed}, Production404=${prodPassed}` });
   } else {
     console.error('❌ Check 11 FAILED');
     results.failed.push('/api/dev/* and Swagger absent in Staging and Production');
+    emitCheckResult({ suite: SUITE_ID, id: 11, name: '/api/dev/* and Swagger Absent in Staging & Production', status: 'FAIL', notes: `Staging404=${stagingPassed}, Production404=${prodPassed}` });
   }
 
   console.log('\n===============================================================');

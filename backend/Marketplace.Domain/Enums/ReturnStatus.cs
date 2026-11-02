@@ -7,6 +7,7 @@ public enum ReturnStatus
 {
     Pending,
     Approved,
+    ApprovedAwaitingReturn,
     Rejected,
     Completed
 }

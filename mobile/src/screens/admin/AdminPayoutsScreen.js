@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -193,7 +194,7 @@ export default function AdminPayoutsScreen() {
         {/* Action Button for Pending requests */}
         {isPending && (
           <View style={tw`mt-3 pt-2.5 border-t border-gray-100 flex-row justify-end`}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => openProcessModal(item)}
               activeOpacity={0.8}
               style={styles.processBtn}
@@ -266,6 +267,10 @@ export default function AdminPayoutsScreen() {
           data={payouts}
           keyExtractor={(item) => `payout-req-${item.id}`}
           renderItem={renderPayoutItem}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -299,7 +304,7 @@ export default function AdminPayoutsScreen() {
                 <MaterialCommunityIcons name="currency-usd" size={24} color={colors.primary} style={tw`mr-2`} />
                 <Text style={styles.modalTitle}>{t('admin.modalPayoutTitle')}</Text>
               </View>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -330,7 +335,7 @@ export default function AdminPayoutsScreen() {
             {/* Decision Toggle */}
             <Text style={styles.decisionLabel}>{t('admin.decisionLabel')}</Text>
             <View style={tw`flex-row mb-3`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setDecision('Completed')}
                 style={[
                   styles.decisionBtn,
@@ -354,7 +359,7 @@ export default function AdminPayoutsScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setDecision('Rejected')}
                 style={[
                   styles.decisionBtn,
@@ -396,7 +401,7 @@ export default function AdminPayoutsScreen() {
             />
 
             <View style={tw`flex-row justify-end mt-4`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setModalVisible(false)}
                 disabled={submittingAction}
                 style={[styles.modalCancelBtn, tw`mr-2`]}
@@ -404,7 +409,7 @@ export default function AdminPayoutsScreen() {
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleConfirmDecision}
                 disabled={submittingAction}
                 style={[

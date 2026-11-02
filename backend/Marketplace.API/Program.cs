@@ -189,6 +189,18 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                // Fall back to HttpOnly access_token cookie if Authorization header is absent (WEB-003)
+                if (string.IsNullOrEmpty(context.Token))
+                {
+                    if (context.Request.Cookies.TryGetValue("access_token", out var cookieToken) && !string.IsNullOrWhiteSpace(cookieToken))
+                    {
+                        context.Token = cookieToken;
+                    }
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var subClaim = context.Principal?.FindFirst(JwtService.ClaimNames.UserId)?.Value;
@@ -256,7 +268,10 @@ builder.Services.AddCors(options =>
     if (builder.Environment.IsDevelopment())
     {
         options.AddPolicy("AllowAll", policy =>
-            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+            policy.SetIsOriginAllowed(_ => true)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials());
     }
     else
     {
@@ -553,6 +568,7 @@ app.Use(async (context, next) =>
 
 app.UseCors("AllowAll");
 
+app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
@@ -708,5 +724,13 @@ var getHealthResponse = async (Marketplace.Infrastructure.Data.AppDbContext dbCo
 
 app.MapGet("/health", getHealthResponse).AllowAnonymous();
 app.MapGet("/api/health", getHealthResponse).AllowAnonymous();
+
+// SPA Fallback: Map fallback to index.html for non-API / non-health requests if present in wwwroot (WEB-012)
+var wwwrootFolder = app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+var indexHtmlFile = Path.Combine(wwwrootFolder, "index.html");
+if (File.Exists(indexHtmlFile))
+{
+    app.MapFallbackToFile("index.html");
+}
 
 app.Run();

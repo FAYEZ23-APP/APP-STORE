@@ -2,6 +2,10 @@ import React, { useRef, useState } from 'react';
 import { View, TextInput, StyleSheet, Platform } from 'react-native';
 import { colors } from '../theme/colors';
 
+/**
+ * OtpInput - Modern, accessible 6-digit OTP Input for Egypt Shop Mobile
+ * 100% Synchronized with Web OtpInput.jsx
+ */
 const OtpInput = ({ length = 6, value = '', onChange, onComplete, disabled = false }) => {
   const inputRefs = useRef([]);
   const [focusedIndex, setFocusedIndex] = useState(null);
@@ -60,7 +64,7 @@ const OtpInput = ({ length = 6, value = '', onChange, onComplete, disabled = fal
         const isFocused = focusedIndex === index;
 
         return (
-          <TextInput
+          <TextInput accessibilityLabel="Input" accessible={true}
             key={index}
             ref={(ref) => {
               inputRefs.current[index] = ref;
@@ -103,32 +107,45 @@ const styles = StyleSheet.create({
     direction: 'ltr',
   },
   box: {
-    width: 46,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    width: 48,
+    height: 58,
+    borderRadius: 16,
+    borderWidth: 2,
     borderColor: colors.border,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.screenBg,
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '900',
     color: colors.textPrimary,
     textAlign: 'center',
-    // Monospace digits
     fontVariant: ['tabular-nums'],
   },
   boxFilled: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-    color: colors.accent,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
+    color: colors.primary,
   },
   boxFocused: {
-    borderColor: colors.accent,
+    borderColor: colors.primary,
     borderWidth: 2,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
+    color: colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+      default: {},
+    }),
   },
   boxDisabled: {
     backgroundColor: colors.disabledBg,
     borderColor: colors.border,
+    color: colors.disabledText,
     opacity: 0.6,
   },
 });

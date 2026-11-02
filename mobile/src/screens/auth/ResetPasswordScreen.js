@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,31 +13,27 @@ import {
   StyleSheet,
   StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  resetPassword as resetPasswordApi,
-  forgotPassword as forgotPasswordApi,
-} from '../../api/authApi';
+import { resetPassword as resetPasswordApi, forgotPassword as forgotPasswordApi } from '../../api/authApi';
 import { colors } from '../../theme/colors';
 import OtpInput from '../../components/OtpInput';
-
-const RESEND_COOLDOWN_SECONDS = 60;
+import BrandLogo from '../../components/common/BrandLogo';
 
 const ResetPasswordScreen = ({ route, navigation }) => {
-  const { t } = useTranslation();
-  const { identifier = '', maskedTarget = '' } = route.params || {};
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === 'ar';
+  const identifier = route?.params?.identifier || '';
+  const maskedTarget = route?.params?.maskedTarget || identifier;
 
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [countdown, setCountdown] = useState(RESEND_COOLDOWN_SECONDS);
-  const isSubmittingRef = useRef(false);
+  const [countdown, setCountdown] = useState(60);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
 
   // Animations
@@ -59,7 +55,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // 60-second countdown timer
+  // 60-second Countdown timer for resend
   useEffect(() => {
     if (countdown <= 0) return;
     const interval = setInterval(() => {
@@ -74,8 +70,8 @@ const ResetPasswordScreen = ({ route, navigation }) => {
     setResending(true);
     try {
       await forgotPasswordApi({ identifier });
-      setCountdown(RESEND_COOLDOWN_SECONDS);
-      Alert.alert(t('common.success'), t('auth.codeResent'));
+      setCountdown(60);
+      Alert.alert(t('common.success'), t('auth.verificationCodeResent'));
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       Alert.alert(t('common.error'), msg);
@@ -85,14 +81,19 @@ const ResetPasswordScreen = ({ route, navigation }) => {
   };
 
   const handleResetPassword = async () => {
-    const trimmedCode = code.trim();
-    if (trimmedCode.length !== 6) {
+    const cleanCode = code.trim();
+    if (!cleanCode || !newPassword || !confirmPassword) {
+      Alert.alert(t('common.error'), t('common.fillAllFields'));
+      return;
+    }
+
+    if (cleanCode.length !== 6) {
       Alert.alert(t('common.error'), t('auth.invalidCodeLength'));
       return;
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert(t('common.error'), t('auth.passwordMinLength'));
+    if (newPassword.length < 6) {
+      Alert.alert(t('common.error'), t('auth.passwordTooShort'));
       return;
     }
 
@@ -101,63 +102,46 @@ const ResetPasswordScreen = ({ route, navigation }) => {
       return;
     }
 
-    if (isSubmittingRef.current || loading) return;
-    isSubmittingRef.current = true;
     setLoading(true);
     try {
       await resetPasswordApi({
-        identifier: (identifier || '').trim().toLowerCase(),
-        code: trimmedCode,
+        identifier,
+        code: cleanCode,
         newPassword,
       });
 
-      Alert.alert(
-        t('common.success'),
-        t('auth.passwordResetSuccess'),
-        [
-          {
-            text: t('common.ok'),
-            onPress: () => navigation.navigate('Login'),
-          },
-        ],
-        { cancelable: false }
-      );
+      Alert.alert(t('common.success'), t('auth.passwordResetSuccess'), [
+        {
+          text: t('common.ok'),
+          onPress: () => navigation.navigate('Login', { email: identifier }),
+        },
+      ]);
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       Alert.alert(t('common.error'), msg);
     } finally {
       setLoading(false);
-      setTimeout(() => {
-        isSubmittingRef.current = false;
-      }, 1000);
     }
-
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.secondary} />
 
-      {/* Header gradient */}
-      <LinearGradient
-        colors={['#0F172A', '#1E3A5F', '#0F172A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+      {/* Header matching Web AuthHeader */}
+      <View style={styles.headerArea}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color="#fff" />
         </TouchableOpacity>
 
-        <View style={styles.logoGradient}>
-          <Ionicons name="lock-open-outline" size={32} color="#fff" />
-        </View>
-        <Text style={styles.headerTitle}>{t('auth.resetPasswordTitle')}</Text>
-      </LinearGradient>
+        <BrandLogo variant="dark" size="sm" showSubtitle={true} alignCenter={true} />
+      </View>
 
       {/* Form card */}
       <KeyboardAvoidingView
@@ -178,6 +162,10 @@ const ResetPasswordScreen = ({ route, navigation }) => {
               },
             ]}
           >
+            <View style={styles.iconCircle}>
+              <Ionicons name="lock-open-outline" size={28} color={colors.primary} />
+            </View>
+
             <Text style={styles.title}>{t('auth.resetPasswordTitle')}</Text>
             <Text style={styles.subtitle}>
               {t('auth.resetSubtitle', {
@@ -204,7 +192,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
               ) : (
                 <TouchableOpacity onPress={handleResend} disabled={resending}>
                   {resending ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={styles.resendAction}>{t('auth.resendCode')}</Text>
                   )}
@@ -224,7 +212,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={focusedField === 'newPassword' ? colors.accent : colors.textSecondary}
+                  color={focusedField === 'newPassword' ? colors.primary : colors.textSecondary}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -236,11 +224,14 @@ const ResetPasswordScreen = ({ route, navigation }) => {
                   onChangeText={setNewPassword}
                   onFocus={() => setFocusedField('newPassword')}
                   onBlur={() => setFocusedField(null)}
+                  accessibilityLabel={t('auth.newPassword')}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? t('common.close') : t('common.viewAll')}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -263,7 +254,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
                 <Ionicons
                   name="shield-checkmark-outline"
                   size={20}
-                  color={focusedField === 'confirmPassword' ? colors.accent : colors.textSecondary}
+                  color={focusedField === 'confirmPassword' ? colors.primary : colors.textSecondary}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -275,11 +266,14 @@ const ResetPasswordScreen = ({ route, navigation }) => {
                   onChangeText={setConfirmPassword}
                   onFocus={() => setFocusedField('confirmPassword')}
                   onBlur={() => setFocusedField(null)}
+                  accessibilityLabel={t('auth.confirmPassword')}
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={showConfirmPassword ? t('common.close') : t('common.viewAll')}
                 >
                   <Ionicons
                     name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -294,24 +288,19 @@ const ResetPasswordScreen = ({ route, navigation }) => {
             <TouchableOpacity
               onPress={handleResetPassword}
               disabled={loading}
-              activeOpacity={0.85}
-              style={{ marginTop: 12 }}
+              activeOpacity={0.88}
+              style={[styles.primaryButton, loading && styles.disabledButton]}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.resetPasswordButton')}
             >
-              <LinearGradient
-                colors={loading ? [colors.disabledBg, colors.disabledBg] : [colors.accent, '#FF8C33']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.actionButton}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.actionButtonText}>{t('auth.resetPasswordButton')}</Text>
-                    <Ionicons name="checkmark-done-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
-                  </>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>{t('auth.resetPasswordButton')}</Text>
+                  <Ionicons name="checkmark-done-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Back to login */}
@@ -332,42 +321,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.screenBg,
   },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
-    paddingBottom: 46,
+  headerArea: {
+    backgroundColor: colors.secondary,
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    paddingBottom: 44,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D323B',
+    position: 'relative',
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 44,
-    left: 20,
+    top: Platform.OS === 'ios' ? 54 : 42,
+    left: 16,
     zIndex: 10,
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
-  },
-  logoGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.3,
   },
   formWrapper: {
     flex: 1,
@@ -375,119 +348,155 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 30,
+    paddingBottom: 28,
   },
   formCard: {
     backgroundColor: colors.cardBg,
     marginHorizontal: 16,
     borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    paddingHorizontal: 22,
+    paddingVertical: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
+  },
+  iconCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 20,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 10,
-  },
-  inputGroup: {
-    marginBottom: 16,
+    lineHeight: 20,
+    paddingHorizontal: 6,
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  resendContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
     marginBottom: 8,
-    letterSpacing: 0.3,
+  },
+  resendPrompt: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  countdownText: {
+    fontSize: 12,
+    color: colors.oldPrice,
+    fontWeight: '700',
+  },
+  resendAction: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  inputGroup: {
+    width: '100%',
+    marginBottom: 14,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.screenBg,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    paddingHorizontal: 14,
-    height: 52,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    height: 48,
   },
   inputFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
     height: '100%',
   },
   eyeButton: {
     padding: 4,
   },
-  actionButton: {
-    height: 54,
+  primaryButton: {
+    width: '100%',
+    height: 50,
     borderRadius: 14,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+      default: {},
+    }),
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  disabledButton: {
+    backgroundColor: colors.disabledBg,
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 10,
-    flexWrap: 'wrap',
-  },
-  resendPrompt: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  countdownText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.oldPrice,
-  },
-  resendAction: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.accent,
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   bottomLink: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 22,
   },
   bottomLinkAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
   },
 });
 

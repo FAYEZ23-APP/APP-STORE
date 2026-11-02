@@ -22,6 +22,14 @@ public class Shipment
     public string? SettlementReference { get; set; }
     public int? SettledByAdminId { get; set; }
     public bool FlaggedForReview { get; set; } = false;
+    public string? BuildingNumber { get; set; }
+    public string? Floor { get; set; }
+    public string? Apartment { get; set; }
+    public string? Landmark { get; set; }
+    public double? DeliveryLatitude { get; set; }
+    public double? DeliveryLongitude { get; set; }
+    public DateTime? EscrowReleaseAt { get; set; }
+    public bool AllowInspection { get; set; } = true;
 
     public Order Order { get; set; } = null!;
     public User Seller { get; set; } = null!;

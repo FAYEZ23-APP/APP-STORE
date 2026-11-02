@@ -3,6 +3,10 @@
   "common": {
     "loading": "Loading...",
     "error": "An error occurred, please try again",
+    "errorBoundaryTitle": "Something went wrong",
+    "errorBoundarySubtitle": "This error was caught safely to prevent the app from crashing.",
+    "errorBoundaryDetails": "Error Details:",
+    "errorBoundaryProductionMsg": "We apologize for this unexpected error. The issue has been logged and we are working to resolve it.",
     "success": "Success",
     "ok": "OK",
     "retry": "Retry",
@@ -50,7 +54,8 @@
     "days_two": "2 days",
     "days_few": "{{count}} days",
     "days_many": "{{count}} days",
-    "days_other": "{{count}} days"
+    "days_other": "{{count}} days",
+    "appName": "Egypt Marketplace"
   },
   "nav": {
     "home": "Home",
@@ -188,7 +193,10 @@
     "reportReasonAbuse": "Abusive or offensive language",
     "reportReasonFake": "Fake or misleading review",
     "reportSubmitSuccess": "Your report has been submitted and will be reviewed by moderation.",
-    "editedTag": "(Edited)"
+    "editedTag": "(Edited)",
+    "allowInspectionTitle": "Open-Box Inspection Allowed",
+    "allowInspectionDesc": "Inspect the package and verify contents before paying the courier.",
+    "whatsappInquiry": "Inquire via WhatsApp"
   },
   "cart": {
     "title": "Shopping Cart",
@@ -212,7 +220,9 @@
     "empty": "Your cart is empty",
     "goToCatalog": "Browse Catalog",
     "total": "Total",
-    "checkout": "Checkout"
+    "checkout": "Checkout",
+    "multiSellerParcelTitle": "Multi-Merchant Packages",
+    "multiSellerParcelDesc": "Your cart contains items from {{count}} different sellers, dispatched in separate parcels."
   },
   "checkout": {
     "title": "Checkout",
@@ -307,7 +317,9 @@
     "cancelOrderConfirmMessage": "Are you sure you want to cancel this order? Any wallet payment will be refunded and items returned to stock.",
     "cancelOrderSuccess": "Order cancelled successfully and funds refunded.",
     "cancelling": "Cancelling...",
-    "orderCancelledBadge": "Cancelled"
+    "orderCancelledBadge": "Cancelled",
+    "confirmed": "Confirmed for Delivery",
+    "confirmOrder": "Confirm Order"
   },
   "shipmentStatus": {
     "Created": "Shipment Created",
@@ -327,6 +339,7 @@
   "returnStatus": {
     "Pending": "Pending Review",
     "Approved": "Return Approved",
+    "ApprovedAwaitingReturn": "Approved, Awaiting Item Return",
     "Rejected": "Return Rejected",
     "Completed": "Completed & Refunded"
   },
@@ -519,6 +532,16 @@
     "marketingCheckbox": "I agree to receive promotional offers and updates (Optional)",
     "mustAgreeTerms": "You must explicitly agree to the Terms & Privacy Policy to continue",
     "viewPrivacyPolicy": "View Terms & Privacy Policy",
+    "privacyPolicyLink": "View Terms & Privacy Policy",
+    "privacyPolicyModalTitle": "Privacy Policy & Personal Data Protection",
+    "twoFactorTitle": "Two-Factor Authentication",
+    "twoFactorPrompt": "Enter the 6-digit verification code from your authenticator app to continue",
+    "twoFactorCodeLabel": "Verification Code (6 digits)",
+    "twoFactorCodePlaceholder": "000000",
+    "twoFactorInvalidCode": "Please enter a valid 6-digit code",
+    "twoFactorFailed": "Two-factor verification failed, please try again",
+    "backToLogin": "Back to Sign In",
+    "confirm2FA": "Confirm Sign In",
     "logout": "Sign Out",
     "signingIn": "Signing in...",
     "demoAccount": "Demo Test Account:",
@@ -564,7 +587,6 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordResetSuccess": "Password has been reset successfully. You can now sign in with your new password.",
     "resetPasswordButton": "Save New Password",
-    "backToLogin": "Back to Sign In",
     "changeIdentifier": "Change Email or Phone",
     "invalidCodeLength": "Please enter the complete 6-digit verification code",
     "passwordMinLength": "Password must be at least 6 characters long"
@@ -1133,5 +1155,24 @@
     "notFound": "Store not found or deactivated",
     "visitStore": "Visit Store",
     "sortBy": "Sort By"
+  },
+  "brand": {
+    "egypt": "Egypt",
+    "shop": "Shop",
+    "tagline": "PREMIUM MARKETPLACE"
+  },
+  "unlock": {
+    "appName": "Egypt Marketplace",
+    "subtitle": "Marketplace",
+    "registeredUser": "Registered User"
+  },
+  "network": {
+    "offlineTitle": "No Internet Connection",
+    "offlineDesc": "Check your network connection to continue",
+    "retry": "Retry"
+  },
+  "catalog": {
+    "brandBadge": "Egypt 🇪🇬",
+    "deliveryBadge": "Delivery Across Egypt"
   }
 }

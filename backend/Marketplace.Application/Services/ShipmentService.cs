@@ -496,6 +496,11 @@ public class ShipmentService : IShipmentService
             ReturnReason = shipment.ReturnReason?.ToString(),
             EtaMinDays = shipment.EtaMinDays,
             EtaMaxDays = shipment.EtaMaxDays,
+            BuildingNumber = shipment.BuildingNumber,
+            Floor = shipment.Floor,
+            Apartment = shipment.Apartment,
+            Landmark = shipment.Landmark,
+            AllowInspection = shipment.AllowInspection,
             // Privacy rule: ONLY recipient's first name and city — never phone, email, or full address
             RecipientFirstName = ExtractFirstName(order?.RecipientName),
             RecipientCity = order?.City ?? string.Empty,
@@ -534,6 +539,14 @@ public class ShipmentService : IShipmentService
             EtaMinDays = shipment.EtaMinDays,
             EtaMaxDays = shipment.EtaMaxDays,
             CreatedAt = shipment.CreatedAt,
+            BuildingNumber = shipment.BuildingNumber,
+            Floor = shipment.Floor,
+            Apartment = shipment.Apartment,
+            Landmark = shipment.Landmark,
+            DeliveryLatitude = shipment.DeliveryLatitude,
+            DeliveryLongitude = shipment.DeliveryLongitude,
+            EscrowReleaseAt = shipment.EscrowReleaseAt,
+            AllowInspection = shipment.AllowInspection,
             Items = items.Select(i => new OrderItemResponse
             {
                 ProductId = i.ProductId,
@@ -542,6 +555,264 @@ public class ShipmentService : IShipmentService
                 UnitPrice = i.UnitPrice,
                 WeightGrams = i.Product?.WeightGrams ?? 500
             }).ToList()
+        };
+    }
+
+    public async Task<AdminShipmentPagedResponse> GetAdminShipmentsAsync(string? status, int? orderId, int? sellerId, int page, int pageSize)
+    {
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 || pageSize > 100 ? 20 : pageSize;
+
+        var query = _uow.Shipments.Query();
+
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ShipmentStatus>(status.Trim(), true, out var filterStatus))
+        {
+            query = query.Where(s => s.Status == filterStatus);
+        }
+
+        if (orderId.HasValue && orderId.Value > 0)
+        {
+            query = query.Where(s => s.OrderId == orderId.Value);
+        }
+
+        if (sellerId.HasValue && sellerId.Value > 0)
+        {
+            query = query.Where(s => s.SellerId == sellerId.Value);
+        }
+
+        int totalCount = query.Count();
+
+        var shipments = query
+            .OrderByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        if (!shipments.Any())
+        {
+            return new AdminShipmentPagedResponse
+            {
+                Items = new List<AdminShipmentDetailResponse>(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        var shipmentIds = shipments.Select(s => s.Id).ToList();
+        var orderIds = shipments.Select(s => s.OrderId).Distinct().ToList();
+        var sellerIds = shipments.Select(s => s.SellerId).Distinct().ToList();
+
+        var orders = (await _uow.Orders.FindAsync(o => orderIds.Contains(o.Id))).ToDictionary(o => o.Id);
+        var buyerIds = orders.Values.Select(o => o.BuyerId).Distinct().ToList();
+
+        var userIds = sellerIds.Concat(buyerIds).Distinct().ToList();
+        var users = (await _uow.Users.FindAsync(u => userIds.Contains(u.Id))).ToDictionary(u => u.Id);
+
+        var allItems = (await _uow.OrderItems.FindAsync(i => shipmentIds.Contains(i.ShipmentId))).ToList();
+        var productIds = allItems.Select(i => i.ProductId).Distinct().ToList();
+        var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        var shipmentDetails = shipments.Select(s =>
+        {
+            orders.TryGetValue(s.OrderId, out var order);
+            User? buyer = null;
+            if (order != null) users.TryGetValue(order.BuyerId, out buyer);
+            users.TryGetValue(s.SellerId, out var seller);
+            var items = allItems.Where(i => i.ShipmentId == s.Id).ToList();
+
+            return MapAdminShipmentDetail(s, order, buyer, seller, items, products);
+        }).ToList();
+
+        return new AdminShipmentPagedResponse
+        {
+            Items = shipmentDetails,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<AdminShipmentDetailResponse> UpdateAdminShipmentStatusAsync(int adminId, int shipmentId, AdminUpdateShipmentStatusRequest request)
+    {
+        var shipment = await _uow.Shipments.GetByIdAsync(shipmentId);
+        if (shipment == null)
+            throw new NotFoundException($"Shipment with ID {shipmentId} not found.");
+
+        var order = await _uow.Orders.GetByIdAsync(shipment.OrderId);
+        if (order == null)
+            throw new NotFoundException($"Parent Order with ID {shipment.OrderId} not found.");
+
+        var oldStatus = shipment.Status;
+        ShipmentStatus targetStatus = shipment.Status;
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            if (!Enum.TryParse<ShipmentStatus>(request.Status.Trim(), true, out targetStatus))
+                throw new BadRequestException($"Invalid shipment status: '{request.Status}'.");
+        }
+
+        ReturnReason? parsedReturnReason = null;
+        if (!string.IsNullOrWhiteSpace(request.ReturnReason) && Enum.TryParse<ReturnReason>(request.ReturnReason.Trim(), true, out var reasonVal))
+        {
+            parsedReturnReason = reasonVal;
+        }
+
+        if (targetStatus == ShipmentStatus.Returned)
+        {
+            shipment.ReturnReason = parsedReturnReason ?? ReturnReason.RefusedByBuyer;
+
+            if (shipment.ReturnReason == ReturnReason.RefusedByBuyer)
+            {
+                var buyer = await _uow.Users.GetByIdAsync(order.BuyerId);
+                if (buyer != null)
+                {
+                    buyer.CodRefusalCount += 1;
+                    _uow.Users.Update(buyer);
+                }
+            }
+
+            if (oldStatus != ShipmentStatus.Returned)
+            {
+                var shipmentItems = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
+                foreach (var item in shipmentItems)
+                {
+                    if (item.VariantId.HasValue)
+                    {
+                        await _uow.ExecuteSqlRawAsync(
+                            @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                            item.Quantity,
+                            item.VariantId.Value);
+                    }
+                    else
+                    {
+                        await _uow.ExecuteSqlRawAsync(
+                            @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                            item.Quantity,
+                            item.ProductId);
+                    }
+                }
+            }
+        }
+        else if (targetStatus == ShipmentStatus.Delivered)
+        {
+            shipment.DeliveredAt ??= DateTime.UtcNow;
+            int holdDays = _configuration.GetValue<int>("Wallet:SettlementHoldDays", 7);
+            shipment.EscrowReleaseAt ??= DateTime.UtcNow.AddDays(holdDays);
+        }
+
+        shipment.Status = targetStatus;
+
+        if (!string.IsNullOrWhiteSpace(request.TrackingNumber))
+        {
+            shipment.TrackingNumber = request.TrackingNumber.Trim();
+        }
+
+        if (request.SettleCod)
+        {
+            shipment.IsCodSettled = true;
+            shipment.CodSettledAt = DateTime.UtcNow;
+            shipment.SettledByAdminId = adminId;
+            shipment.ReceivedAmount = request.ReceivedAmount ?? shipment.CodAmount;
+            if (!string.IsNullOrWhiteSpace(request.SettlementReference))
+            {
+                shipment.SettlementReference = request.SettlementReference.Trim();
+            }
+        }
+
+        _uow.Shipments.Update(shipment);
+        await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, targetStatus);
+
+        await _uow.AdminAuditLogs.AddAsync(new AdminAuditLog
+        {
+            AdminId = adminId,
+            Action = "AdminUpdateShipmentStatus",
+            EntityType = "Shipment",
+            EntityId = shipment.Id.ToString(),
+            Details = $"Shipment #{shipment.Id} updated from {oldStatus} to {targetStatus}. Tracking: '{shipment.TrackingNumber}'. SettleCod: {request.SettleCod}. Notes: {request.AdminNotes}",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _uow.SaveChangesAsync();
+
+        if (targetStatus == ShipmentStatus.Delivered && oldStatus != ShipmentStatus.Delivered)
+        {
+            await _walletService.ProcessShipmentDeliveredAsync(shipment.Id);
+        }
+
+        if (oldStatus != targetStatus)
+        {
+            await _notificationService.NotifyShipmentStatusChangedAsync(shipment.Id, targetStatus);
+        }
+
+        var buyerUser = await _uow.Users.GetByIdAsync(order.BuyerId);
+        var sellerUser = await _uow.Users.GetByIdAsync(shipment.SellerId);
+        var itemsList = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
+        var pIds = itemsList.Select(i => i.ProductId).Distinct().ToList();
+        var prods = (await _uow.Products.FindAsync(p => pIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        return MapAdminShipmentDetail(shipment, order, buyerUser, sellerUser, itemsList, prods);
+    }
+
+    private static AdminShipmentDetailResponse MapAdminShipmentDetail(
+        Shipment s,
+        Order? order,
+        User? buyer,
+        User? seller,
+        List<OrderItem> items,
+        Dictionary<int, Product> products)
+    {
+        var itemDtos = items.Select(i => new OrderItemResponse
+        {
+            Id = i.Id,
+            ProductId = i.ProductId,
+            ProductName = products.TryGetValue(i.ProductId, out var p) ? p.Name : "Unknown",
+            VariantId = i.VariantId,
+            VariantSummary = i.VariantSummary,
+            Quantity = i.Quantity,
+            UnitPrice = i.UnitPrice,
+            WeightGrams = products.TryGetValue(i.ProductId, out var pw) ? pw.WeightGrams : 500
+        }).ToList();
+
+        return new AdminShipmentDetailResponse
+        {
+            Id = s.Id,
+            OrderId = s.OrderId,
+            SellerId = s.SellerId,
+            SellerName = seller?.Name ?? $"Seller {s.SellerId}",
+            BuyerId = order?.BuyerId ?? 0,
+            BuyerName = buyer?.Name ?? "Buyer",
+            BuyerPhone = buyer?.Phone ?? string.Empty,
+            Status = s.Status.ToString(),
+            TrackingNumber = s.TrackingNumber,
+            DeliveryMethod = order?.DeliveryMethod.ToString() ?? "Courier",
+            DeliveryCost = s.DeliveryCost,
+            CodAmount = s.CodAmount,
+            IsCodSettled = s.IsCodSettled,
+            CodSettledAt = s.CodSettledAt,
+            FlaggedForReview = s.FlaggedForReview,
+            ReceivedAmount = s.ReceivedAmount,
+            SettlementReference = s.SettlementReference,
+            ReturnReason = s.ReturnReason?.ToString(),
+            EtaMinDays = s.EtaMinDays,
+            EtaMaxDays = s.EtaMaxDays,
+            RecipientName = order?.RecipientName ?? string.Empty,
+            RecipientPhone = order?.RecipientPhone ?? string.Empty,
+            Governorate = order?.Governorate ?? string.Empty,
+            City = order?.City ?? string.Empty,
+            Area = order?.Area ?? string.Empty,
+            StreetBuilding = order?.StreetBuilding ?? string.Empty,
+            BuildingNumber = s.BuildingNumber ?? order?.BuildingNumber,
+            Floor = s.Floor ?? order?.Floor,
+            Apartment = s.Apartment ?? order?.Apartment,
+            Landmark = s.Landmark ?? order?.Landmark,
+            DeliveryLatitude = s.DeliveryLatitude ?? order?.DeliveryLatitude,
+            DeliveryLongitude = s.DeliveryLongitude ?? order?.DeliveryLongitude,
+            EscrowReleaseAt = s.EscrowReleaseAt,
+            AllowInspection = s.AllowInspection,
+            CreatedAt = s.CreatedAt,
+            DeliveredAt = s.DeliveredAt,
+            Items = itemDtos
         };
     }
 }

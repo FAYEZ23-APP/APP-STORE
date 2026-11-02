@@ -2,9 +2,10 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { getFreePort, getValidatedTestDb, stopServer } = require('./tests/helpers/test_harness');
 
-const PORT = 5195;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 
 function getTestDbConnectionString() {
   if (process.env.TEST_DB && process.env.TEST_DB.trim()) {
@@ -86,8 +87,10 @@ function makeAdminToken(baseToken, jwtKey) {
 }
 
 async function main() {
-  const testDb = getTestDbConnectionString();
-  console.log('Running Admin Portal E2E tests against PostgreSQL TEST_DB...');
+  const { connStr: testDb, dbName } = getValidatedTestDb();
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
+  console.log(`Running Admin Portal E2E tests against PostgreSQL TEST_DB (${dbName}) on ${BASE_URL}...`);
 
   const serverLogPath = path.join(__dirname, 'server_admin_test.log');
   const serverLogFd = fs.openSync(serverLogPath, 'w');
@@ -243,15 +246,7 @@ async function main() {
 
     console.log('ALL ADMIN PORTAL POSTGRESQL E2E CHECKS PASSED!');
   } finally {
-    try {
-      execSync(`taskkill /pid ${serverProc.pid} /T /F`, { stdio: 'ignore' });
-    } catch {
-      serverProc.kill();
-    }
-    try {
-      fs.closeSync(serverLogFd);
-      fs.unlinkSync(serverLogPath);
-    } catch {}
+    stopServer(serverProc, serverLogFd, serverLogPath);
   }
 }
 

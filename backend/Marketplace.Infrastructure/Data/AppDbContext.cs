@@ -41,6 +41,8 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasPostgresExtension("pg_trgm");
+
         // --- User ------------------------------------------------
         modelBuilder.Entity<User>(entity =>
         {
@@ -71,6 +73,10 @@ public class AppDbContext : DbContext
 
             entity.Property(u => u.PhoneVerifiedAt)
                 .IsRequired(false);
+
+            entity.Property(u => u.CodRefusalCount)
+                .IsRequired()
+                .HasDefaultValue(0);
 
             entity.Property(u => u.TokenVersion)
                 .IsRequired()
@@ -262,6 +268,11 @@ public class AppDbContext : DbContext
             entity.Property(ua => ua.CreatedAt)
                 .IsRequired();
 
+            entity.HasIndex(ua => ua.UserId)
+                .IsUnique()
+                .HasFilter("\"IsDefault\" = TRUE")
+                .HasDatabaseName("IX_UserAddresses_UserId_SingleDefault");
+
             entity.HasOne(ua => ua.User)
                 .WithMany(u => u.Addresses)
                 .HasForeignKey(ua => ua.UserId)
@@ -316,6 +327,10 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(p => p.Id);
 
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_Products_Stock_And_Price_NonNegative",
+                "\"Stock\" >= 0 AND \"Price\" >= 0 AND (\"OldPrice\" IS NULL OR \"OldPrice\" >= 0)"));
+
             entity.Property(p => p.Name)
                 .IsRequired()
                 .HasMaxLength(200);
@@ -339,7 +354,10 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue("");
 
-            entity.HasIndex(p => p.SearchVector);
+            entity.HasIndex(p => p.SearchVector)
+                .HasMethod("gin")
+                .HasOperators("gin_trgm_ops")
+                .HasDatabaseName("IX_Products_SearchVector_GinTrgm");
 
             entity.Property(p => p.Description)
                 .HasMaxLength(2000);
@@ -381,6 +399,10 @@ public class AppDbContext : DbContext
             entity.Property(p => p.IsDeleted)
                 .IsRequired()
                 .HasDefaultValue(false);
+
+            entity.Property(p => p.AllowInspection)
+                .IsRequired()
+                .HasDefaultValue(true);
 
             entity.Property(p => p.CreatedAt)
                 .IsRequired();
@@ -476,12 +498,37 @@ public class AppDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue(PaymentMethod.OnReceipt);
 
+            entity.Property(o => o.BuildingNumber)
+                .HasMaxLength(50);
+
+            entity.Property(o => o.Floor)
+                .HasMaxLength(50);
+
+            entity.Property(o => o.Apartment)
+                .HasMaxLength(50);
+
+            entity.Property(o => o.Landmark)
+                .HasMaxLength(250);
+
+            entity.Property(o => o.DeliveryLatitude);
+
+            entity.Property(o => o.DeliveryLongitude);
+
+            entity.Property(o => o.IsBuyerConfirmed)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(o => o.ConfirmedAt);
+
             entity.Property(o => o.IdempotencyKey)
                 .HasMaxLength(128);
 
             entity.HasIndex(o => new { o.BuyerId, o.IdempotencyKey })
                 .IsUnique()
                 .HasFilter("\"IdempotencyKey\" IS NOT NULL AND \"IdempotencyKey\" <> ''");
+
+            entity.HasIndex(o => new { o.BuyerId, o.CreatedAt })
+                .HasDatabaseName("IX_Orders_BuyerId_CreatedAt");
 
             entity.Property(o => o.CreatedAt)
                 .IsRequired();
@@ -547,6 +594,28 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            entity.Property(s => s.BuildingNumber)
+                .HasMaxLength(50);
+
+            entity.Property(s => s.Floor)
+                .HasMaxLength(50);
+
+            entity.Property(s => s.Apartment)
+                .HasMaxLength(50);
+
+            entity.Property(s => s.Landmark)
+                .HasMaxLength(250);
+
+            entity.Property(s => s.DeliveryLatitude);
+
+            entity.Property(s => s.DeliveryLongitude);
+
+            entity.Property(s => s.EscrowReleaseAt);
+
+            entity.Property(s => s.AllowInspection)
+                .IsRequired()
+                .HasDefaultValue(true);
+
             entity.HasOne(s => s.Order)
                 .WithMany(o => o.Shipments)
                 .HasForeignKey(s => s.OrderId)
@@ -567,6 +636,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<OrderItem>(entity =>
         {
             entity.HasKey(oi => oi.Id);
+
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_OrderItems_Quantity_And_Price_Valid",
+                "\"Quantity\" > 0 AND \"UnitPrice\" >= 0"));
 
             entity.Property(oi => oi.Quantity)
                 .IsRequired();
@@ -626,6 +699,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<VendorWallet>(entity =>
         {
             entity.HasKey(w => w.Id);
+
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_VendorWallets_Balances_NonNegative",
+                "\"Balance\" >= 0 AND \"PendingBalance\" >= 0"));
+
+            entity.Property(w => w.Version)
+                .IsRowVersion();
 
             entity.HasIndex(w => w.SellerId)
                 .IsUnique();
@@ -691,6 +771,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PayoutRequest>(entity =>
         {
             entity.HasKey(p => p.Id);
+
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_PayoutRequests_Amount_Positive",
+                "\"Amount\" > 0"));
+
+            entity.Property(p => p.Version)
+                .IsRowVersion();
 
             entity.Property(p => p.Amount)
                 .HasColumnType("decimal(18,2)")
@@ -831,6 +918,10 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(pv => pv.Id);
 
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_ProductVariants_Stock_And_Price_NonNegative",
+                "\"Stock\" >= 0 AND (\"PriceOverride\" IS NULL OR \"PriceOverride\" >= 0)"));
+
             entity.Property(pv => pv.Sku)
                 .HasMaxLength(100);
 
@@ -966,7 +1057,13 @@ public class AppDbContext : DbContext
             entity.Property(r => r.Status)
                 .IsRequired()
                 .HasConversion<string>()
-                .HasMaxLength(20);
+                .HasMaxLength(30);
+
+            entity.Property(r => r.Category)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(ReturnCategory.Standard14Day);
 
             entity.Property(r => r.RefundAmount)
                 .IsRequired()
@@ -976,6 +1073,8 @@ public class AppDbContext : DbContext
                 .IsRequired();
 
             entity.Property(r => r.ResolvedAt);
+
+            entity.Property(r => r.ReceivedAt);
 
             entity.HasOne(r => r.Order)
                 .WithMany()
@@ -1007,6 +1106,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BuyerWallet>(entity =>
         {
             entity.HasKey(w => w.Id);
+
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_BuyerWallets_Balance_NonNegative",
+                "\"Balance\" >= 0"));
+
+            entity.Property(w => w.Version)
+                .IsRowVersion();
 
             entity.Property(w => w.Balance)
                 .IsRequired()
@@ -1102,6 +1208,7 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(r => r.UserId);
             entity.HasIndex(r => new { r.UserId, r.DeviceId });
+            entity.HasIndex(r => r.ExpiresAt);
 
             entity.HasOne(r => r.User)
                 .WithMany(u => u.RefreshTokens)
@@ -1241,5 +1348,18 @@ public class AppDbContext : DbContext
                 .HasForeignKey(a => a.AdminId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+    }
+
+    /// <summary>
+    /// Guard against destructive testing operations on non-test databases.
+    /// Throws InvalidOperationException unless Database name ends with '_test'.
+    /// </summary>
+    public void AssertSafeForDestructiveOperations()
+    {
+        var dbName = Database.GetDbConnection().Database;
+        if (string.IsNullOrWhiteSpace(dbName) || !dbName.EndsWith("_test", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Destructive operation blocked: Database '{dbName}' is not a test database (must end with '_test').");
+        }
     }
 }

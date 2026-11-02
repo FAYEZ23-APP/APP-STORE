@@ -4,9 +4,10 @@
 const { spawn, execFileSync, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5231;
-const BASE = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const PARALLEL = 5;
 const INITIAL_STOCK = 5;
 
@@ -32,12 +33,19 @@ if (!dbName || !dbName.endsWith('_test')) {
 console.log(`Suite provider: POSTGRES | DB name: ${dbName}`);
 
 const pgCheckDll = path.join(__dirname, 'tools', 'PgCheck', 'out', 'PgCheck.dll');
+const pgCheckConn = `${testDb};Pooling=false;Timeout=45;Command Timeout=45`;
 function pgCheck(...args) {
-  const out = execFileSync('dotnet', [pgCheckDll, ...args], {
-    env: { ...process.env, PGCHECK_CONN: testDb },
-    encoding: 'utf8',
-  });
-  return JSON.parse(out.trim());
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const out = execFileSync('dotnet', [pgCheckDll, ...args], {
+        env: { ...process.env, PGCHECK_CONN: pgCheckConn },
+        encoding: 'utf8',
+      });
+      return JSON.parse(out.trim());
+    } catch (err) {
+      if (attempt === 1) throw err;
+    }
+  }
 }
 
 let failed = 0;
@@ -59,18 +67,21 @@ async function waitForHealth(ms = 60000) {
 }
 
 async function main() {
+  PORT = await getFreePort();
+  BASE = `http://localhost:${PORT}`;
   const logPath = path.join(__dirname, 'server_batch6_idempotency.log');
   const fd = fs.openSync(logPath, 'w');
-  const proc = spawn('dotnet', ['run', '--no-build', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
+  const proc = spawn('dotnet', ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
     cwd: path.join(__dirname, '..'),
     env: {
       ...process.env,
       ASPNETCORE_ENVIRONMENT: 'Development',
+      TEST_DB: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       ConnectionStrings__DefaultConnection: `${testDb};Minimum Pool Size=5;Maximum Pool Size=30;Timeout=45`,
       Jwt__Key: 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch6Idem!',
       Auth__CodeSecret: 'IntegrationTestCodeSecret_AtLeast32CharsLong!',
       Auth__RequireVerification: 'false',
-      Database__AutoMigrate: 'true', // applies migrations to the _test database only
+      Database__AutoMigrate: 'false',
       RateLimiting__AuthPermitLimit: '200',
     },
     stdio: ['ignore', fd, fd],
@@ -163,8 +174,7 @@ async function main() {
     const hits = (logText.match(/23505[^\n]*IX_Orders_BuyerId_IdempotencyKey|IX_Orders_BuyerId_IdempotencyKey[^\n]*23505/g) || []).length;
     const hits2 = (logText.match(/duplicate key value violates unique constraint "IX_Orders_BuyerId_IdempotencyKey"/g) || []).length;
     console.log(`\n  INFO: unique-violation (23505) on IX_Orders_BuyerId_IdempotencyKey observed in server log: ${Math.max(hits, hits2)} time(s) (race caught by the DB index and handled)`);  } finally {
-    proc.kill('SIGTERM');
-    try { fs.closeSync(fd); } catch {}
+    stopServer(proc, fd, logPath);
   }
 
   console.log(failed === 0 ? '\nALL IDEMPOTENCY CONCURRENCY CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

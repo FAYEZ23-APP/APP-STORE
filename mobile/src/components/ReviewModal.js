@@ -305,7 +305,7 @@ export default function ReviewModal({
               <Text style={[tw`text-lg font-bold`, { color: colors.textPrimary }]}>
                 {editingReview ? t('product.editReview') : t('product.writeReview')}
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={onClose}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -332,7 +332,7 @@ export default function ReviewModal({
               ]}
             >
               {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   key={`star-${star}`}
                   onPress={() => setRating(star)}
                   activeOpacity={0.7}
@@ -423,7 +423,7 @@ export default function ReviewModal({
                         resizeMode="cover"
                       />
 
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         onPress={() => handleRemovePhoto(item.id)}
                         style={[
                           tw`absolute top-1 right-1 w-5 h-5 rounded-full items-center justify-center`,
@@ -443,7 +443,7 @@ export default function ReviewModal({
                       )}
 
                       {item.status === 'error' && (
-                        <TouchableOpacity
+                        <TouchableOpacity accessible={true} accessibilityRole="button"
                           onPress={() => handleRetryPhoto(item.id)}
                           style={tw`absolute inset-0 bg-red-900/80 items-center justify-center p-1`}
                         >
@@ -458,7 +458,7 @@ export default function ReviewModal({
                 })}
 
                 {photos.length < MAX_REVIEW_PHOTOS && (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={handlePickPhotos}
                     style={[
                       tw`rounded-xl border items-center justify-center`,
@@ -485,14 +485,14 @@ export default function ReviewModal({
             </View>
 
             {/* Submit Action */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={handleSubmit}
               disabled={submitting || anyUploading}
               activeOpacity={0.8}
               style={[
                 tw`py-3.5 rounded-xl items-center justify-center flex-row`,
                 {
-                  backgroundColor: colors.accent,
+                  backgroundColor: colors.primary,
                   opacity: submitting || anyUploading ? 0.65 : 1,
                 },
               ]}

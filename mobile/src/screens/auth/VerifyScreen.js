@@ -11,8 +11,8 @@ import {
   Animated,
   StyleSheet,
   StatusBar,
+  I18nManager,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { AuthContext } from '../../context/AuthContext';
@@ -24,7 +24,8 @@ import OtpInput from '../../components/OtpInput';
 const RESEND_COOLDOWN_SECONDS = 60;
 
 const VerifyScreen = ({ route, navigation }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language?.startsWith('ar') || I18nManager.isRTL;
   const { verify } = useContext(AuthContext);
 
   const {
@@ -121,28 +122,31 @@ const VerifyScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.secondary} />
 
-      {/* Header gradient */}
-      <LinearGradient
-        colors={['#0F172A', '#1E3A5F', '#0F172A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+      {/* Brand Charcoal Header */}
+      <View style={styles.header}>
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
+
         <TouchableOpacity
-          style={styles.backButton}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
+          style={[styles.backButton, isRTL ? styles.backButtonRTL : styles.backButtonLTR]}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <View style={styles.logoGradient}>
-          <Ionicons name="shield-checkmark" size={32} color="#fff" />
+        <View style={styles.headerContent}>
+          <View style={styles.iconEmblem}>
+            <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.headerTitle}>{t('auth.verifyTitle')}</Text>
         </View>
-        <Text style={styles.headerTitle}>{t('auth.verifyTitle')}</Text>
-      </LinearGradient>
+      </View>
 
       {/* Main card */}
       <KeyboardAvoidingView
@@ -182,30 +186,29 @@ const VerifyScreen = ({ route, navigation }) => {
 
             {/* Verify Button */}
             <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => handleVerify(code)}
               disabled={loading || code.length !== 6}
               activeOpacity={0.85}
-              style={{ marginTop: 12 }}
+              style={[
+                styles.actionButton,
+                (loading || code.length !== 6) && styles.actionButtonDisabled,
+              ]}
             >
-              <LinearGradient
-                colors={
-                  loading || code.length !== 6
-                    ? [colors.disabledBg, colors.disabledBg]
-                    : [colors.accent, '#FF8C33']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.actionButton}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.actionButtonText}>{t('auth.verifyButton')}</Text>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
-                  </>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <View style={styles.buttonInner}>
+                  <Text style={styles.actionButtonText}>{t('auth.verifyButton')}</Text>
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={20}
+                    color="#FFFFFF"
+                    style={isRTL ? styles.iconRTL : styles.iconLTR}
+                  />
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Resend Section */}
@@ -216,9 +219,14 @@ const VerifyScreen = ({ route, navigation }) => {
                   {t('auth.resendCodeIn', { seconds: countdown })}
                 </Text>
               ) : (
-                <TouchableOpacity onPress={handleResend} disabled={resending}>
+                <TouchableOpacity
+                  accessible={true}
+                  accessibilityRole="button"
+                  onPress={handleResend}
+                  disabled={resending}
+                >
                   {resending ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={styles.resendAction}>{t('auth.resendCode')}</Text>
                   )}
@@ -228,7 +236,11 @@ const VerifyScreen = ({ route, navigation }) => {
 
             {/* Change identifier / back */}
             <View style={styles.bottomLink}>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => navigation.goBack()}
+              >
                 <Text style={styles.changeLinkText}>{t('auth.changeIdentifier')}</Text>
               </TouchableOpacity>
             </View>
@@ -244,46 +256,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.screenBg,
   },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
-    paddingBottom: 46,
+  header: {
+    backgroundColor: colors.secondary,
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    paddingBottom: 48,
     alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D323B',
+  },
+  decorCircle1: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(200, 16, 46, 0.18)',
+  },
+  decorCircle2: {
+    position: 'absolute',
+    bottom: -20,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(214, 163, 58, 0.12)',
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 44,
-    left: 20,
+    top: Platform.OS === 'ios' ? 52 : 40,
     zIndex: 10,
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoGradient: {
+  backButtonLTR: {
+    left: 20,
+  },
+  backButtonRTL: {
+    right: 20,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  iconEmblem: {
     width: 60,
     height: 60,
     borderRadius: 20,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+      default: {},
+    }),
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
+    fontWeight: '900',
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   formWrapper: {
     flex: 1,
-    marginTop: -24,
+    marginTop: -26,
   },
   scrollContent: {
     flexGrow: 1,
@@ -293,46 +347,79 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     marginHorizontal: 16,
     borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    paddingHorizontal: 22,
+    paddingVertical: 30,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     paddingHorizontal: 10,
   },
   actionButton: {
-    height: 54,
+    height: 52,
     borderRadius: 14,
-    flexDirection: 'row',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
+  },
+  actionButtonDisabled: {
+    backgroundColor: colors.disabledBg,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  buttonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  iconLTR: {
+    marginLeft: 8,
+  },
+  iconRTL: {
+    marginRight: 8,
   },
   resendContainer: {
     flexDirection: 'row',
@@ -342,25 +429,25 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   resendPrompt: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   countdownText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.oldPrice,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   resendAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
   },
   bottomLink: {
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 26,
   },
   changeLinkText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     textDecorationLine: 'underline',
   },

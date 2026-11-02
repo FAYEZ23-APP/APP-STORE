@@ -1,0 +1,97 @@
+﻿Missing colors: []
+RN SafeAreaView: []
+.regular usages: []
+
+> marketplacemobile@1.0.0 i18n:check
+> node scripts/check-i18n.js
+
+­ƒîÉ Validating i18n locale files and source code references...
+
+­ƒôè Translation Key Statistics:
+   - Total locale keys (in sync): 1054
+   - Static keys extracted from source: 658
+   - Dynamic namespaces detected: shipmentStatus, orderStatus, categories, returnStatus, returnReason, payoutStatus, payoutMethod, walletTxType, roles, deliveryMethod, paymentMethod
+   - Backend enum/API values verified across 11 namespaces: 52
+   - Unreferenced keys (candidates for pruning): 333
+
+Ô£à i18n check passed! Both ar.json and en.json are in 100% sync (1054 keys), all static keys exist, and all 52 backend enum/API values are covered.
+
+> marketplacemobile@1.0.0 test:biometrics
+> node tests/test_biometric_lock_state_machine_mock.js
+
+================================================================
+­ƒº¬ BIOMETRIC LOCK / UNLOCK STATE MACHINE UNIT TESTS
+================================================================
+
+Ô£à PASS: Cold start: biometrics enabled + refresh token -> transitions to LOCKED
+Ô£à PASS: Cold start: biometrics disabled -> transitions to UNLOCKED
+Ô£à PASS: Cold start: no refresh token -> transitions to LOGGED_OUT
+Ô£à PASS: Resume < 2 minutes (e.g. 45s): remains UNLOCKED
+Ô£à PASS: Resume < 2 minutes (boundary 119,999ms): remains UNLOCKED
+Ô£à PASS: Resume exactly 2 minutes (120,000ms): transitions to LOCKED
+Ô£à PASS: Resume > 2 minutes (e.g. 5m): transitions to LOCKED
+Ô£à PASS: Resume > 2 minutes but biometrics disabled: remains UNLOCKED
+Ô£à PASS: Resume > 2 minutes but no refresh token: transitions to LOGGED_OUT
+Ô£à PASS: Custom configurable timeout (e.g. 30s): locks after 31s
+Ô£à PASS: Unlock prompt: biometric success + refresh success -> transitions to UNLOCKED and resumes app
+Ô£à PASS: Unlock prompt: biometric cancelled/failed -> remains LOCKED with retry
+Ô£à PASS: Unlock prompt: biometric succeeded but backend refresh failed (401/expired) -> transitions to LOGGED_OUT
+Ô£à PASS: Fresh install detection: first run wipes credentials and marks initialized
+
+================================================================
+TOTAL: 14 | PASSED: 14 | FAILED: 0
+================================================================
+
+> marketplacemobile@1.0.0 test:search
+> node tests/test_mobile_smart_search.js
+
+
+[36m=======================================================
+   Mobile Smart Search (React Native) Test Suite       
+=======================================================[0m
+
+[35m[1/5] Mobile Search API Service (src/api/searchApi.js)[0m
+  [32mÔ£ö PASS[0m: searchApi.js exists
+  [32mÔ£ö PASS[0m: getSearchSuggestions targets /search/suggestions
+  [32mÔ£ö PASS[0m: searchProducts targets /search/products
+  [32mÔ£ö PASS[0m: searchApi supports AbortSignal cancellation
+
+[35m[2/5] Custom Hook (src/hooks/useSmartSearch.js)[0m
+  [32mÔ£ö PASS[0m: useSmartSearch.js exists
+  [32mÔ£ö PASS[0m: AsyncStorage imported
+  [32mÔ£ö PASS[0m: 250ms debounce configured
+  [32mÔ£ö PASS[0m: AbortController used for cancellation
+  [32mÔ£ö PASS[0m: AsyncStorage key @marketplace_recent_searches used
+  [32mÔ£ö PASS[0m: addRecentSearch helper defined
+  [32mÔ£ö PASS[0m: removeRecentSearch helper defined
+  [32mÔ£ö PASS[0m: clearRecentSearches helper defined
+  [32mÔ£ö PASS[0m: clearSuggestions helper defined
+
+[35m[3/5] MobileSearchScreen Component (src/screens/buyer/MobileSearchScreen.js)[0m
+  [32mÔ£ö PASS[0m: MobileSearchScreen.js exists
+  [32mÔ£ö PASS[0m: keyboardShouldPersistTaps="handled" enabled on scroll views
+  [32mÔ£ö PASS[0m: Section 1: DidYouMean chip supported
+  [32mÔ£ö PASS[0m: Section 2: Suggested Close Keywords with auto-fill arrow supported
+  [32mÔ£ö PASS[0m: Section 3: Matching Categories chips supported
+  [32mÔ£ö PASS[0m: Section 4: Instant Product preview cards supported
+  [32mÔ£ö PASS[0m: Section 5: Recent Searches supported when query is empty
+  [32mÔ£ö PASS[0m: 2-column FlatList grid implemented for search results
+  [32mÔ£ö PASS[0m: Infinite scroll pagination (onEndReached) supported
+  [32mÔ£ö PASS[0m: Pull-to-refresh supported
+  [32mÔ£ö PASS[0m: Filter and Sort Modal implemented
+  [32mÔ£ö PASS[0m: Active filters count badge implemented
+  [32mÔ£ö PASS[0m: Empty state displays popular search keyword chips
+
+[35m[4/5] Navigation Wiring[0m
+  [32mÔ£ö PASS[0m: Search route pointing to MobileSearchScreen registered in AppNavigator
+  [32mÔ£ö PASS[0m: CatalogScreen search bar navigates to Search screen
+
+[35m[5/5] i18n Translation Key Parity[0m
+  [32mÔ£ö PASS[0m: ar.json contains search namespace
+  [32mÔ£ö PASS[0m: en.json contains search namespace
+  [32mÔ£ö PASS[0m: Exact key parity in mobile search namespace: AR=39, EN=39
+
+[36m=======================================================
+   Verification Complete: 31 Passed, 0 Failed
+=======================================================[0m
+

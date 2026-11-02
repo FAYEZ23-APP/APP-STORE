@@ -4,9 +4,10 @@ const { spawn, execFileSync, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5233;
-const BASE = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const JWT_KEY = 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch8Auth!';
 
 function getTestDb() {
@@ -69,17 +70,21 @@ async function waitForHealth(ms = 60000) {
 }
 
 async function main() {
+  PORT = await getFreePort();
+  BASE = `http://localhost:${PORT}`;
   const logPath = path.join(__dirname, 'server_batch8_auth.log');
   const fd = fs.openSync(logPath, 'w');
-  const proc = spawn('dotnet', ['run', '--no-build', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
+  const proc = spawn('dotnet', ['run', '--no-build', '--no-launch-profile', '--project', 'Marketplace.API/Marketplace.API.csproj', '--urls', BASE], {
     cwd: path.join(__dirname, '..'),
     env: {
       ...process.env,
       ASPNETCORE_ENVIRONMENT: 'Development',
+      TEST_DB: `${testDb};Minimum Pool Size=5;Maximum Pool Size=20;Timeout=45`,
       ConnectionStrings__DefaultConnection: `${testDb};Minimum Pool Size=5;Maximum Pool Size=20;Timeout=45`,
       Jwt__Key: JWT_KEY,
       Auth__CodeSecret: 'IntegrationTestCodeSecret_AtLeast32CharsLong!',
       Auth__RequireVerification: 'false',
+      Database__AutoMigrate: 'false',
       RateLimiting__AuthPermitLimit: '500',
     },
     stdio: ['ignore', fd, fd],
@@ -183,8 +188,7 @@ async function main() {
     check(orderFinal.status === 'Delivered', `Order status successfully updated to Delivered by Admin (Got ${orderFinal.status})`);
 
   } finally {
-    proc.kill('SIGTERM');
-    try { fs.closeSync(fd); } catch {}
+    stopServer(proc, fd, logPath);
   }
 
   console.log(failed === 0 ? '\nALL D-005 ORDER STATUS AUTHORIZATION CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

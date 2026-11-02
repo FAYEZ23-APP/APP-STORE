@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
   StatusBar,
   I18nManager,
+  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import tw from 'twrnc';
 import { colors } from '../../theme/colors';
 import { promptBiometricAuth } from '../../utils/biometrics';
+import BrandLogo from '../../components/common/BrandLogo';
 
 export default function UnlockScreen({
   userName,
@@ -44,10 +45,14 @@ export default function UnlockScreen({
           await onUnlockSuccess();
         }
       } else {
-        setErrorMessage(t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.'));
+        setErrorMessage(
+          t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.')
+        );
       }
     } catch {
-      setErrorMessage(t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.'));
+      setErrorMessage(
+        t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.')
+      );
     } finally {
       setIsAuthenticating(false);
     }
@@ -64,82 +69,94 @@ export default function UnlockScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-      <LinearGradient
-        colors={['#0F172A', '#1E293B', '#0F172A']}
-        style={styles.gradient}
-      >
-        <View style={styles.content}>
-          {/* App Branding */}
-          <View style={styles.logoBadge}>
-            <MaterialCommunityIcons name="shield-lock-outline" size={44} color="#38BDF8" />
-          </View>
-          <Text style={styles.appTitle}>سوق مصر</Text>
-          <Text style={styles.appSubtitle}>Marketplace</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#14171B" />
 
-          {/* User Identifier */}
-          <View style={styles.userCard}>
-            <MaterialCommunityIcons name="account-circle-outline" size={20} color="#94A3B8" />
-            <Text style={[styles.userName, isRTL ? tw`mr-2` : tw`ml-2`]} numberOfLines={1}>
-              {userName || userEmail || 'مستخدم مسجل'}
-            </Text>
-          </View>
+      {/* Ambient background lighting */}
+      <View style={styles.decorCircleRed} />
+      <View style={styles.decorCircleGold} />
 
-          {/* Biometric Icon & Prompt */}
+      <View style={styles.content}>
+        {/* App Branding */}
+        <View style={styles.brandContainer}>
+          <BrandLogo variant="dark" size="md" />
+        </View>
+
+        <Text style={styles.appTitle}>{t('unlock.appName', 'سوق مصر')}</Text>
+        <Text style={styles.appSubtitle}>
+          {t('unlock.subtitle', 'منصة التجارة الإلكترونية الأولى في مصر')}
+        </Text>
+
+        {/* User Identifier Card */}
+        <View style={styles.userCard}>
+          <MaterialCommunityIcons name="account-circle-outline" size={18} color="#D8D4CF" />
+          <Text style={[styles.userName, isRTL ? tw`mr-2` : tw`ml-2`]} numberOfLines={1}>
+            {userName || userEmail || t('unlock.registeredUser', 'المستخدم المسجل')}
+          </Text>
+        </View>
+
+        {/* Biometric Circle & Interaction */}
+        <TouchableOpacity
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={t('biometrics.unlockTitle', 'فتح التطبيق')}
+          style={styles.biometricCircle}
+          onPress={triggerBiometricPrompt}
+          disabled={isAuthenticating}
+          activeOpacity={0.8}
+        >
+          {isAuthenticating ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : (
+            <MaterialCommunityIcons name="fingerprint" size={68} color={colors.primary} />
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.promptText}>
+          {t('biometrics.unlockTitle', 'فتح التطبيق')}
+        </Text>
+        <Text style={styles.promptSubtext}>
+          {t('biometrics.unlockSubtitle', 'يرجى تأكيد البصمة لمتابعة استخدام التطبيق بأمان')}
+        </Text>
+
+        {/* Error Message */}
+        {errorMessage && (
+          <View style={styles.errorBox}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" />
+            <Text style={[styles.errorText, isRTL ? tw`mr-2` : tw`ml-2`]}>{errorMessage}</Text>
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.biometricCircle}
+            accessible={true}
+            accessibilityRole="button"
+            style={styles.retryButton}
             onPress={triggerBiometricPrompt}
             disabled={isAuthenticating}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {isAuthenticating ? (
-              <ActivityIndicator size="large" color="#38BDF8" />
-            ) : (
-              <MaterialCommunityIcons name="fingerprint" size={64} color="#38BDF8" />
-            )}
+            <MaterialCommunityIcons name="refresh" size={18} color="#FFFFFF" />
+            <Text style={[styles.retryText, isRTL ? tw`mr-2` : tw`ml-2`]}>
+              {t('biometrics.retry', 'إعادة المحاولة')}
+            </Text>
           </TouchableOpacity>
 
-          <Text style={styles.promptText}>
-            {t('biometrics.unlockTitle', 'فتح التطبيق')}
-          </Text>
-          <Text style={styles.promptSubtext}>
-            {t('biometrics.unlockSubtitle', 'يرجى تأكيد البصمة لمتابعة استخدام التطبيق')}
-          </Text>
-
-          {/* Error Message */}
-          {errorMessage && (
-            <View style={styles.errorBox}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#EF4444" />
-              <Text style={[styles.errorText, isRTL ? tw`mr-2` : tw`ml-2`]}>{errorMessage}</Text>
-            </View>
-          )}
-
-          {/* Action Buttons */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={triggerBiometricPrompt}
-              disabled={isAuthenticating}
-            >
-              <MaterialCommunityIcons name="refresh" size={18} color="#FFFFFF" />
-              <Text style={[styles.retryText, isRTL ? tw`mr-1.5` : tw`ml-1.5`]}>
-                {t('biometrics.retry', 'إعادة المحاولة')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.passwordButton}
-              onPress={onUsePassword}
-              disabled={isAuthenticating}
-            >
-              <MaterialCommunityIcons name="key-outline" size={18} color="#94A3B8" />
-              <Text style={[styles.passwordText, isRTL ? tw`mr-1.5` : tw`ml-1.5`]}>
-                {t('biometrics.usePassword', 'استخدم كلمة المرور')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            style={styles.passwordButton}
+            onPress={onUsePassword}
+            disabled={isAuthenticating}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons name="key-outline" size={18} color="#D8D4CF" />
+            <Text style={[styles.passwordText, isRTL ? tw`mr-2` : tw`ml-2`]}>
+              {t('biometrics.usePassword', 'استخدم كلمة المرور')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -147,110 +164,130 @@ export default function UnlockScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: '#14171B',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorCircleRed: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(200, 16, 46, 0.12)',
+  },
+  decorCircleGold: {
+    position: 'absolute',
+    bottom: -50,
+    left: -50,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(214, 163, 58, 0.08)',
   },
   content: {
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 2,
   },
-  logoBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  brandContainer: {
     marginBottom: 16,
   },
   appTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#F8FAFC',
-    letterSpacing: 0.5,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FAF8F5',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   appSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#A8A29E',
     marginBottom: 20,
-    letterSpacing: 1.5,
+    textAlign: 'center',
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    paddingVertical: 8,
+    backgroundColor: '#1F2329',
+    paddingVertical: 7,
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    marginBottom: 36,
+    borderColor: '#3A3F4A',
+    marginBottom: 32,
   },
   userName: {
-    color: '#CBD5E1',
+    color: '#ECE9E6',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   biometricCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    backgroundColor: 'rgba(200, 16, 46, 0.1)',
     borderWidth: 2,
-    borderColor: '#38BDF8',
+    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    marginBottom: 22,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 8,
+      },
+      default: {},
+    }),
   },
   promptText: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#F8FAFC',
+    fontWeight: '800',
+    color: '#FAF8F5',
     marginBottom: 6,
     textAlign: 'center',
   },
   promptSubtext: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#A8A29E',
     textAlign: 'center',
     marginBottom: 20,
-    paddingHorizontal: 16,
-    lineHeight: 20,
+    paddingHorizontal: 12,
+    lineHeight: 19,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: 'rgba(200, 16, 46, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 10,
-    paddingVertical: 8,
+    borderColor: 'rgba(200, 16, 46, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 9,
     paddingHorizontal: 14,
     marginBottom: 20,
-    maxWidth: '90%',
+    width: '100%',
   },
   errorText: {
     color: '#FCA5A5',
     fontSize: 12,
     flex: 1,
     lineHeight: 18,
+    fontWeight: '500',
   },
   actions: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 6,
     gap: 12,
   },
   retryButton: {
@@ -258,27 +295,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {},
+    }),
   },
   retryText: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 15,
   },
   passwordButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: '#1F2329',
     borderWidth: 1,
-    borderColor: '#475569',
-    paddingVertical: 13,
-    borderRadius: 12,
+    borderColor: '#3A3F4A',
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   passwordText: {
-    color: '#CBD5E1',
-    fontWeight: '600',
+    color: '#ECE9E6',
+    fontWeight: '700',
     fontSize: 14,
   },
 });

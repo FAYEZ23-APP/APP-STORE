@@ -50,6 +50,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<AuthResponse>> Verify(VerifyRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.VerifyAsync(request, cancellationToken);
+        SetAuthCookies(response);
         return Ok(response);
     }
 
@@ -82,7 +83,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await _authService.LoginAsync(request, cancellationToken));
+        var response = await _authService.LoginAsync(request, cancellationToken);
+        SetAuthCookies(response);
+        return Ok(response);
     }
 
     /// <summary>
@@ -131,7 +134,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AuthResponse>> Google([FromBody] GoogleAuthRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await _authService.GoogleAuthAsync(request, cancellationToken));
+        var response = await _authService.GoogleAuthAsync(request, cancellationToken);
+        SetAuthCookies(response);
+        return Ok(response);
     }
 
     /// <summary>
@@ -161,9 +166,22 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest? request, CancellationToken cancellationToken)
     {
+        request ??= new RefreshTokenRequest();
+        // Support reading refresh token from HttpOnly cookie if body is empty (WEB-003)
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieRt) && !string.IsNullOrWhiteSpace(cookieRt))
+        {
+            request = new RefreshTokenRequest
+            {
+                RefreshToken = cookieRt,
+                DeviceId = string.IsNullOrWhiteSpace(request.DeviceId) ? Request.Cookies["@marketplace_device_id"] ?? "web_browser_client" : request.DeviceId,
+                DeviceName = request.DeviceName ?? "Web Browser Client"
+            };
+        }
+
         var response = await _authService.RefreshTokenAsync(request, cancellationToken);
+        SetAuthCookies(response);
         return Ok(response);
     }
 
@@ -175,7 +193,17 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken cancellationToken)
     {
-        await _authService.LogoutAsync(request, cancellationToken);
+        if (string.IsNullOrWhiteSpace(request?.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieRt) && !string.IsNullOrWhiteSpace(cookieRt))
+        {
+            request = new LogoutRequest { RefreshToken = cookieRt, DeviceToken = request?.DeviceToken };
+        }
+
+        if (request != null && !string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            await _authService.LogoutAsync(request, cancellationToken);
+        }
+
+        ClearAuthCookies();
         return Ok(new { message = "Logged out successfully." });
     }
 
@@ -190,6 +218,7 @@ public class AuthController : ControllerBase
     {
         var userId = User.GetUserId();
         await _authService.LogoutAllAsync(userId, cancellationToken);
+        ClearAuthCookies();
         return Ok(new { message = "Logged out from all devices successfully." });
     }
 
@@ -204,6 +233,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<AuthResponse>> VerifyTwoFactorLogin([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.VerifyTwoFactorLoginAsync(request, cancellationToken);
+        SetAuthCookies(response);
         return Ok(response);
     }
 
@@ -265,5 +295,62 @@ public class AuthController : ControllerBase
         var userId = User.GetUserId();
         var response = await _authService.DisableTwoFactorAsync(userId, request.Password, cancellationToken);
         return Ok(response);
+    }
+
+    private void SetAuthCookies(AuthResponse auth)
+    {
+        if (auth == null || string.IsNullOrWhiteSpace(auth.Token)) return;
+
+        var isDev = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        var sameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
+
+        var accessCookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDev,
+            SameSite = sameSite,
+            Expires = DateTimeOffset.UtcNow.AddMinutes(15),
+            Path = "/"
+        };
+        Response.Cookies.Append("access_token", auth.Token, accessCookieOptions);
+
+        if (!string.IsNullOrWhiteSpace(auth.RefreshToken))
+        {
+            var refreshCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !isDev,
+                SameSite = sameSite,
+                Expires = DateTimeOffset.UtcNow.AddDays(30),
+                Path = "/api/auth"
+            };
+            Response.Cookies.Append("refresh_token", auth.RefreshToken, refreshCookieOptions);
+        }
+    }
+
+    private void ClearAuthCookies()
+    {
+        var isDev = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        var sameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
+
+        var expiredOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDev,
+            SameSite = sameSite,
+            Expires = DateTimeOffset.UtcNow.AddDays(-1),
+            Path = "/"
+        };
+        Response.Cookies.Append("access_token", "", expiredOptions);
+
+        var expiredRefreshOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDev,
+            SameSite = sameSite,
+            Expires = DateTimeOffset.UtcNow.AddDays(-1),
+            Path = "/api/auth"
+        };
+        Response.Cookies.Append("refresh_token", "", expiredRefreshOptions);
     }
 }

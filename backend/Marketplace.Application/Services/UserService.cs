@@ -210,44 +210,53 @@ public class UserService : IUserService
     public async Task<UserAddressResponse> CreateAddressAsync(int userId, CreateUserAddressRequest request)
     {
         var existingAddresses = (await _uow.UserAddresses.FindAsync(a => a.UserId == userId)).ToList();
-
         bool shouldBeDefault = request.IsDefault || existingAddresses.Count == 0;
-        if (shouldBeDefault)
+
+        await _uow.BeginTransactionAsync();
+        try
         {
-            foreach (var existing in existingAddresses.Where(a => a.IsDefault))
+            if (shouldBeDefault)
             {
-                existing.IsDefault = false;
-                _uow.UserAddresses.Update(existing);
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""UserAddresses"" SET ""IsDefault"" = FALSE WHERE ""UserId"" = {0} AND ""IsDefault"" = TRUE",
+                    userId);
+                _uow.ClearChangeTracker();
             }
+
+            var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
+
+            var address = new UserAddress
+            {
+                UserId = userId,
+                Label = request.Label?.Trim(),
+                RecipientName = request.RecipientName.Trim(),
+                RecipientPhone = normalizedPhone,
+                Governorate = request.Governorate.Trim(),
+                City = request.City.Trim(),
+                Area = request.Area.Trim(),
+                StreetBuilding = request.StreetBuilding.Trim(),
+                BuildingNumber = request.BuildingNumber.Trim(),
+                Floor = request.Floor?.Trim(),
+                Apartment = request.Apartment?.Trim(),
+                Landmark = request.Landmark?.Trim(),
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                FormattedAddress = request.FormattedAddress?.Trim(),
+                IsDefault = shouldBeDefault,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _uow.UserAddresses.AddAsync(address);
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            return MapAddressToResponse(address);
         }
-
-        var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
-
-        var address = new UserAddress
+        catch
         {
-            UserId = userId,
-            Label = request.Label?.Trim(),
-            RecipientName = request.RecipientName.Trim(),
-            RecipientPhone = normalizedPhone,
-            Governorate = request.Governorate.Trim(),
-            City = request.City.Trim(),
-            Area = request.Area.Trim(),
-            StreetBuilding = request.StreetBuilding.Trim(),
-            BuildingNumber = request.BuildingNumber.Trim(),
-            Floor = request.Floor?.Trim(),
-            Apartment = request.Apartment?.Trim(),
-            Landmark = request.Landmark?.Trim(),
-            Latitude = request.Latitude,
-            Longitude = request.Longitude,
-            FormattedAddress = request.FormattedAddress?.Trim(),
-            IsDefault = shouldBeDefault,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _uow.UserAddresses.AddAsync(address);
-        await _uow.SaveChangesAsync();
-
-        return MapAddressToResponse(address);
+            await _uow.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<UserAddressResponse> UpdateAddressAsync(int userId, int addressId, UpdateUserAddressRequest request)
@@ -259,50 +268,60 @@ public class UserService : IUserService
         if (address.UserId != userId)
             throw new ForbiddenException("You do not have permission to modify this address.");
 
-        var otherAddresses = (await _uow.UserAddresses.FindAsync(a => a.UserId == userId && a.Id != addressId)).ToList();
-
-        if (request.IsDefault)
+        await _uow.BeginTransactionAsync();
+        try
         {
-            foreach (var other in otherAddresses.Where(a => a.IsDefault))
+            var otherAddresses = (await _uow.UserAddresses.FindAsync(a => a.UserId == userId && a.Id != addressId)).ToList();
+
+            if (request.IsDefault)
             {
-                other.IsDefault = false;
-                _uow.UserAddresses.Update(other);
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""UserAddresses"" SET ""IsDefault"" = FALSE WHERE ""UserId"" = {0} AND ""Id"" != {1} AND ""IsDefault"" = TRUE",
+                    userId, addressId);
+                _uow.ClearChangeTracker();
+                address = await _uow.UserAddresses.GetByIdAsync(addressId);
+                address!.IsDefault = true;
             }
-            address.IsDefault = true;
+            else if (address.IsDefault && otherAddresses.Count == 0)
+            {
+                address.IsDefault = true;
+            }
+            else if (address.IsDefault && !request.IsDefault && otherAddresses.Count > 0)
+            {
+                address.IsDefault = false;
+                var fallback = otherAddresses.OrderByDescending(a => a.CreatedAt).First();
+                fallback.IsDefault = true;
+                _uow.UserAddresses.Update(fallback);
+            }
+
+            var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
+
+            address.Label = request.Label?.Trim();
+            address.RecipientName = request.RecipientName.Trim();
+            address.RecipientPhone = normalizedPhone;
+            address.Governorate = request.Governorate.Trim();
+            address.City = request.City.Trim();
+            address.Area = request.Area.Trim();
+            address.StreetBuilding = request.StreetBuilding.Trim();
+            address.BuildingNumber = request.BuildingNumber.Trim();
+            address.Floor = request.Floor?.Trim();
+            address.Apartment = request.Apartment?.Trim();
+            address.Landmark = request.Landmark?.Trim();
+            address.Latitude = request.Latitude;
+            address.Longitude = request.Longitude;
+            address.FormattedAddress = request.FormattedAddress?.Trim();
+
+            _uow.UserAddresses.Update(address);
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            return MapAddressToResponse(address);
         }
-        else if (address.IsDefault && otherAddresses.Count == 0)
+        catch
         {
-            address.IsDefault = true;
+            await _uow.RollbackTransactionAsync();
+            throw;
         }
-        else if (address.IsDefault && !request.IsDefault && otherAddresses.Count > 0)
-        {
-            address.IsDefault = false;
-            var fallback = otherAddresses.OrderByDescending(a => a.CreatedAt).First();
-            fallback.IsDefault = true;
-            _uow.UserAddresses.Update(fallback);
-        }
-
-        var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
-
-        address.Label = request.Label?.Trim();
-        address.RecipientName = request.RecipientName.Trim();
-        address.RecipientPhone = normalizedPhone;
-        address.Governorate = request.Governorate.Trim();
-        address.City = request.City.Trim();
-        address.Area = request.Area.Trim();
-        address.StreetBuilding = request.StreetBuilding.Trim();
-        address.BuildingNumber = request.BuildingNumber.Trim();
-        address.Floor = request.Floor?.Trim();
-        address.Apartment = request.Apartment?.Trim();
-        address.Landmark = request.Landmark?.Trim();
-        address.Latitude = request.Latitude;
-        address.Longitude = request.Longitude;
-        address.FormattedAddress = request.FormattedAddress?.Trim();
-
-        _uow.UserAddresses.Update(address);
-        await _uow.SaveChangesAsync();
-
-        return MapAddressToResponse(address);
     }
 
     public async Task DeleteAddressAsync(int userId, int addressId)

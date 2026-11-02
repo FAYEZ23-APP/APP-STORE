@@ -115,6 +115,10 @@ export default function CategoriesScreen({ navigation }) {
       <FlatList
         data={allCategoryItems}
         numColumns={2}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={tw`justify-between`}
@@ -131,7 +135,7 @@ export default function CategoriesScreen({ navigation }) {
           const isAll = item.key === 'all';
 
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               activeOpacity={0.82}
               onPress={() => handleSelectCategory(item.key)}
               style={[

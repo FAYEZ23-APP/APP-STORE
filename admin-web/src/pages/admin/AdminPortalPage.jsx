@@ -126,6 +126,25 @@ export default function AdminPortalPage() {
   const [auditEntityTypeFilter, setAuditEntityTypeFilter] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState('');
 
+  // Shipments & Delivery Operations State (GAP-REL-03 & GAP-ADM-01)
+  const [shipments, setShipments] = useState([]);
+  const [shipmentsLoading, setShipmentsLoading] = useState(false);
+  const [shipmentStatusFilter, setShipmentStatusFilter] = useState('');
+  const [shipmentOrderFilter, setShipmentOrderFilter] = useState('');
+  const [shipmentSellerFilter, setShipmentSellerFilter] = useState('');
+  const [shipmentPage, setShipmentPage] = useState(1);
+  const [shipmentTotalCount, setShipmentTotalCount] = useState(0);
+  const [selectedShipment, setSelectedShipment] = useState(null);
+  const [showShipmentModal, setShowShipmentModal] = useState(false);
+  const [newShipmentStatus, setNewShipmentStatus] = useState('');
+  const [shipmentTrackingNumber, setShipmentTrackingNumber] = useState('');
+  const [shipmentReturnReason, setShipmentReturnReason] = useState('');
+  const [shipmentSettleCod, setShipmentSettleCod] = useState(false);
+  const [shipmentReceivedAmount, setShipmentReceivedAmount] = useState('');
+  const [shipmentSettlementRef, setShipmentSettlementRef] = useState('');
+  const [shipmentAdminNotes, setShipmentAdminNotes] = useState('');
+  const [shipmentActionLoading, setShipmentActionLoading] = useState(false);
+
   // Notification message
   const [bannerMsg, setBannerMsg] = useState(null);
 
@@ -1746,6 +1765,288 @@ export default function AdminPortalPage() {
                       </button>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 8: SHIPMENTS & OPERATIONS (GAP-REL-03 & GAP-ADM-01) */}
+      {activeTab === 'shipments' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-black text-base text-slate-900">
+                    {t('adminPortal.shipments.title', isRTL ? 'إدارة الشحنات والعمليات الميدانية' : 'Shipments & Field Operations')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t('adminPortal.shipments.subtitle', isRTL ? 'متابعة بوالص الشحن وتحديث حالات التوصيل وتسوية نقدية الدفع عند الاستلام (COD)' : 'Track waybills, update carrier delivery status, and settle COD remittance')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => fetchShipments(shipmentPage)}
+                disabled={shipmentsLoading}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-2 transition-all self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${shipmentsLoading ? 'animate-spin' : ''}`} />
+                <span>{t('common.refresh')}</span>
+              </button>
+            </div>
+
+            {/* Shipment Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs">
+              <div>
+                <label className="block font-bold text-slate-600 mb-1">
+                  {t('common.status')}
+                </label>
+                <select
+                  value={shipmentStatusFilter}
+                  onChange={(e) => setShipmentStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="">{t('common.all') || (isRTL ? 'كافة الحالات' : 'All Statuses')}</option>
+                  <option value="Created">{isRTL ? 'تم إنشاء الشحنة' : 'Created'}</option>
+                  <option value="HandedToCarrier">{isRTL ? 'سُلمت لشركة الشحن' : 'Handed to Carrier'}</option>
+                  <option value="InTransit">{isRTL ? 'في الطريق للتسليم' : 'In Transit'}</option>
+                  <option value="ReadyForPickup">{isRTL ? 'جاهزة للاستلام' : 'Ready for Pickup'}</option>
+                  <option value="Delivered">{isRTL ? 'تم التسليم بنجاح' : 'Delivered'}</option>
+                  <option value="Returned">{isRTL ? 'مرتجع / رفض استلام' : 'Returned'}</option>
+                  <option value="Cancelled">{isRTL ? 'ملغاة' : 'Cancelled'}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-600 mb-1">
+                  {isRTL ? 'رقم الطلب' : 'Order ID'}
+                </label>
+                <input
+                  type="number"
+                  value={shipmentOrderFilter}
+                  onChange={(e) => setShipmentOrderFilter(e.target.value)}
+                  placeholder={isRTL ? 'مثال: 105' : 'e.g. 105'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-600 mb-1">
+                  {isRTL ? 'معرّف البائع' : 'Seller ID'}
+                </label>
+                <input
+                  type="number"
+                  value={shipmentSellerFilter}
+                  onChange={(e) => setShipmentSellerFilter(e.target.value)}
+                  placeholder={isRTL ? 'مثال: 4' : 'e.g. 4'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShipmentStatusFilter('');
+                    setShipmentOrderFilter('');
+                    setShipmentSellerFilter('');
+                  }}
+                  className="w-full px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold transition-colors"
+                >
+                  {t('common.reset')}
+                </button>
+              </div>
+            </div>
+
+            {/* Shipments List */}
+            {shipmentsLoading ? (
+              <div className="py-12 flex justify-center items-center text-slate-400 gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-red-600" />
+                <span className="text-xs font-bold">{t('common.loading')}</span>
+              </div>
+            ) : shipments.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <Package className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="text-xs font-bold">{isRTL ? 'لا توجد شحنات مطابقة للبحث' : 'No shipments found'}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+                    <tr>
+                      <th className="p-3.5 whitespace-nowrap">{isRTL ? 'الشحنة / الطلب' : 'Shipment / Order'}</th>
+                      <th className="p-3.5 whitespace-nowrap">{isRTL ? 'المستلم والعنوان المصري' : 'Recipient & Detailed Address'}</th>
+                      <th className="p-3.5 whitespace-nowrap">{isRTL ? 'البائع والأصناف' : 'Seller & Items'}</th>
+                      <th className="p-3.5 whitespace-nowrap">{isRTL ? 'المبالغ وتسوية COD' : 'Financials & COD'}</th>
+                      <th className="p-3.5 whitespace-nowrap">{isRTL ? 'الحالة والمعاينة' : 'Status & Inspection'}</th>
+                      <th className="p-3.5 whitespace-nowrap text-center">{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {shipments.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5 align-top">
+                          <div className="font-black text-slate-900">#{s.id}</div>
+                          <div className="text-[11px] text-slate-500 font-bold mt-0.5">
+                            {isRTL ? 'الطلب:' : 'Order:'} #{s.orderId}
+                          </div>
+                          {s.trackingNumber && (
+                            <div className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-mono mt-1 inline-block">
+                              AWB: {s.trackingNumber}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            {new Date(s.createdAt).toLocaleDateString('ar-EG')}
+                          </div>
+                        </td>
+
+                        <td className="p-3.5 align-top max-w-xs">
+                          <div className="font-bold text-slate-800">{s.recipientName || s.buyerName}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5" dir="ltr">
+                            {s.recipientPhone || s.buyerPhone}
+                          </div>
+                          <div className="text-[11px] text-slate-600 mt-1">
+                            {s.governorate} • {s.city} {s.area ? `• ${s.area}` : ''}
+                          </div>
+                          {/* Egyptian Detailed Address Fields (GAP-LOG-04) */}
+                          <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
+                            {s.buildingNumber && (
+                              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                                {isRTL ? 'عمارة:' : 'Bldg:'} {s.buildingNumber}
+                              </span>
+                            )}
+                            {s.floor && (
+                              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                                {isRTL ? 'دور:' : 'Floor:'} {s.floor}
+                              </span>
+                            )}
+                            {s.apartment && (
+                              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                                {isRTL ? 'شقة:' : 'Apt:'} {s.apartment}
+                              </span>
+                            )}
+                            {s.landmark && (
+                              <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-medium">
+                                📍 {s.landmark}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3.5 align-top max-w-xs">
+                          <div className="font-bold text-slate-800">{s.sellerName}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {s.items?.length || 0} {isRTL ? 'أصناف:' : 'items:'}
+                          </div>
+                          <ul className="text-[10px] text-slate-600 list-disc list-inside mt-1 space-y-0.5">
+                            {s.items?.slice(0, 2).map((item, idx) => (
+                              <li key={idx} className="truncate">
+                                {item.quantity}x {item.productName}
+                              </li>
+                            ))}
+                            {(s.items?.length || 0) > 2 && (
+                              <li className="text-slate-400 font-bold">
+                                +{(s.items?.length || 0) - 2} {isRTL ? 'آخرين...' : 'more...'}
+                              </li>
+                            )}
+                          </ul>
+                        </td>
+
+                        <td className="p-3.5 align-top">
+                          <div className="font-bold text-slate-800">
+                            {formatCurrency(s.codAmount || s.deliveryCost)}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {isRTL ? 'الشحن:' : 'Delivery:'} {formatCurrency(s.deliveryCost)}
+                          </div>
+                          <div className="mt-1">
+                            {s.isCodSettled ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                                <CheckCircle className="w-3 h-3" />
+                                {isRTL ? 'تمت التسوية' : 'Settled'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                                <Clock className="w-3 h-3" />
+                                {isRTL ? 'بانتظار التوريد' : 'Unsettled'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3.5 align-top">
+                          <div>
+                            <span
+                              className={`inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                                s.status === 'Delivered'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : s.status === 'Returned'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : s.status === 'InTransit'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-slate-100 text-slate-800'
+                              }`}
+                            >
+                              {s.status}
+                            </span>
+                          </div>
+                          {s.returnReason && (
+                            <div className="text-[10px] text-rose-600 font-bold mt-1">
+                              ⚠️ {s.returnReason}
+                            </div>
+                          )}
+                          {s.allowInspection && (
+                            <div className="mt-1.5">
+                              <span className="inline-flex items-center gap-1 text-[9px] bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.2 rounded font-bold">
+                                🔍 {isRTL ? 'معاينة عند الاستلام' : 'Open Box'}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 align-top text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenShipmentModal(s)}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap"
+                          >
+                            {isRTL ? 'تعديل / تسوية' : 'Manage'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {shipmentTotalCount > 15 && (
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-4 border-t border-slate-100">
+                <div>
+                  {isRTL ? 'إجمالي الشحنات:' : 'Total:'} <span className="font-bold text-slate-800">{shipmentTotalCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchShipments(shipmentPage - 1)}
+                    disabled={shipmentPage <= 1 || shipmentsLoading}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                  >
+                    {t('common.previous')}
+                  </button>
+                  <span className="font-bold text-slate-800 px-2">{shipmentPage}</span>
+                  <button
+                    onClick={() => fetchShipments(shipmentPage + 1)}
+                    disabled={shipmentPage * 15 >= shipmentTotalCount || shipmentsLoading}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                  >
+                    {t('common.next')}
+                  </button>
                 </div>
               </div>
             )}

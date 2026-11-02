@@ -500,3 +500,8 @@ yarn-error.*
 ios/
 android/
 
+
+# Uploads & User Generated Content
+**/wwwroot/uploads/**
+!**/wwwroot/uploads/.gitkeep
+**/App_Data/private-uploads/**

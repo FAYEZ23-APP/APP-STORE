@@ -81,7 +81,7 @@ export function AdminHeader({ title, subtitle, icon = 'shield-account' }) {
 
 export function FilterChip({ label, active, onPress }) {
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessible={true} accessibilityRole="button"
       onPress={onPress}
       activeOpacity={0.8}
       style={{
@@ -146,7 +146,7 @@ export function ErrorState({ text, retryLabel, onRetry }) {
     <View style={tw`items-center justify-center mt-14 px-6`}>
       <MaterialCommunityIcons name="alert-circle-outline" size={44} color={colors.discount} />
       <Text style={[tw`text-center text-sm mt-3 mb-4`, { color: colors.textSecondary }]}>{text}</Text>
-      <TouchableOpacity
+      <TouchableOpacity accessible={true} accessibilityRole="button"
         onPress={onRetry}
         style={{
           backgroundColor: colors.primary,

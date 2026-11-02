@@ -52,18 +52,22 @@ public class OrderService : IOrderService
             }
         }
 
-        // Short-window double-tap duplicate guard per buyer (10 seconds)
-        var itemsFingerprint = string.Join(";", request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).Select(i => $"{i.ProductId}:{i.VariantId}:{i.Quantity}"));
-        var submissionKey = $"{buyerId}:{itemsFingerprint}:{request.DeliveryMethod}:{request.PaymentMethod}";
-        if (_recentOrderSubmissions.TryGetValue(submissionKey, out var recent) && (DateTime.UtcNow - recent.Timestamp).TotalSeconds < 10)
+        string? submissionKey = null;
+        // Short-window double-tap duplicate guard per buyer (10 seconds) for requests without explicit Idempotency-Key
+        if (string.IsNullOrWhiteSpace(effectiveKey))
         {
-            try
+            var itemsFingerprint = string.Join(";", request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).Select(i => $"{i.ProductId}:{i.VariantId}:{i.Quantity}"));
+            submissionKey = $"{buyerId}:{itemsFingerprint}:{request.DeliveryMethod}:{request.PaymentMethod}";
+            if (_recentOrderSubmissions.TryGetValue(submissionKey, out var recent) && (DateTime.UtcNow - recent.Timestamp).TotalSeconds < 10)
             {
-                return await GetOrderByIdAsync(buyerId, recent.OrderId);
-            }
-            catch
-            {
-                // Fallback to normal flow if lookup fails
+                try
+                {
+                    return await GetOrderByIdAsync(buyerId, recent.OrderId);
+                }
+                catch
+                {
+                    // Fallback to normal flow if lookup fails
+                }
             }
         }
 
@@ -104,10 +108,15 @@ public class OrderService : IOrderService
 
         var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
 
-        // Refusal threshold check for Cash on Delivery (COD) - both by buyerId and phone
+        // Refusal threshold check for Cash on Delivery (COD) - both by buyerId, refusal counter, and phone
         if (paymentMethod == PaymentMethod.OnReceipt)
         {
             int maxCodRefusals = _configuration.GetValue<int>("Orders:MaxCodRefusals", 3);
+            if (buyer.CodRefusalCount >= maxCodRefusals)
+            {
+                throw new BadRequestException("تم إيقاف خيار الدفع عند الاستلام لحسابك نظراً لتجاوز الحد الأقصى المسموح به لمرات رفض استلام الشحنات السابقة.");
+            }
+
             var buyerShipments = await _uow.Shipments.FindAsync(s =>
                 (s.Order.BuyerId == buyerId || s.Order.RecipientPhone == normalizedPhone) &&
                 s.Status == ShipmentStatus.Returned &&
@@ -185,8 +194,8 @@ public class OrderService : IOrderService
             addressLine = $"{destinationArea}، {destinationStreetBuilding}".Trim();
         }
 
-        double? destLat = request.Latitude;
-        double? destLng = request.Longitude;
+        double? destLat = request.DeliveryLatitude ?? request.Latitude;
+        double? destLng = request.DeliveryLongitude ?? request.Longitude;
         if ((!destLat.HasValue || !destLng.HasValue || (destLat.Value == 0 && destLng.Value == 0)) && !string.IsNullOrWhiteSpace(destinationCity))
         {
             var destCoords = EgyptianGovernorates.GetCoordinates(destinationCity) ?? EgyptianGovernorates.GetCoordinates(destinationGovernorate);
@@ -287,6 +296,13 @@ public class OrderService : IOrderService
                 City = destinationCity,
                 Area = destinationArea,
                 StreetBuilding = destinationStreetBuilding,
+                BuildingNumber = request.BuildingNumber?.Trim(),
+                Floor = request.Floor?.Trim(),
+                Apartment = request.Apartment?.Trim(),
+                Landmark = request.Landmark?.Trim(),
+                DeliveryLatitude = destLat,
+                DeliveryLongitude = destLng,
+                IsBuyerConfirmed = false,
                 PaymentMethod = paymentMethod,
                 IdempotencyKey = effectiveKey,
                 CreatedAt = DateTime.UtcNow,
@@ -384,6 +400,13 @@ public class OrderService : IOrderService
                     CodAmount = shipmentCodAmount,
                     EtaMinDays = carrierShipment.EtaMinDays,
                     EtaMaxDays = carrierShipment.EtaMaxDays,
+                    BuildingNumber = request.BuildingNumber?.Trim(),
+                    Floor = request.Floor?.Trim(),
+                    Apartment = request.Apartment?.Trim(),
+                    Landmark = request.Landmark?.Trim(),
+                    DeliveryLatitude = destLat,
+                    DeliveryLongitude = destLng,
+                    AllowInspection = group.All(g => g.Product.AllowInspection),
                     CreatedAt = DateTime.UtcNow,
                     Items = new List<OrderItem>()
                 };
@@ -563,7 +586,10 @@ public class OrderService : IOrderService
 
             await _uow.CommitTransactionAsync();
 
-            _recentOrderSubmissions[submissionKey] = (DateTime.UtcNow, order.Id);
+            if (!string.IsNullOrWhiteSpace(submissionKey))
+            {
+                _recentOrderSubmissions[submissionKey] = (DateTime.UtcNow, order.Id);
+            }
             if (!string.IsNullOrWhiteSpace(effectiveKey))
             {
                 _recentOrderSubmissions[$"key:{buyerId}:{effectiveKey}"] = (DateTime.UtcNow, order.Id);
@@ -855,7 +881,12 @@ public class OrderService : IOrderService
                 Quantity = item.Quantity,
                 TotalPrice = item.UnitPrice * item.Quantity,
                 Status = order.Status.ToString(),
-                Date = order.CreatedAt
+                Date = order.CreatedAt,
+                BuildingNumber = order.BuildingNumber,
+                Floor = order.Floor,
+                Apartment = order.Apartment,
+                Landmark = order.Landmark,
+                IsBuyerConfirmed = order.IsBuyerConfirmed
             });
         }
 
@@ -917,6 +948,14 @@ public class OrderService : IOrderService
                 EtaMinDays = s.EtaMinDays,
                 EtaMaxDays = s.EtaMaxDays,
                 CreatedAt = s.CreatedAt,
+                BuildingNumber = s.BuildingNumber,
+                Floor = s.Floor,
+                Apartment = s.Apartment,
+                Landmark = s.Landmark,
+                DeliveryLatitude = s.DeliveryLatitude,
+                DeliveryLongitude = s.DeliveryLongitude,
+                EscrowReleaseAt = s.EscrowReleaseAt,
+                AllowInspection = s.AllowInspection,
                 Items = shipmentItems
             };
         }).ToList();
@@ -954,11 +993,53 @@ public class OrderService : IOrderService
             Area = order.Area,
             StreetBuilding = order.StreetBuilding,
             AddressLine = computedAddressLine,
+            BuildingNumber = order.BuildingNumber,
+            Floor = order.Floor,
+            Apartment = order.Apartment,
+            Landmark = order.Landmark,
+            DeliveryLatitude = order.DeliveryLatitude,
+            DeliveryLongitude = order.DeliveryLongitude,
+            IsBuyerConfirmed = order.IsBuyerConfirmed,
+            ConfirmedAt = order.ConfirmedAt,
             PaymentMethod = order.PaymentMethod.ToString(),
             IdempotencyKey = order.IdempotencyKey,
             CreatedAt = order.CreatedAt,
             Shipments = shipmentResponses,
             Items = itemResponses
+        };
+    }
+
+    public async Task<ConfirmOrderResponse> ConfirmOrderAsync(int userId, bool isAdmin, int orderId)
+    {
+        var order = await _uow.Orders.GetByIdAsync(orderId);
+        if (order == null)
+            throw new KeyNotFoundException("Order not found.");
+
+        if (!isAdmin && order.BuyerId != userId)
+            throw new UnauthorizedAccessException("You are not authorized to confirm this order.");
+
+        if (order.IsBuyerConfirmed)
+        {
+            return new ConfirmOrderResponse
+            {
+                OrderId = order.Id,
+                IsBuyerConfirmed = true,
+                ConfirmedAt = order.ConfirmedAt,
+                Message = "Order is already confirmed."
+            };
+        }
+
+        order.IsBuyerConfirmed = true;
+        order.ConfirmedAt = DateTime.UtcNow;
+        _uow.Orders.Update(order);
+        await _uow.SaveChangesAsync();
+
+        return new ConfirmOrderResponse
+        {
+            OrderId = order.Id,
+            IsBuyerConfirmed = true,
+            ConfirmedAt = order.ConfirmedAt,
+            Message = "Order confirmed successfully."
         };
     }
 

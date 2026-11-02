@@ -92,7 +92,7 @@ export default function ReturnRequestModal({
                 {isRTL ? 'طلب استرجاع (ضمان 14 يوم - حماية المستهلك)' : 'Return Request (14-Day Consumer Protection)'}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity accessible={true} accessibilityRole="button" onPress={onClose}>
               <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -119,14 +119,14 @@ export default function ReturnRequestModal({
             {isRTL ? 'الكمية المراد إرجاعها:' : 'Return Quantity:'}
           </Text>
           <View style={tw`flex-row items-center mb-3`}>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => setQuantity((q) => Math.max(1, q - 1))}
               style={[tw`w-10 h-10 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.screenBg }]}
             >
               <MaterialCommunityIcons name="minus" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={[tw`font-bold text-base mx-4`, { color: colors.textPrimary }]}>{quantity}</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => setQuantity((q) => Math.min(item?.quantity || 1, q + 1))}
               style={[tw`w-10 h-10 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.screenBg }]}
             >
@@ -166,7 +166,7 @@ export default function ReturnRequestModal({
           />
 
           {/* Submit Button */}
-          <TouchableOpacity
+          <TouchableOpacity accessible={true} accessibilityRole="button"
             activeOpacity={0.85}
             disabled={submitting}
             onPress={handleSubmit}

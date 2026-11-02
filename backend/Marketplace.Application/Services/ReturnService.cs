@@ -34,11 +34,26 @@ public class ReturnService : IReturnService
         if (shipment.Status != ShipmentStatus.Delivered)
             throw new BadRequestException("لا يمكن تقديم طلب إرجاع إلا بعد استلام الشحنة وتوصيلها بالفعل.");
 
-        // 14-Day Post-Delivery Check (Egyptian Consumer Protection Law 181/2018)
-        var deliveryDate = shipment.DeliveredAt ?? shipment.CreatedAt;
-        if (DateTime.UtcNow > deliveryDate.AddDays(14))
+        // Egyptian Consumer Protection Law 181/2018 (Article 21: 30 days for defect, 14 days standard)
+        ReturnCategory category = ReturnCategory.Standard14Day;
+        if (!string.IsNullOrWhiteSpace(request.Category) && Enum.TryParse<ReturnCategory>(request.Category, true, out var parsedCategory))
         {
-            throw new BadRequestException("انتهت الفترة القانونية المسموح بها لطلب الإرجاع (14 يوماً من تاريخ استلام الشحنة وفقاً لقانون حماية المستهلك 181/2018).");
+            category = parsedCategory;
+        }
+        else if (request.Reason.Contains("عيب", StringComparison.OrdinalIgnoreCase) ||
+                 request.Reason.Contains("تلف", StringComparison.OrdinalIgnoreCase) ||
+                 request.Reason.Contains("defect", StringComparison.OrdinalIgnoreCase) ||
+                 request.Reason.Contains("صناعة", StringComparison.OrdinalIgnoreCase) ||
+                 request.Reason.Contains("غير مطابق", StringComparison.OrdinalIgnoreCase))
+        {
+            category = ReturnCategory.ManufacturingDefect30Day;
+        }
+
+        int allowedDays = category == ReturnCategory.ManufacturingDefect30Day ? 30 : 14;
+        var deliveryDate = shipment.DeliveredAt ?? shipment.CreatedAt;
+        if (DateTime.UtcNow > deliveryDate.AddDays(allowedDays))
+        {
+            throw new BadRequestException($"انتهت الفترة القانونية المسموح بها لطلب الإرجاع ({allowedDays} يوماً من تاريخ استلام الشحنة وفقاً لقانون حماية المستهلك 181/2018).");
         }
 
         var existingReturns = (await _uow.ReturnRequests.FindAsync(r => r.OrderItemId == item.Id && r.Status != ReturnStatus.Rejected)).ToList();
@@ -63,6 +78,7 @@ public class ReturnService : IReturnService
             Reason = request.Reason.Trim(),
             DefectImageUrl = request.DefectImageUrl?.Trim(),
             Status = ReturnStatus.Pending,
+            Category = category,
             RefundAmount = refundAmount,
             CreatedAt = DateTime.UtcNow
         };
@@ -85,7 +101,7 @@ public class ReturnService : IReturnService
         if (returnReq.SellerId != sellerId)
             throw new ForbiddenException("ليس لديك صلاحية البت في طلب الإرجاع هذا.");
 
-        if (returnReq.Status != ReturnStatus.Pending)
+        if (returnReq.Status != ReturnStatus.Pending && returnReq.Status != ReturnStatus.ApprovedAwaitingReturn)
             throw new BadRequestException("تم البت في طلب الإرجاع مسبقاً ولا يمكن تعديل حالته.");
 
         if (!Enum.TryParse<ReturnStatus>(request.Status.Trim(), true, out var newStatus))
@@ -93,147 +109,203 @@ public class ReturnService : IReturnService
 
         var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
 
-        if (newStatus == ReturnStatus.Approved || newStatus == ReturnStatus.Completed)
-        {
-            await _uow.BeginTransactionAsync();
-            try
-            {
-                // 1. Restore stock to ProductVariant or Product
-                if (item != null)
-                {
-                    if (item.VariantId.HasValue)
-                    {
-                        await _uow.ExecuteSqlRawAsync(
-                            @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
-                            returnReq.Quantity,
-                            item.VariantId.Value);
-                    }
-                    else
-                    {
-                        await _uow.ExecuteSqlRawAsync(
-                            @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
-                            returnReq.Quantity,
-                            item.ProductId);
-                    }
-                }
-
-                // 2. Ensure buyer wallet exists
-                var buyerWallets = (await _uow.BuyerWallets.FindAsync(w => w.BuyerId == returnReq.BuyerId)).ToList();
-                if (!buyerWallets.Any())
-                {
-                    var newWallet = new BuyerWallet
-                    {
-                        BuyerId = returnReq.BuyerId,
-                        Balance = 0m,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    await _uow.BuyerWallets.AddAsync(newWallet);
-                    await _uow.SaveChangesAsync();
-                }
-
-                // 3. Atomically credit buyer wallet
-                await _uow.ExecuteSqlRawAsync(
-                    @"UPDATE ""BuyerWallets"" SET ""Balance"" = ""Balance"" + {0}, ""UpdatedAt"" = {1} WHERE ""BuyerId"" = {2}",
-                    returnReq.RefundAmount,
-                    DateTime.UtcNow,
-                    returnReq.BuyerId);
-
-                // 4. Record wallet transaction
-                var tx = new BuyerWalletTransaction
-                {
-                    BuyerId = returnReq.BuyerId,
-                    OrderId = returnReq.OrderId,
-                    ReturnRequestId = returnReq.Id,
-                    Amount = returnReq.RefundAmount,
-                    Type = BuyerWalletTransactionType.RefundCredit,
-                    Description = $"استرداد رصيد بقيمة {returnReq.RefundAmount} ج.م لمرتجع الطلب #{returnReq.OrderId}",
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _uow.BuyerWalletTransactions.AddAsync(tx);
-
-                // 5. Ensure seller vendor wallet exists & atomically debit refund amount
-                var vendorWallets = (await _uow.VendorWallets.FindAsync(w => w.SellerId == returnReq.SellerId)).ToList();
-                VendorWallet vendorWallet;
-                if (!vendorWallets.Any())
-                {
-                    vendorWallet = new VendorWallet
-                    {
-                        SellerId = returnReq.SellerId,
-                        Balance = 0m,
-                        PendingBalance = 0m,
-                        TotalEarned = 0m,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    await _uow.VendorWallets.AddAsync(vendorWallet);
-                    await _uow.SaveChangesAsync();
-                }
-                else
-                {
-                    vendorWallet = vendorWallets.First();
-                }
-
-                // Check if shipment was already settled or released (post-settlement refund)
-                var returnShipment = await _uow.Shipments.GetByIdAsync(returnReq.ShipmentId);
-                bool isPostSettlement = returnShipment != null && (returnShipment.IsCodSettled || returnShipment.CodSettledAt != null);
-
-                // Anti-overdraft guard: refund cannot make seller Balance negative without an explicit AdminOverride
-                if (vendorWallet.Balance < returnReq.RefundAmount && !request.AdminOverride)
-                {
-                    throw new BadRequestException($"رصيد البائع المتاح ({vendorWallet.Balance} ج.م) غير كافٍ لتغطية الاسترداد بقيمة {returnReq.RefundAmount} ج.م. يتطلب الاسترداد بالسالب موافقة استثنائية (Admin Override).");
-                }
-
-                await _uow.ExecuteSqlRawAsync(
-                    @"UPDATE ""VendorWallets"" SET ""Balance"" = ""Balance"" - {0}, ""TotalEarned"" = ""TotalEarned"" - {0}, ""UpdatedAt"" = {1} WHERE ""SellerId"" = {2}",
-                    returnReq.RefundAmount,
-                    DateTime.UtcNow,
-                    returnReq.SellerId);
-
-                // 6. Record seller vendor wallet transaction (Clawback if post-settlement, otherwise Refund)
-                var txType = isPostSettlement ? WalletTransactionType.Clawback : WalletTransactionType.Refund;
-                var txDesc = isPostSettlement
-                    ? $"استرداد مستردات بعد التسوية (Clawback) بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})"
-                    : $"خصم استرداد مرتجع بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})";
-
-                var sellerRefundTx = new WalletTransaction
-                {
-                    WalletId = vendorWallet.Id,
-                    OrderId = returnReq.OrderId,
-                    ShipmentId = returnReq.ShipmentId,
-                    Amount = -returnReq.RefundAmount,
-                    Type = txType,
-                    Description = txDesc,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _uow.WalletTransactions.AddAsync(sellerRefundTx);
-
-                // 7. Update return status
-                returnReq.Status = newStatus;
-                returnReq.ResolvedAt = DateTime.UtcNow;
-                _uow.ReturnRequests.Update(returnReq);
-                await _uow.SaveChangesAsync();
-
-                await _uow.CommitTransactionAsync();
-            }
-            catch
-            {
-                await _uow.RollbackTransactionAsync();
-                throw;
-            }
-        }
-        else if (newStatus == ReturnStatus.Rejected)
+        if (newStatus == ReturnStatus.Rejected)
         {
             returnReq.Status = ReturnStatus.Rejected;
             returnReq.ResolvedAt = DateTime.UtcNow;
             _uow.ReturnRequests.Update(returnReq);
             await _uow.SaveChangesAsync();
         }
-
-        await _notificationService.NotifyReturnResolvedAsync(returnReq.Id, newStatus);
+        else if (newStatus == ReturnStatus.Completed || (newStatus == ReturnStatus.Approved && request.ConfirmItemReceived))
+        {
+            await ExecuteReturnFulfillmentAsync(returnReq, item, request.AdminOverride);
+            returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
+        }
+        else if (newStatus == ReturnStatus.Approved || newStatus == ReturnStatus.ApprovedAwaitingReturn)
+        {
+            returnReq.Status = ReturnStatus.ApprovedAwaitingReturn;
+            returnReq.ResolvedAt = DateTime.UtcNow;
+            _uow.ReturnRequests.Update(returnReq);
+            await _uow.SaveChangesAsync();
+        }
 
         var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
         var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);
 
         return MapToResponse(returnReq, item, product, buyer);
+    }
+
+    public async Task<ReturnResponse> ConfirmReceivedAsync(int actorId, bool isAdmin, int returnId, ConfirmReturnReceivedRequest? request = null)
+    {
+        var returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId);
+        if (returnReq == null)
+            throw new NotFoundException("طلب الإرجاع غير موجود.");
+
+        if (!isAdmin && returnReq.SellerId != actorId)
+            throw new ForbiddenException("ليس لديك صلاحية تأكيد استلام هذا المرتجع.");
+
+        if (returnReq.Status == ReturnStatus.Completed)
+            throw new BadRequestException("تم تأكيد استلام هذا المرتجع وإتمام استرداده مسبقاً.");
+
+        if (returnReq.Status == ReturnStatus.Rejected)
+            throw new BadRequestException("لا يمكن تأكيد استلام مرتجع مرفوض.");
+
+        var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
+        bool adminOverride = request?.AdminOverride ?? isAdmin;
+
+        await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride);
+
+        returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
+        var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
+        var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);
+
+        return MapToResponse(returnReq, item, product, buyer);
+    }
+
+    private async Task ExecuteReturnFulfillmentAsync(ReturnRequest returnReq, OrderItem? item, bool adminOverride)
+    {
+        await _uow.BeginTransactionAsync();
+        try
+        {
+            // Lock ReturnRequests row FOR UPDATE
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""ReturnRequests"" WHERE ""Id"" = {0} FOR UPDATE", returnReq.Id);
+            _uow.ClearChangeTracker();
+
+            returnReq = await _uow.ReturnRequests.GetByIdAsync(returnReq.Id)
+                ?? throw new NotFoundException("طلب الإرجاع غير موجود.");
+
+            item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
+
+            // 1. Restore stock to ProductVariant or Product
+            if (item != null)
+            {
+                if (item.VariantId.HasValue)
+                {
+                    await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""ProductVariants"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                        returnReq.Quantity,
+                        item.VariantId.Value);
+                }
+                else
+                {
+                    await _uow.ExecuteSqlRawAsync(
+                        @"UPDATE ""Products"" SET ""Stock"" = ""Stock"" + {0} WHERE ""Id"" = {1}",
+                        returnReq.Quantity,
+                        item.ProductId);
+                }
+            }
+
+            // 2. Ensure buyer wallet exists before locking
+            var buyerWallets = (await _uow.BuyerWallets.FindAsync(w => w.BuyerId == returnReq.BuyerId)).ToList();
+            if (!buyerWallets.Any())
+            {
+                var newWallet = new BuyerWallet
+                {
+                    BuyerId = returnReq.BuyerId,
+                    Balance = 0m,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _uow.BuyerWallets.AddAsync(newWallet);
+                await _uow.SaveChangesAsync();
+            }
+
+            // Lock BuyerWallet row FOR UPDATE
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""BuyerWallets"" WHERE ""BuyerId"" = {0} FOR UPDATE", returnReq.BuyerId);
+
+            // 3. Atomically credit buyer wallet
+            await _uow.ExecuteSqlRawAsync(
+                @"UPDATE ""BuyerWallets"" SET ""Balance"" = ""Balance"" + {0}, ""UpdatedAt"" = {1} WHERE ""BuyerId"" = {2}",
+                returnReq.RefundAmount,
+                DateTime.UtcNow,
+                returnReq.BuyerId);
+
+            // 4. Record wallet transaction
+            var tx = new BuyerWalletTransaction
+            {
+                BuyerId = returnReq.BuyerId,
+                OrderId = returnReq.OrderId,
+                ReturnRequestId = returnReq.Id,
+                Amount = returnReq.RefundAmount,
+                Type = BuyerWalletTransactionType.RefundCredit,
+                Description = $"استرداد رصيد بقيمة {returnReq.RefundAmount} ج.م لمرتجع الطلب #{returnReq.OrderId}",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.BuyerWalletTransactions.AddAsync(tx);
+
+            // 5. Ensure seller vendor wallet exists & lock row FOR UPDATE
+            var vendorWallets = (await _uow.VendorWallets.FindAsync(w => w.SellerId == returnReq.SellerId)).ToList();
+            VendorWallet vendorWallet;
+            if (!vendorWallets.Any())
+            {
+                vendorWallet = new VendorWallet
+                {
+                    SellerId = returnReq.SellerId,
+                    Balance = 0m,
+                    PendingBalance = 0m,
+                    TotalEarned = 0m,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _uow.VendorWallets.AddAsync(vendorWallet);
+                await _uow.SaveChangesAsync();
+            }
+
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""VendorWallets"" WHERE ""SellerId"" = {0} FOR UPDATE", returnReq.SellerId);
+
+            // Reload fresh locked seller vendor wallet
+            vendorWallet = (await _uow.VendorWallets.FindAsync(w => w.SellerId == returnReq.SellerId)).First();
+
+            // Check if shipment was already settled or released (post-settlement refund)
+            var returnShipment = await _uow.Shipments.GetByIdAsync(returnReq.ShipmentId);
+            bool isPostSettlement = returnShipment != null && (returnShipment.IsCodSettled || returnShipment.CodSettledAt != null);
+
+            // Anti-overdraft guard: refund cannot make seller Balance negative without an explicit AdminOverride
+            if (vendorWallet.Balance < returnReq.RefundAmount && !adminOverride)
+            {
+                throw new BadRequestException($"رصيد البائع المتاح ({vendorWallet.Balance} ج.م) غير كافٍ لتغطية الاسترداد بقيمة {returnReq.RefundAmount} ج.م. يتطلب الاسترداد بالسالب موافقة استثنائية (Admin Override).");
+            }
+
+            await _uow.ExecuteSqlRawAsync(
+                @"UPDATE ""VendorWallets"" SET ""Balance"" = ""Balance"" - {0}, ""TotalEarned"" = ""TotalEarned"" - {0}, ""UpdatedAt"" = {1} WHERE ""SellerId"" = {2}",
+                returnReq.RefundAmount,
+                DateTime.UtcNow,
+                returnReq.SellerId);
+
+            // 6. Record seller vendor wallet transaction (Clawback if post-settlement, otherwise Refund)
+            var txType = isPostSettlement ? WalletTransactionType.Clawback : WalletTransactionType.Refund;
+            var txDesc = isPostSettlement
+                ? $"استرداد مستردات بعد التسوية (Clawback) بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})"
+                : $"خصم استرداد مرتجع بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})";
+
+            var sellerRefundTx = new WalletTransaction
+            {
+                WalletId = vendorWallet.Id,
+                OrderId = returnReq.OrderId,
+                ShipmentId = returnReq.ShipmentId,
+                Amount = -returnReq.RefundAmount,
+                Type = txType,
+                Description = txDesc,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.WalletTransactions.AddAsync(sellerRefundTx);
+
+            // 7. Update return status & receipt time
+            returnReq.Status = ReturnStatus.Completed;
+            returnReq.ResolvedAt ??= DateTime.UtcNow;
+            returnReq.ReceivedAt = DateTime.UtcNow;
+            _uow.ReturnRequests.Update(returnReq);
+            await _uow.SaveChangesAsync();
+
+            await _uow.CommitTransactionAsync();
+        }
+        catch
+        {
+            await _uow.RollbackTransactionAsync();
+            _uow.ClearChangeTracker();
+            throw;
+        }
     }
 
     public async Task<IEnumerable<ReturnResponse>> GetBuyerReturnsAsync(int buyerId)
@@ -311,6 +383,8 @@ public class ReturnService : IReturnService
             Reason = ret.Reason,
             DefectImageUrl = ret.DefectImageUrl,
             Status = ret.Status.ToString(),
+            Category = ret.Category.ToString(),
+            ReceivedAt = ret.ReceivedAt,
             CreatedAt = ret.CreatedAt,
             ResolvedAt = ret.ResolvedAt
         };

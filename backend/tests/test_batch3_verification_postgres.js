@@ -2,9 +2,10 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5227;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 const JWT_KEY = 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch3Verif!';
 
 function getTestDbConnectionString() {
@@ -168,7 +169,9 @@ async function main() {
   }
 
   // ─── SUITE 2: LIVE BACKEND API EXECUTION AGAINST POSTGRESQL ───
-  log('\n--- SUITE 2: LIVE BACKEND API EXECUTION AGAINST POSTGRESQL (TEST_DB) ---');
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
+  log(`\n--- SUITE 2: LIVE BACKEND API EXECUTION AGAINST POSTGRESQL (TEST_DB) on port ${PORT} ---`);
 
   const serverLogPath = path.join(__dirname, 'server_batch3_test.log');
   const serverLogFd = fs.openSync(serverLogPath, 'w');
@@ -408,10 +411,7 @@ async function main() {
     recordFail('Live execution exception', err.message);
   } finally {
     log('Terminating test backend server process...');
-    serverProc.kill();
-    try {
-      execSync(`powershell -NoProfile -Command "Get-Process -Name Marketplace.API -ErrorAction SilentlyContinue | Stop-Process -Force"`);
-    } catch {}
+    stopServer(serverProc);
   }
 
   log('\n================================================================');

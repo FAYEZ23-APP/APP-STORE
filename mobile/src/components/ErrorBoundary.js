@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import i18n from '../locales/i18n';
 import { colors } from '../theme/colors';
 
 export class ErrorBoundary extends React.Component {
@@ -29,29 +31,43 @@ export class ErrorBoundary extends React.Component {
           <View style={styles.container}>
             <View style={styles.header}>
               <Text style={styles.icon}>⚠️</Text>
-              <Text style={styles.title}>حدث خطأ أثناء تشغيل التطبيق</Text>
+              <Text style={styles.title}>{i18n.t('common.errorBoundaryTitle')}</Text>
               <Text style={styles.subtitle}>
-                تم التقاط هذا الخطأ لمنع إغلاق التطبيق فجأة.
+                {i18n.t('common.errorBoundarySubtitle')}
               </Text>
             </View>
 
-            <ScrollView style={styles.errorBox} showsVerticalScrollIndicator={true}>
-              <Text style={styles.errorLabel}>تفاصيل الخطأ:</Text>
-              <Text style={styles.errorText}>
-                {this.state.error?.toString() || 'Unknown Error'}
-              </Text>
-              {this.state.errorInfo?.componentStack && (
-                <>
-                  <Text style={[styles.errorLabel, { marginTop: 12 }]}>Stack Trace:</Text>
-                  <Text style={styles.stackText}>
-                    {this.state.errorInfo.componentStack}
-                  </Text>
-                </>
-              )}
-            </ScrollView>
+            {typeof __DEV__ !== 'undefined' && __DEV__ ? (
+              <ScrollView style={styles.errorBox} showsVerticalScrollIndicator={true}>
+                <Text style={styles.errorLabel}>{i18n.t('common.errorBoundaryDetails')}</Text>
+                <Text style={styles.errorText}>
+                  {this.state.error?.toString() || 'Unknown Error'}
+                </Text>
+                {this.state.errorInfo?.componentStack && (
+                  <>
+                    <Text style={[styles.errorLabel, { marginTop: 12 }]}>{i18n.t('common.errorBoundaryDetails')}</Text>
+                    <Text style={styles.stackText}>
+                      {this.state.errorInfo.componentStack}
+                    </Text>
+                  </>
+                )}
+              </ScrollView>
+            ) : (
+              <View style={styles.prodErrorBox}>
+                <Text style={styles.prodErrorText}>
+                  {i18n.t('common.errorBoundaryProductionMsg')}
+                </Text>
+              </View>
+            )}
 
-            <TouchableOpacity style={styles.retryButton} onPress={this.resetError} activeOpacity={0.85}>
-              <Text style={styles.retryText}>إعادة المحاولة</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={this.resetError}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('common.retry')}
+            >
+              <Text style={styles.retryText}>{i18n.t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -116,6 +132,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     fontFamily: 'monospace',
+  },
+  prodErrorBox: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  prodErrorText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   retryButton: {
     backgroundColor: colors.primary,

@@ -9,6 +9,7 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Platform,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -187,7 +188,7 @@ export default function AdminUsersScreen() {
         {/* Action Button: Ban or Reactivate */}
         <View style={tw`mt-3 pt-2 border-t border-gray-100 flex-row justify-end`}>
           {isUserActive ? (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => openStatusModal(item, false)}
               activeOpacity={0.8}
               style={[styles.actionBtn, { borderColor: colors.discount }]}
@@ -198,7 +199,7 @@ export default function AdminUsersScreen() {
               </Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => openStatusModal(item, true)}
               activeOpacity={0.8}
               style={[styles.actionBtn, { borderColor: '#16A34A', backgroundColor: '#F0FDF4' }]}
@@ -229,7 +230,7 @@ export default function AdminUsersScreen() {
           clearButtonMode="while-editing"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setSearchQuery('')}>
             <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
@@ -304,6 +305,10 @@ export default function AdminUsersScreen() {
           data={filteredUsers}
           keyExtractor={(item) => `adm-user-${item.id}`}
           renderItem={renderUserItem}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -346,7 +351,7 @@ export default function AdminUsersScreen() {
                     : t('admin.modalSuspendTitle')}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -371,7 +376,7 @@ export default function AdminUsersScreen() {
             />
 
             <View style={tw`flex-row justify-end mt-4`}>
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => setModalVisible(false)}
                 disabled={submittingAction}
                 style={[styles.modalCancelBtn, tw`mr-2`]}
@@ -379,7 +384,7 @@ export default function AdminUsersScreen() {
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleConfirmStatusChange}
                 disabled={submittingAction}
                 style={[

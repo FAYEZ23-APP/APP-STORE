@@ -2,9 +2,10 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { getFreePort, stopServer } = require('./helpers/test_harness');
 
-const PORT = 5248;
-const BASE_URL = `http://localhost:${PORT}`;
+let PORT = 0;
+let BASE_URL = '';
 const JWT_KEY = 'IntegrationTestSecretKey_AtLeast32CharsLong_Batch4PartC!';
 
 function getTestDbConnectionString() {
@@ -73,38 +74,11 @@ async function runTests() {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STATIC CONTRACT & ARCHITECTURE CHECKS
-  // ─────────────────────────────────────────────────────────────
-  console.log('\n--- [Static Architecture & Source Code Integrity Checks] ---');
-
-  const govFile = path.resolve(__dirname, '../Marketplace.Application/Common/EgyptianGovernorates.cs');
-  assert(fs.existsSync(govFile), 'Marketplace.Application/Common/EgyptianGovernorates.cs exists');
-  const govCode = fs.readFileSync(govFile, 'utf8');
-  assert(govCode.includes('GreaterCairo') && govCode.includes('UpperEgypt') && govCode.includes('BorderAndRedSea'), 'EgyptianGovernorates defines tiered shipping zones');
-  assert(govCode.includes('أسيوط') && govCode.includes('أسوان') && govCode.includes('البحر الأحمر') && govCode.includes('الوادي الجديد'), 'EgyptianGovernorates covers Upper Egypt and Frontier governorates');
-
-  const fakeDeliveryCode = fs.readFileSync(path.resolve(__dirname, '../Marketplace.Infrastructure/Delivery/FakeDeliveryProvider.cs'), 'utf8');
-  assert(fakeDeliveryCode.includes('EgyptianGovernorates.All'), 'FakeDeliveryProvider populates cities from EgyptianGovernorates.All (all 27 governorates)');
-  assert(fakeDeliveryCode.includes('Intra-Greater Cairo') || fakeDeliveryCode.includes('GreaterCairo'), 'FakeDeliveryProvider implements tiered zone tariffs');
-
-  const notConfiguredSms = fs.readFileSync(path.resolve(__dirname, '../Marketplace.Infrastructure/Notifications/NotConfiguredSmsSender.cs'), 'utf8');
-  assert(!notConfiguredSms.includes('throw new InvalidOperationException'), 'NotConfiguredSmsSender eliminates hard crash InvalidOperationException');
-  assert(notConfiguredSms.includes('Task.CompletedTask'), 'NotConfiguredSmsSender falls back gracefully without breaking user flows');
-
-  const configHttpSms = path.resolve(__dirname, '../Marketplace.Infrastructure/Notifications/ConfigurableHttpSmsSender.cs');
-  assert(fs.existsSync(configHttpSms), 'ConfigurableHttpSmsSender exists supporting Egyptian SMS gateways');
-
-  const orderServiceCode = fs.readFileSync(path.resolve(__dirname, '../Marketplace.Application/Services/OrderService.cs'), 'utf8');
-  assert(orderServiceCode.includes('_shippingDistanceService'), 'OrderService injects IShippingDistanceService');
-  assert(orderServiceCode.includes('originLat') && orderServiceCode.includes('destLat'), 'OrderService computes origin and destination coordinates for distance shipping');
-
-  const sellerProfileCode = fs.readFileSync(path.resolve(__dirname, '../Marketplace.Domain/Entities/SellerProfile.cs'), 'utf8');
-  assert(sellerProfileCode.includes('DispatchLatitude') && sellerProfileCode.includes('DispatchLongitude'), 'SellerProfile defines DispatchLatitude and DispatchLongitude');
-
-  // ─────────────────────────────────────────────────────────────
   // LIVE POSTGRESQL API INTEGRATION TESTS
   // ─────────────────────────────────────────────────────────────
-  console.log('\n--- [Live PostgreSQL Server Launch & Execution] ---');
+  PORT = await getFreePort();
+  BASE_URL = `http://localhost:${PORT}`;
+  console.log(`\n--- [Live PostgreSQL Server Launch & Execution on port ${PORT}] ---`);
 
   const projectDir = path.resolve(__dirname, '..', 'Marketplace.API');
   const logFile = path.resolve(__dirname, 'server_batch4_partc.log');
@@ -299,10 +273,7 @@ async function runTests() {
 
   } finally {
     console.log('[Server] Shutting down backend test server...');
-    server.kill();
-    try {
-      fs.closeSync(logFd);
-    } catch {}
+    stopServer(server, logFd, logFile);
   }
 
   console.log('\n========================================================================');

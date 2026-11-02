@@ -351,7 +351,7 @@ export default function MobileSearchScreen({ route, navigation }) {
         ]}
       >
         {/* Back Button */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={tw`p-2 -ms-1 me-1 rounded-full`}
           accessibilityLabel={isRTL ? 'رجوع' : 'Back'}
@@ -407,7 +407,7 @@ export default function MobileSearchScreen({ route, navigation }) {
 
           {/* Clear query button */}
           {query.length > 0 && (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => {
                 setQuery('');
                 clearSuggestions();
@@ -426,7 +426,7 @@ export default function MobileSearchScreen({ route, navigation }) {
         </View>
 
         {/* Search Submit Button */}
-        <TouchableOpacity
+        <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => handleSubmitQuery(query)}
           style={[
             tw`ms-2 px-3 py-2.5 rounded-xl flex-row items-center justify-center`,
@@ -450,33 +450,33 @@ export default function MobileSearchScreen({ route, navigation }) {
         >
           {/* SECTION 1: "Did you mean / هل تقصد" chip if typo is detected */}
           {suggestions.didYouMean && (
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={() => {
                 setQuery(suggestions.didYouMean);
                 handleSubmitQuery(suggestions.didYouMean);
               }}
               style={[
                 tw`flex-row items-center justify-between mx-3 mt-3 p-3 rounded-2xl border`,
-                { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
+                { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
               ]}
             >
               <View style={tw`flex-row items-center flex-1`}>
                 <View
                   style={[
                     tw`w-8 h-8 rounded-xl items-center justify-center me-2.5`,
-                    { backgroundColor: '#FDE68A' },
+                    { backgroundColor: colors.accentSoft },
                   ]}
                 >
-                  <MaterialCommunityIcons name="auto-fix" size={18} color="#B45309" />
+                  <MaterialCommunityIcons name="auto-fix" size={18} color={colors.accent} />
                 </View>
                 <View style={tw`flex-1`}>
-                  <Text style={[tw`text-xs font-medium text-amber-800`]}>
+                  <Text style={[tw`text-xs font-medium`, { color: colors.accentHover }]}>
                     {t('search.didYouMean')}
                   </Text>
                   <Text
                     style={[
-                      tw`text-sm font-bold text-amber-950 underline`,
-                      { textDecorationColor: colors.accent },
+                      tw`text-sm font-bold underline`,
+                      { color: colors.textPrimary, textDecorationColor: colors.accent },
                     ]}
                   >
                     {suggestions.didYouMean}
@@ -526,7 +526,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                     style={tw`flex-row items-center justify-between px-3 py-2.5`}
                   >
                     {/* Tapping keyword submits search */}
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => {
                         setQuery(kw.keyword);
                         handleSubmitQuery(kw.keyword);
@@ -568,7 +568,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                     </TouchableOpacity>
 
                     {/* Arrow button auto-fills search bar without submitting (Google/Amazon style) */}
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => handleAutoFillQuery(kw.keyword)}
                       style={tw`p-2 rounded-full`}
                       accessibilityLabel={isRTL ? 'إكمال تلقائي' : 'Auto-fill'}
@@ -609,7 +609,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                 {suggestions.matchingCategories.map((cat) => {
                   const catName = isRTL ? cat.nameAr || cat.nameEn : cat.nameEn || cat.nameAr;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       key={`cat-chip-${cat.id}`}
                       onPress={() => handleSelectCategoryChip(cat.id)}
                       style={[
@@ -673,7 +673,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                   const imageUrl = getImageUrl(prod.thumbnail);
 
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       key={`prod-preview-${prod.id}`}
                       onPress={() => {
                         navigation.navigate('ProductDetails', {
@@ -733,8 +733,8 @@ export default function MobileSearchScreen({ route, navigation }) {
                           ) : null}
                           {prod.averageRating > 0 && (
                             <View style={tw`flex-row items-center`}>
-                              <MaterialCommunityIcons name="star" size={12} color="#F59E0B" />
-                              <Text style={[tw`text-[11px] font-bold text-amber-600 ms-0.5`]}>
+                              <MaterialCommunityIcons name="star" size={12} color={colors.star} />
+                              <Text style={[tw`text-[11px] font-bold ms-0.5`, { color: colors.accentHover }]}>
                                 {prod.averageRating.toFixed(1)}
                               </Text>
                             </View>
@@ -768,7 +768,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                     {t('search.recentSearches')}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={clearRecentSearches} style={tw`py-1`}>
+                <TouchableOpacity accessible={true} accessibilityRole="button" onPress={clearRecentSearches} style={tw`py-1`}>
                   <Text style={[tw`text-xs font-semibold`, { color: colors.accent }]}>
                     {t('search.clearHistory')}
                   </Text>
@@ -789,7 +789,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                     key={`recent-${term}-${idx}`}
                     style={tw`flex-row items-center justify-between px-3 py-2.5`}
                   >
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => {
                         setQuery(term);
                         handleSubmitQuery(term);
@@ -813,7 +813,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                       </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => removeRecentSearch(term)}
                       style={tw`p-1.5`}
                     >
@@ -846,7 +846,7 @@ export default function MobileSearchScreen({ route, navigation }) {
 
               <View style={tw`flex-row flex-wrap gap-2`}>
                 {(isRTL ? POPULAR_SEARCH_TERMS.ar : POPULAR_SEARCH_TERMS.en).map((term) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     key={`popular-${term}`}
                     onPress={() => {
                       setQuery(term);
@@ -885,23 +885,23 @@ export default function MobileSearchScreen({ route, navigation }) {
             <View
               style={[
                 tw`flex-row items-center justify-between mx-3 mt-2 p-3 rounded-2xl border`,
-                { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
+                { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
               ]}
             >
               <View style={tw`flex-row items-center flex-1 me-2`}>
                 <MaterialCommunityIcons
                   name="auto-fix"
                   size={18}
-                  color="#B45309"
+                  color={colors.accent}
                   style={tw`me-2`}
                 />
                 <View style={tw`flex-1`}>
-                  <Text style={[tw`text-xs font-medium text-amber-800`]}>
+                  <Text style={[tw`text-xs font-medium`, { color: colors.accentHover }]}>
                     {t('search.showingResultsFor')}{' '}
-                    <Text style={tw`font-bold underline`}>{results.didYouMean}</Text>
+                    <Text style={[tw`font-bold underline`, { color: colors.textPrimary }]}>{results.didYouMean}</Text>
                   </Text>
                   {results.originalQuery && results.originalQuery !== results.didYouMean && (
-                    <TouchableOpacity
+                    <TouchableOpacity accessible={true} accessibilityRole="button"
                       onPress={() => {
                         setQuery(results.originalQuery);
                         executeSearch(results.originalQuery, 1);
@@ -916,7 +916,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => {
                   setQuery(results.didYouMean);
                   executeSearch(results.didYouMean, 1);
@@ -941,7 +941,7 @@ export default function MobileSearchScreen({ route, navigation }) {
             ]}
           >
             {/* Filter Button with Active Filter Count Badge */}
-            <TouchableOpacity
+            <TouchableOpacity accessible={true} accessibilityRole="button"
               onPress={openFilterModal}
               style={[
                 tw`flex-row items-center px-3 py-1.5 rounded-xl border`,
@@ -983,7 +983,7 @@ export default function MobileSearchScreen({ route, navigation }) {
 
             {/* Quick Reset Filters (if active) */}
             {activeFiltersCount > 0 && (
-              <TouchableOpacity onPress={handleResetFilters}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={handleResetFilters}>
                 <Text style={[tw`text-xs font-bold text-red-500`]}>
                   {t('search.resetAll')}
                 </Text>
@@ -1003,6 +1003,10 @@ export default function MobileSearchScreen({ route, navigation }) {
             <FlatList
               data={results.items}
               keyExtractor={(item) => String(item.id)}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS === 'android'}
               numColumns={2}
               columnWrapperStyle={{
                 justifyContent: 'space-between',
@@ -1066,7 +1070,7 @@ export default function MobileSearchScreen({ route, navigation }) {
               {/* Popular keyword chips */}
               <View style={tw`flex-row flex-wrap justify-center gap-2 mb-6`}>
                 {(isRTL ? POPULAR_SEARCH_TERMS.ar : POPULAR_SEARCH_TERMS.en).map((term) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     key={`empty-chip-${term}`}
                     onPress={() => {
                       setQuery(term);
@@ -1094,7 +1098,7 @@ export default function MobileSearchScreen({ route, navigation }) {
               </View>
 
               {activeFiltersCount > 0 && (
-                <TouchableOpacity
+                <TouchableOpacity accessible={true} accessibilityRole="button"
                   onPress={handleResetFilters}
                   style={[
                     tw`px-5 py-2.5 rounded-xl`,
@@ -1137,7 +1141,7 @@ export default function MobileSearchScreen({ route, navigation }) {
               <Text style={[tw`text-base font-bold`, { color: colors.textPrimary }]}>
                 {t('search.filterModalTitle')}
               </Text>
-              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setFilterModalVisible(false)}>
                 <MaterialCommunityIcons
                   name="close"
                   size={22}
@@ -1157,7 +1161,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                   {SORT_OPTIONS.map((opt) => {
                     const isSelected = tempSortBy === opt.key;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         key={`sort-${opt.key}`}
                         onPress={() => setTempSortBy(opt.key)}
                         style={[
@@ -1187,7 +1191,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                   {t('search.categories')}
                 </Text>
                 <View style={tw`flex-row flex-wrap gap-2`}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => setTempCategoryId(null)}
                     style={[
                       tw`px-3 py-2 rounded-xl border`,
@@ -1210,7 +1214,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                     const isSelected = tempCategoryId === cat.id;
                     const catName = isRTL ? cat.nameAr || cat.name : cat.nameEn || cat.name;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessible={true} accessibilityRole="button"
                         key={`modal-cat-${cat.id}`}
                         onPress={() => setTempCategoryId(isSelected ? null : cat.id)}
                         style={[
@@ -1277,7 +1281,7 @@ export default function MobileSearchScreen({ route, navigation }) {
 
                 {/* Quick Presets */}
                 <View style={tw`flex-row gap-2`}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => {
                       setTempMinPrice('');
                       setTempMaxPrice('500');
@@ -1288,7 +1292,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                       {isRTL ? '< 500 ج.م' : '< 500 EGP'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => {
                       setTempMinPrice('500');
                       setTempMaxPrice('2000');
@@ -1299,7 +1303,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                       {isRTL ? '500 - 2,000 ج.م' : '500 - 2,000 EGP'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity accessible={true} accessibilityRole="button"
                     onPress={() => {
                       setTempMinPrice('2000');
                       setTempMaxPrice('');
@@ -1334,7 +1338,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                 { borderColor: colors.border },
               ]}
             >
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => {
                   setTempCategoryId(null);
                   setTempMinPrice('');
@@ -1352,7 +1356,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
+              <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={handleApplyFilters}
                 style={[
                   tw`flex-1 py-3 rounded-xl items-center justify-center`,
