@@ -118,6 +118,24 @@ public class MockUow : IUnitOfWork
     public void Dispose() { }
 }
 
+public class MockStorageProvider : IFileStorageProvider
+{
+    private readonly string _root;
+    public MockStorageProvider(string root) => _root = root;
+    public Task<string> SaveFileAsync(byte[] cleanBytes, string fileName, string? subFolder, bool isPrivate, CancellationToken cancellationToken = default)
+    {
+        var dir = string.IsNullOrEmpty(subFolder) ? Path.Combine(_root, "uploads") : Path.Combine(_root, "uploads", subFolder);
+        Directory.CreateDirectory(dir);
+        var target = Path.Combine(dir, fileName);
+        File.WriteAllBytes(target, cleanBytes);
+        var rel = string.IsNullOrEmpty(subFolder) ? $"/uploads/{fileName}" : $"/uploads/{subFolder}/{fileName}";
+        return Task.FromResult(rel);
+    }
+    public Task<Stream?> GetPrivateFileStreamAsync(string fileName, string? subFolder = null, CancellationToken cancellationToken = default) => Task.FromResult<Stream?>(null);
+    public Task<bool> PrivateFileExistsAsync(string fileName, string? subFolder = null, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    public Task<bool> DeleteFileAsync(string relativePathOrFileName, bool isPrivate, CancellationToken cancellationToken = default) => Task.FromResult(true);
+}
+
 public class MockWebEnv : IWebHostEnvironment
 {
     public string WebRootPath { get; set; } = string.Empty;
@@ -207,7 +225,8 @@ public static class Program
                 .Build();
 
             var env = new MockWebEnv { WebRootPath = tempRoot };
-            var uploadSvc = new ImageUploadService(uow, env, config);
+            var storage = new MockStorageProvider(tempRoot);
+            var uploadSvc = new ImageUploadService(uow, env, config, storage);
             var productSvc = new ProductService(uow, uploadSvc);
             var validator = new CreateProductRequestValidator(uow, config);
 

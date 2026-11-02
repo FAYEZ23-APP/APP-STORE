@@ -99,7 +99,7 @@ export default function SellerLayout() {
 
       {/* Navigation Tabs */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-sm flex flex-wrap gap-2">
-        {navLinks.map((link) => {
+        {navLinks.filter((link) => link.enabled).map((link) => {
           const Icon = link.icon;
           return (
             <NavLink
