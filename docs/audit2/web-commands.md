@@ -109,3 +109,19 @@ node scripts/audit2/map_backend_vs_web_apis.js
 ```powershell
 node scripts/audit2/verify_claims.js
 ```
+
+22. Dependency vulnerability audit & fix (WEB-004):
+```powershell
+npm --prefix admin-web audit fix
+npm --prefix admin-web audit
+```
+
+23. Master Web Test Runner execution (WEB-005, WEB-002, WEB-008, WEB-009, WEB-010):
+```powershell
+npm --prefix admin-web test
+```
+
+24. Backend compilation verification:
+```powershell
+dotnet build backend/Marketplace.API
+```

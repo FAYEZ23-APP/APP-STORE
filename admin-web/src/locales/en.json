@@ -52,7 +52,8 @@
     "days_two": "2 days",
     "days_few": "{{count}} days",
     "days_many": "{{count}} days",
-    "days_other": "{{count}} days"
+    "days_other": "{{count}} days",
+    "all": "All"
   },
   "nav": {
     "home": "Home",

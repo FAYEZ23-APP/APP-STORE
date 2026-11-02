@@ -30,8 +30,17 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
+            if (id.includes('@react-google-maps')) {
+              return 'vendor-maps';
+            }
+            if (id.includes('react-dom')) {
+              return 'vendor-react-dom';
+            }
+            if (id.includes('react-router-dom') || id.includes('react-router')) {
+              return 'vendor-router';
+            }
+            if (id.includes('react/') || id.includes('/react/')) {
+              return 'vendor-react-core';
             }
             if (id.includes('axios') || id.includes('jwt-decode')) {
               return 'vendor-utils';
@@ -41,9 +50,6 @@ export default defineConfig(({ mode }) => ({
             }
             if (id.includes('i18next') || id.includes('react-i18next')) {
               return 'vendor-i18n';
-            }
-            if (id.includes('@react-google-maps')) {
-              return 'vendor-maps';
             }
           }
         },

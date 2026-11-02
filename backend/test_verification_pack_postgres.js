@@ -951,6 +951,8 @@ async function main() {
       AUTH_CODE_SECRET: 'stage4-auth-code-secret-for-testing-only-12345',
       Admin__Require2FA: 'true',
       Admin__RequireHttpsBehindProxy: 'true',
+      'Security__TwoFactorEncryptionKey': 'Stage4IntegrationTestTwoFactorKeyAtLeast32CharsLong!',
+      'TwoFactor__EncryptionKey': 'Stage4IntegrationTestTwoFactorKeyAtLeast32CharsLong!',
     };
     delete childEnv.TEST_DB;
     const proc = spawn(

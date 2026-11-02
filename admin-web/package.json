@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:security": "node tests/test_web_security_and_build.js"
+    "test:security": "node tests/test_web_security_and_build.js",
+    "test": "node tests/run_all_tests.js"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.8",

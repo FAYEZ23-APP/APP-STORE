@@ -52,7 +52,8 @@
     "days_two": "يومان",
     "days_few": "{{count}} أيام",
     "days_many": "{{count}} يوماً",
-    "days_other": "{{count}} يوم"
+    "days_other": "{{count}} يوم",
+    "all": "الكل"
   },
   "nav": {
     "home": "الرئيسية",

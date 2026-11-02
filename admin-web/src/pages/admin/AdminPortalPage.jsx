@@ -101,6 +101,7 @@ export default function AdminPortalPage() {
   const [appConfig, setAppConfig] = useState(null);
   const [stepUpPassword, setStepUpPassword] = useState('');
   const [stepUpError, setStepUpError] = useState(null);
+  const [stepUpRequired, setStepUpRequired] = useState(true);
 
   // Reported Reviews Moderation State
   const [reviews, setReviews] = useState([]);
@@ -449,6 +450,10 @@ export default function AdminPortalPage() {
   const handleUpdateUserStatus = async (e) => {
     e.preventDefault();
     if (statusLoading || !selectedUser) return;
+    if (stepUpRequired && !stepUpPassword.trim()) {
+      setStepUpError(t("admin.stepUpRequired"));
+      return;
+    }
     setStatusLoading(true);
     try {
       const nextActiveState = !selectedUser.isActive;
@@ -465,6 +470,8 @@ export default function AdminPortalPage() {
       setShowStatusModal(false);
       setSelectedUser(null);
       setStatusReason('');
+      setStepUpPassword('');
+      setStepUpError(null);
 
       // Refresh users
       const usersRes = await getAdminUsers({
@@ -486,6 +493,10 @@ export default function AdminPortalPage() {
   const handleProcessPayout = async (e) => {
     e.preventDefault();
     if (processLoading || !selectedPayout) return;
+    if (stepUpRequired && !stepUpPassword.trim()) {
+      setStepUpError(t("admin.stepUpRequired"));
+      return;
+    }
     setProcessLoading(true);
     try {
       await processAdminPayout(selectedPayout.id, {
@@ -504,6 +515,8 @@ export default function AdminPortalPage() {
       setShowProcessModal(false);
       setSelectedPayout(null);
       setAdminNotes('');
+      setStepUpPassword('');
+      setStepUpError(null);
 
       // Refresh payouts & stats
       const [payoutsRes, statsRes] = await Promise.all([
@@ -2061,7 +2074,7 @@ export default function AdminPortalPage() {
       {/* MODAL: SETUP 2FA */}
       {showSetupModal && setupData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-red-600" />
@@ -2157,7 +2170,7 @@ export default function AdminPortalPage() {
       {/* MODAL: DISABLE 2FA */}
       {showDisableModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-red-600" />
@@ -2214,7 +2227,7 @@ export default function AdminPortalPage() {
       {/* MODAL: ADD / EDIT CATEGORY */}
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
                 <Layers className="w-5 h-5" />
@@ -2308,7 +2321,7 @@ export default function AdminPortalPage() {
       {/* MODAL 1: UPDATE USER STATUS (BAN / ACTIVATE) */}
       {showStatusModal && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
@@ -2389,7 +2402,7 @@ export default function AdminPortalPage() {
       {/* MODAL 2: PROCESS PAYOUT REQUEST */}
       {showProcessModal && selectedPayout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
                 <CreditCard className="w-5 h-5" />

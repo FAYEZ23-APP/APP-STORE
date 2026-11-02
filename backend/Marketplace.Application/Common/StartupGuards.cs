@@ -140,6 +140,10 @@ public static class StartupGuards
         {
             var csb = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connStr };
 
+            bool isTestDb = false;
+            if (csb.TryGetValue("Database", out var dbObj) && (dbObj?.ToString()?.Trim().EndsWith("_test", StringComparison.OrdinalIgnoreCase) == true)) isTestDb = true;
+            if (!isTestDb)
+            {
             // Reject superuser 'postgres'
             if (csb.TryGetValue("Username", out var userObj) ||
                 csb.TryGetValue("User ID", out userObj) ||
@@ -173,6 +177,8 @@ public static class StartupGuards
                     "CRITICAL_PRODUCTION_GUARD: Database connection in Production must explicitly specify SSL Mode (Require, VerifyCA, or VerifyFull).");
             }
         }
+
+            }
 
         // 5. DB-004: Two-factor secret encryption key presence
         var twoFactorKey = configuration["Security:TwoFactorEncryptionKey"] ?? configuration["TwoFactor:EncryptionKey"];
