@@ -20,6 +20,8 @@
   --color-accent-hover: #C08F2D;
   --color-accent-soft: #FBF6EC;
   --color-accent-border: #EBD6A7;
+  --color-accent-text: #8A5A00;
+  --color-accent-contrast: #8A5A00;
 
   --color-neutral: #ECE9E6;
   --color-neutral-dark: #D8D4CF;
@@ -51,6 +53,7 @@
     --secondary: #1F2329;
     --accent: #D6A33A;
     --accent-hover: #C08F2D;
+    --accent-text: #8A5A00;
     --screen-bg: #FAF8F5;
     --card-bg: #FFFFFF;
     --neutral: #ECE9E6;

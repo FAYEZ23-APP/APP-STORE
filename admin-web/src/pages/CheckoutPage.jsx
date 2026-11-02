@@ -863,7 +863,7 @@ export default function CheckoutPage() {
                     {isRTL ? 'فروع ونقاط الاستلام المتاحة:' : 'Available Pickup Points:'}
                   </label>
                   {pickupPoints.length > 0 ? (
-                    <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                    <div className="space-y-2.5 max-h-56 overflow-y-auto pe-1">
                       {pickupPoints.map((point) => {
                         const isSelected = selectedPickupPointId === point.id;
                         return (

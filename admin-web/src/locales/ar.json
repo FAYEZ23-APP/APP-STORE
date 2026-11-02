@@ -185,6 +185,7 @@
     "stockWarning": "تم تعديل الكمية إلى {{stock}} لعدم توفر كمية إضافية بالمخزن",
     "productUnavailable": "تمت إزالة منتج لم يعد متوفراً في المخزن",
     "clearCart": "تفريغ العربة",
+    "clearCartConfirm": "هل أنت متأكد من رغبتك في تفريغ عربة التسوق بالكامل؟",
     "continueShopping": "مواصلة التسوق"
   },
   "checkout": {

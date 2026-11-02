@@ -213,6 +213,7 @@
     "stockWarning": "Quantity adjusted to {{stock}} due to available inventory",
     "productUnavailable": "An item was removed because it is no longer available in stock",
     "clearCart": "Clear Cart",
+    "clearCartConfirm": "Are you sure you want to clear your entire cart?",
     "continueShopping": "Continue Shopping",
     "inCart": "In Cart",
     "itemUnavailable": "Product is currently unavailable",
