@@ -46,9 +46,19 @@ export const AuthProvider = ({ children }) => {
   const [token, setStoredToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadUserFromToken = () => {
+  const loadUserFromToken = async () => {
     try {
-      const activeToken = getToken();
+      let activeToken = getToken();
+
+      // Attempt silent refresh via HttpOnly cookie if in-memory token is absent (WEB-003)
+      if (!activeToken) {
+        try {
+          activeToken = await performSingleFlightRefresh();
+        } catch (_) {
+          // No active session cookie
+        }
+      }
+
       if (activeToken) {
         const decoded = jwtDecode(activeToken);
         const role = decoded[ROLE_CLAIM] || decoded.role;
@@ -69,7 +79,6 @@ export const AuthProvider = ({ children }) => {
         setStoredToken(null);
       }
     } catch (error) {
-      console.error('Invalid token found in localStorage', error);
       removeToken();
       setUserRole(null);
       setUserId(null);
@@ -93,6 +102,38 @@ export const AuthProvider = ({ children }) => {
     });
     loadUserFromToken();
   }, []);
+
+  // ─── 15-Minute Inactivity Timeout Monitor (WEB-007) ─────────
+  const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+  useEffect(() => {
+    if (!userId || !token) return;
+
+    let timeoutId = null;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+        window.dispatchEvent(new CustomEvent('auth:inactivity-timeout'));
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.replace('/login?reason=inactivity');
+        }
+      }, INACTIVITY_LIMIT_MS);
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach((evt) =>
+      window.addEventListener(evt, resetTimer, { passive: true })
+    );
+    resetTimer();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      activityEvents.forEach((evt) =>
+        window.removeEventListener(evt, resetTimer)
+      );
+    };
+  }, [userId, token]);
 
   const login = async (identifierOrEmail, password) => {
     const payload = typeof identifierOrEmail === 'object'

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { fetchSafeAppConfig } from '../../api/configApi';
 import {
   Store,
   LayoutDashboard,
@@ -15,6 +16,11 @@ import {
 export default function SellerLayout() {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
+  const [appConfig, setAppConfig] = useState(null);
+
+  useEffect(() => {
+    fetchSafeAppConfig().then(setAppConfig).catch(() => {});
+  }, []);
 
   const navLinks = [
     {
@@ -22,42 +28,49 @@ export default function SellerLayout() {
       labelAr: 'نظرة عامة والتحليلات',
       labelEn: 'Overview & KPIs',
       icon: LayoutDashboard,
+      enabled: true,
     },
     {
       to: '/seller/products',
       labelAr: 'إدارة المنتجات والمخزون',
       labelEn: 'Products & Inventory',
       icon: Package,
+      enabled: true,
     },
     {
       to: '/seller/shipments',
       labelAr: 'شحنات التاجر وتسليم بوسطة',
       labelEn: 'Seller Shipments & Handover',
       icon: Truck,
+      enabled: true,
     },
     {
       to: '/seller/returns',
       labelAr: 'طلبات الإرجاع (181/2018)',
       labelEn: 'Return Requests (Law 181)',
       icon: RotateCcw,
+      enabled: true,
     },
     {
       to: '/seller/coupons',
       labelAr: 'كوبونات الخصم',
       labelEn: 'Promo Coupons',
       icon: Tag,
+      enabled: appConfig ? Boolean(appConfig.couponsEnabled) : false,
     },
     {
       to: '/seller/wallet',
       labelAr: 'المحفظة وسحب الأرباح',
       labelEn: 'Wallet & Payouts',
       icon: Wallet,
+      enabled: appConfig ? Boolean(appConfig.walletEnabled || appConfig.vendorPayoutsEnabled) : false,
     },
     {
       to: '/seller/profile',
       labelAr: 'إعدادات مستودع الشحن',
       labelEn: 'Dispatch Warehouse Settings',
       icon: Settings,
+      enabled: true,
     },
   ];
 
