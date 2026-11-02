@@ -583,7 +583,7 @@ export default function ProfileScreen({ navigation }) {
 
       {/* ─── 1. Personalized Header & Trust Badges (Executive Amazon/Noon Hub) ─── */}
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#0F172A']}
+        colors={['#14171B', '#1F2329', '#14171B']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -706,7 +706,7 @@ export default function ProfileScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadData(true)}
-            colors={[colors.accent]}
+            colors={[colors.primary]}
           />
         }
       >

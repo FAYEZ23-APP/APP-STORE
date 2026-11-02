@@ -31,7 +31,7 @@ const cardShadow = Platform.select({
 });
 
 const CATEGORY_ACCENT_COLORS = {
-  all: { bg: '#FFF7ED', iconBg: colors.accent, iconColor: '#FFF' },
+  all: { bg: colors.primarySoft, iconBg: colors.primary, iconColor: '#FFF' },
   electronics: { bg: '#EFF6FF', iconBg: '#3B82F6', iconColor: '#FFF' },
   clothing: { bg: '#FDF2F8', iconBg: '#EC4899', iconColor: '#FFF' },
   shoes: { bg: '#F5F3FF', iconBg: '#8B5CF6', iconColor: '#FFF' },
@@ -82,7 +82,7 @@ export default function CategoriesScreen({ navigation }) {
   if (loading && !refreshing) {
     return (
       <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,7 +90,7 @@ export default function CategoriesScreen({ navigation }) {
   const renderHeader = () => (
     <View style={styles.bannerContainer}>
       <LinearGradient
-        colors={['#0F172A', '#1E3A5F']}
+        colors={['#14171B', '#1F2329']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.bannerGradient}
@@ -104,7 +104,7 @@ export default function CategoriesScreen({ navigation }) {
           </Text>
         </View>
         <View style={styles.bannerIconCircle}>
-          <MaterialCommunityIcons name="shape-outline" size={28} color={colors.accent} />
+          <MaterialCommunityIcons name="shape-outline" size={28} color={colors.gold} />
         </View>
       </LinearGradient>
     </View>
@@ -127,7 +127,7 @@ export default function CategoriesScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadCategories(true)}
-            colors={[colors.accent]}
+            colors={[colors.primary]}
           />
         }
         renderItem={({ item }) => {

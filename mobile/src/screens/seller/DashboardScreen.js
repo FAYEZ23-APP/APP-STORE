@@ -187,7 +187,7 @@ export default function DashboardScreen({ navigation }) {
 
       {/* ─── 1. Executive Financial Header (Amazon/Noon Partner Central) ─── */}
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#0F172A']}
+        colors={['#14171B', '#1F2329', '#14171B']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -256,10 +256,10 @@ export default function DashboardScreen({ navigation }) {
             {features.wallet && (
               <TouchableOpacity accessible={true} accessibilityRole="button"
                 onPress={() => navigation.navigate('SellerWallet')}
-                style={tw`px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-xl flex-row items-center`}
+                style={[tw`px-3 py-1.5 rounded-xl flex-row items-center border`, { backgroundColor: colors.goldSoft, borderColor: colors.goldBorder }]}
               >
-                <MaterialCommunityIcons name="wallet-outline" size={16} color="#FF8C33" style={isRTL ? tw`ml-1` : tw`mr-1`} />
-                <Text style={tw`text-orange-400 font-bold text-xs`}>{t('seller.wallet')}</Text>
+                <MaterialCommunityIcons name="wallet-outline" size={16} color={colors.gold} style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                <Text style={[tw`font-bold text-xs`, { color: colors.gold }]}>{t('seller.wallet')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -299,7 +299,7 @@ export default function DashboardScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchDashboardData(true)}
-            colors={[colors.accent]}
+            colors={[colors.primary]}
           />
         }
       >
@@ -384,7 +384,7 @@ export default function DashboardScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 <View style={[styles.todoIconWrap, { backgroundColor: '#FFEDD5' }]}>
-                  <MaterialCommunityIcons name="wallet-outline" size={20} color="#EA580C" />
+                  <MaterialCommunityIcons name="wallet-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
                   <Text style={tw`font-bold text-xs text-slate-900`}>{t('seller.wallet')}</Text>
@@ -626,7 +626,7 @@ export default function DashboardScreen({ navigation }) {
           style={[styles.addBanner, cardShadow, tw`mt-5`]}
         >
           <LinearGradient
-            colors={[colors.accent, '#EA580C']}
+            colors={[colors.primary, colors.primaryHover]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.addBannerGradient}

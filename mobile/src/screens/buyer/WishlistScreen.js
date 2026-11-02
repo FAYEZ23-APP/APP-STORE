@@ -167,7 +167,7 @@ export default function WishlistScreen({ navigation }) {
           </View>
 
           <View style={tw`flex-row items-center justify-between mt-2 pt-2 border-t border-slate-50`}>
-            <Text style={tw`text-orange-600 font-extrabold text-sm`}>
+            <Text style={tw`font-black text-sm text-[#C8102E]`}>
               {formatCurrency(item.price)}
             </Text>
 
@@ -178,7 +178,7 @@ export default function WishlistScreen({ navigation }) {
                 tw`px-3 py-1.5 rounded-xl flex-row items-center`,
                 isOutOfStock
                   ? tw`bg-slate-100`
-                  : tw`bg-orange-500`,
+                  : { backgroundColor: colors.primary },
               ]}
             >
               {movingId === item.productId ? (
@@ -209,12 +209,12 @@ export default function WishlistScreen({ navigation }) {
   };
 
   return (
-    <View style={tw`flex-1 bg-slate-50`}>
+    <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       {/* Header */}
       <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-slate-100 flex-row items-center justify-between`}>
         <View style={tw`flex-row items-center gap-2`}>
-          <View style={tw`w-9 h-9 rounded-xl bg-rose-50 items-center justify-center`}>
-            <MaterialCommunityIcons name="heart" size={20} color="#F43F5E" />
+          <View style={tw`w-9 h-9 rounded-xl bg-[#FDF2F4] border border-[#F8CAD1] items-center justify-center`}>
+            <MaterialCommunityIcons name="heart" size={20} color={colors.primary} />
           </View>
           <View>
             <Text style={tw`text-slate-900 font-black text-lg`}>
@@ -234,8 +234,8 @@ export default function WishlistScreen({ navigation }) {
         </View>
       ) : items.length === 0 ? (
         <View style={tw`flex-1 items-center justify-center px-6`}>
-          <View style={tw`w-20 h-20 rounded-full bg-rose-50 items-center justify-center mb-4`}>
-            <MaterialCommunityIcons name="heart-outline" size={38} color="#F43F5E" />
+          <View style={tw`w-20 h-20 rounded-full bg-[#FDF2F4] border border-[#F8CAD1] items-center justify-center mb-4`}>
+            <MaterialCommunityIcons name="heart-outline" size={38} color={colors.primary} />
           </View>
           <Text style={tw`text-slate-900 font-bold text-base mb-1 text-center`}>
             {t('wishlist.emptyTitle')}
@@ -245,7 +245,7 @@ export default function WishlistScreen({ navigation }) {
           </Text>
           <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => navigation.navigate('HomeTab')}
-            style={tw`bg-orange-500 px-6 py-3 rounded-2xl shadow-sm`}
+            style={[tw`px-6 py-3 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
           >
             <Text style={tw`text-white font-bold text-xs`}>
               {isRTL ? 'استكشف المنتجات' : 'Explore Products'}

@@ -1074,7 +1074,7 @@ export default function AddEditProductScreen({ route, navigation }) {
           colors={
             loading || anyUploading || loadingCategories
               ? [colors.disabledBg, colors.disabledBg]
-              : [colors.accent, '#FF8C33']
+              : [colors.primary, colors.primaryHover]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}

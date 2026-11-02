@@ -580,7 +580,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                       width: 56,
                       height: 56,
                       borderWidth: isSelected ? 2 : 1,
-                      borderColor: isSelected ? colors.accent : colors.border,
+                      borderColor: isSelected ? colors.primary : colors.border,
                       backgroundColor: colors.placeholderBg,
                     },
                   ]}
@@ -817,7 +817,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 <MaterialCommunityIcons
                   name="storefront-outline"
                   size={18}
-                  color={colors.accent}
+                  color={colors.primary}
                 />
                 <Text
                   style={[
@@ -826,20 +826,20 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   ]}
                 >
                   {`${t('product.seller')}: `}
-                  <Text style={[tw`font-bold`, { color: colors.accent }]}>
+                  <Text style={[tw`font-bold`, { color: colors.textPrimary }]}>
                     {product.sellerName}
                   </Text>
                 </Text>
               </View>
               {product.sellerId ? (
                 <View style={tw`flex-row items-center`}>
-                  <Text style={[tw`text-xs font-semibold mr-1`, { color: colors.accent }]}>
+                  <Text style={[tw`text-xs font-semibold mr-1`, { color: colors.primary }]}>
                     {t('store.visitStore')}
                   </Text>
                   <MaterialCommunityIcons
                     name={isRTL ? 'chevron-left' : 'chevron-right'}
                     size={16}
-                    color={colors.accent}
+                    color={colors.primary}
                   />
                 </View>
               ) : null}
@@ -910,7 +910,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                       {label}
                     </Text>
 
-                    <Text style={[tw`font-bold text-xs`, { color: colors.accent }]}>
+                    <Text style={[tw`font-bold text-xs`, { color: colors.primary }]}>
                       {formatCurrency(vPrice)}
                     </Text>
 
@@ -1104,11 +1104,11 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 activeOpacity={0.8}
                 style={[
                   tw`px-3 py-1.5 rounded-lg border flex-row items-center`,
-                  { borderColor: colors.accent, backgroundColor: '#FFF7ED' },
+                  { borderColor: colors.gold, backgroundColor: colors.goldSoft },
                 ]}
               >
-                <MaterialCommunityIcons name="star-plus" size={16} color={colors.accent} style={tw`mr-1`} />
-                <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+                <MaterialCommunityIcons name="star-plus" size={16} color={colors.gold} style={tw`mr-1`} />
+                <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
                   {t('product.writeReview')}
                 </Text>
               </TouchableOpacity>
@@ -1327,7 +1327,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                           tw`mt-2.5 p-2.5 rounded-xl border-l-4`,
                           {
                             backgroundColor: colors.screenBg,
-                            borderLeftColor: colors.accent,
+                            borderLeftColor: colors.primary,
                           },
                         ]}
                       >
@@ -1335,9 +1335,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
                           <MaterialCommunityIcons
                             name="storefront-outline"
                             size={13}
-                            color={colors.accent}
+                            color={colors.primary}
                           />
-                          <Text style={[tw`text-[11px] font-bold ml-1`, { color: colors.accent }]}>
+                          <Text style={[tw`text-[11px] font-bold ml-1`, { color: colors.primary }]}>
                             {t('product.sellerReplyLabel')}
                           </Text>
                         </View>
@@ -1543,15 +1543,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               onPress={handleBuyNow}
               style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}
             >
-              <LinearGradient
-                colors={[colors.accent, '#FF8C33']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  tw`flex-row items-center justify-center`,
-                  { minHeight: 48, paddingHorizontal: 8 },
-                ]}
-              >
+              <View style={[tw`flex-row items-center justify-center`, { minHeight: 48, paddingHorizontal: 8, backgroundColor: colors.primary }]}>
                 <MaterialCommunityIcons name="flash" size={18} color={colors.white} />
                 <Text
                   numberOfLines={1}
@@ -1562,7 +1554,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 >
                   {t('product.buyNow')}
                 </Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
         )}

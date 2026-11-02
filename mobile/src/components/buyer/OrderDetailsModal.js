@@ -1,4 +1,4 @@
-import tw from 'twrnc';
+import tw from '../../theme/tw';
 import React from 'react';
 import {
   View,

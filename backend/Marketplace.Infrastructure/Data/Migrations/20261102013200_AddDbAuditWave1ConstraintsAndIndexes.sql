@@ -31,15 +31,17 @@ BEGIN
         SET "MigrationId" = '20261028024709_AddAdminAuditLogsAndCategoryBilingualNames' 
         WHERE "MigrationId" = '20261028015637_AddAdminAuditLogsAndCategoryBilingualNames';
 
-        IF EXISTS (
-            SELECT 1 FROM pg_constraint 
-            WHERE conname = 'FK_AdminAuditLogs_Users_AdminId' 
-              AND conrelid = '"AdminAuditLogs"'::regclass 
-              AND confdeltype != 'r'
-        ) THEN
-            ALTER TABLE "AdminAuditLogs" DROP CONSTRAINT "FK_AdminAuditLogs_Users_AdminId";
-            ALTER TABLE "AdminAuditLogs" ADD CONSTRAINT "FK_AdminAuditLogs_Users_AdminId" 
-                FOREIGN KEY ("AdminId") REFERENCES "Users" ("Id") ON DELETE RESTRICT;
+        IF to_regclass('"AdminAuditLogs"') IS NOT NULL THEN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint 
+                WHERE conname = 'FK_AdminAuditLogs_Users_AdminId' 
+                  AND conrelid = to_regclass('"AdminAuditLogs"') 
+                  AND confdeltype != 'r'
+            ) THEN
+                ALTER TABLE "AdminAuditLogs" DROP CONSTRAINT "FK_AdminAuditLogs_Users_AdminId";
+                ALTER TABLE "AdminAuditLogs" ADD CONSTRAINT "FK_AdminAuditLogs_Users_AdminId" 
+                    FOREIGN KEY ("AdminId") REFERENCES "Users" ("Id") ON DELETE RESTRICT;
+            END IF;
         END IF;
     END $$;
 

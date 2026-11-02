@@ -316,7 +316,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           onPress={() => setMainTab('orders')}
           style={[
             tw`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center`,
-            mainTab === 'orders' ? { backgroundColor: colors.accent } : tw`bg-slate-100`,
+            mainTab === 'orders' ? { backgroundColor: colors.primary } : { backgroundColor: colors.screenBg, borderWidth: 1, borderColor: colors.border },
           ]}
         >
           <MaterialCommunityIcons
@@ -328,7 +328,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           <Text style={[tw`text-xs font-bold`, mainTab === 'orders' ? tw`text-white` : tw`text-slate-700`]}>
             {isRTL ? 'طلباتي وشحناتي' : 'My Orders'}
           </Text>
-          <View style={[tw`px-1.5 py-0.2 rounded-full ml-1.5`, mainTab === 'orders' ? tw`bg-orange-600` : tw`bg-slate-200`]}>
+          <View style={[tw`px-1.5 py-0.2 rounded-full ml-1.5`, mainTab === 'orders' ? { backgroundColor: '#A80D26' } : tw`bg-slate-200`]}>
             <Text style={[tw`text-[10px] font-black`, mainTab === 'orders' ? tw`text-white` : tw`text-slate-600`]}>
               {orders.length}
             </Text>
@@ -339,7 +339,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           onPress={() => setMainTab('returns')}
           style={[
             tw`flex-1 py-2 px-3 rounded-xl flex-row items-center justify-center`,
-            mainTab === 'returns' ? { backgroundColor: colors.accent } : tw`bg-slate-100`,
+            mainTab === 'returns' ? { backgroundColor: colors.primary } : { backgroundColor: colors.screenBg, borderWidth: 1, borderColor: colors.border },
           ]}
         >
           <MaterialCommunityIcons
@@ -472,7 +472,7 @@ export default function MyOrdersScreen({ route, navigation }) {
                 style={[
                   tw`px-3.5 py-1.5 rounded-full mr-2 border`,
                   isSelected
-                    ? { backgroundColor: colors.accent, borderColor: colors.accent }
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
                     : { backgroundColor: colors.screenBg, borderColor: colors.border },
                 ]}
               >
@@ -594,7 +594,7 @@ export default function MyOrdersScreen({ route, navigation }) {
                       </Text>
 
                       {shipment.codAmount > 0 && (
-                        <Text style={[tw`text-xs font-bold mt-1`, { color: colors.accent, textAlign: isRTL ? 'right' : 'left' }]}>
+                        <Text style={[tw`text-xs font-bold mt-1`, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                           {t('orders.codLabel', { amount: formatCurrency(shipment.codAmount) })}
                         </Text>
                       )}
@@ -623,11 +623,11 @@ export default function MyOrdersScreen({ route, navigation }) {
                             }}
                             style={[
                               tw`flex-1 flex-row items-center justify-center py-2 px-2 rounded-lg border ${isRTL ? 'ml-1.5' : 'mr-1.5'}`,
-                              { borderColor: colors.accent, backgroundColor: '#FFF7ED' },
+                              { borderColor: colors.gold, backgroundColor: colors.goldSoft },
                             ]}
                           >
-                            <MaterialCommunityIcons name="star" size={16} color={colors.accent} style={isRTL ? tw`ml-1` : tw`mr-1`} />
-                            <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+                            <MaterialCommunityIcons name="star" size={16} color={colors.gold} style={isRTL ? tw`ml-1` : tw`mr-1`} />
+                            <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
                               {t('product.writeReview')}
                             </Text>
                           </TouchableOpacity>

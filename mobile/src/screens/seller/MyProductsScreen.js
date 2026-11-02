@@ -223,7 +223,7 @@ export default function MyProductsScreen({ navigation }) {
               style={styles.addButtonWrap}
             >
               <LinearGradient
-                colors={[colors.accent, '#FF8C33']}
+                colors={[colors.primary, colors.primaryHover]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.addButton}
@@ -383,7 +383,7 @@ export default function MyProductsScreen({ navigation }) {
                 style={styles.emptyButtonWrap}
               >
                 <LinearGradient
-                  colors={[colors.accent, '#FF8C33']}
+                  colors={[colors.primary, colors.primaryHover]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.emptyButton}

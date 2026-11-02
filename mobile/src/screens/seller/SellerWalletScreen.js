@@ -216,7 +216,7 @@ export default function SellerWalletScreen({ navigation }) {
       >
         {/* Top Gradient Header */}
         <LinearGradient
-          colors={['#0F172A', '#1E293B']}
+          colors={['#14171B', '#1F2329']}
           style={tw`pt-12 pb-6 px-4 rounded-b-3xl`}
         >
           <View style={tw`flex-row items-center justify-between mb-4`}>

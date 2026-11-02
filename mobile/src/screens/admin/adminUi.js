@@ -40,7 +40,7 @@ export function AdminHeader({ title, subtitle, icon = 'shield-account' }) {
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient
-      colors={['#0F172A', '#1E293B', '#0F172A']}
+      colors={['#14171B', '#1F2329', '#14171B']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{

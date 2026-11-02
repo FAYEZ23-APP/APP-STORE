@@ -91,10 +91,10 @@ export default function SellerStoreScreen({ route, navigation }) {
       <View style={tw`mb-3`}>
         {/* Seller Info Card */}
         <LinearGradient
-          colors={['#0F172A', '#1E3A5F']}
+          colors={['#14171B', '#1F2329']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[tw`rounded-2xl p-4 shadow-md mb-3 border`, { borderColor: '#1E293B' }]}
+          style={[tw`rounded-2xl p-4 shadow-md mb-3 border`, { borderColor: colors.secondaryBorder }]}
         >
           <View style={tw`flex-row items-center mb-3`}>
             <View
