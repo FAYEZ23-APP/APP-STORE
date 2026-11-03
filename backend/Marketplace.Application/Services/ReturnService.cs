@@ -3,6 +3,7 @@ using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
 using Marketplace.Domain.Enums;
+using Microsoft.Extensions.Configuration;
 
 namespace Marketplace.Application.Services;
 
@@ -10,11 +11,13 @@ public class ReturnService : IReturnService
 {
     private readonly IUnitOfWork _uow;
     private readonly INotificationService _notificationService;
+    private readonly IConfiguration _configuration;
 
-    public ReturnService(IUnitOfWork uow, INotificationService notificationService)
+    public ReturnService(IUnitOfWork uow, INotificationService notificationService, IConfiguration configuration)
     {
         _uow = uow;
         _notificationService = notificationService;
+        _configuration = configuration;
     }
 
     public async Task<ReturnResponse> CreateReturnAsync(int buyerId, CreateReturnRequest request)
@@ -56,40 +59,57 @@ public class ReturnService : IReturnService
             throw new BadRequestException($"انتهت الفترة القانونية المسموح بها لطلب الإرجاع ({allowedDays} يوماً من تاريخ استلام الشحنة وفقاً لقانون حماية المستهلك 181/2018).");
         }
 
-        var existingReturns = (await _uow.ReturnRequests.FindAsync(r => r.OrderItemId == item.Id && r.Status != ReturnStatus.Rejected)).ToList();
-        int alreadyReturnedQty = existingReturns.Sum(r => r.Quantity);
-        int availableToReturn = item.Quantity - alreadyReturnedQty;
-
-        if (request.Quantity <= 0 || request.Quantity > availableToReturn)
+        await _uow.BeginTransactionAsync();
+        try
         {
-            throw new BadRequestException($"الكمية المطلوبة للإرجاع ({request.Quantity}) غير صالحة. الكمية المتبقية المتاحة للإرجاع هي {availableToReturn}.");
+            await _uow.ExecuteSqlRawAsync(
+                @"SELECT 1 FROM ""OrderItems"" WHERE ""Id"" = {0} FOR UPDATE", item.Id);
+            _uow.ClearChangeTracker();
+
+            item = await _uow.OrderItems.GetByIdAsync(request.OrderItemId)
+                ?? throw new NotFoundException("عنصر الطلب المطلوب إرجاعه غير موجود.");
+
+            var existingReturns = (await _uow.ReturnRequests.FindAsync(r => r.OrderItemId == item.Id && r.Status != ReturnStatus.Rejected)).ToList();
+            int alreadyReturnedQty = existingReturns.Sum(r => r.Quantity);
+            int availableToReturn = item.Quantity - alreadyReturnedQty;
+
+            if (request.Quantity <= 0 || request.Quantity > availableToReturn)
+            {
+                throw new BadRequestException($"الكمية المطلوبة للإرجاع ({request.Quantity}) غير صالحة. الكمية المتبقية المتاحة للإرجاع هي {availableToReturn}.");
+            }
+
+            decimal refundAmount = item.UnitPrice * request.Quantity;
+
+            var returnReq = new ReturnRequest
+            {
+                OrderId = order.Id,
+                ShipmentId = shipment.Id,
+                OrderItemId = item.Id,
+                BuyerId = buyerId,
+                SellerId = shipment.SellerId,
+                Quantity = request.Quantity,
+                Reason = request.Reason.Trim(),
+                DefectImageUrl = request.DefectImageUrl?.Trim(),
+                Status = ReturnStatus.Pending,
+                Category = category,
+                RefundAmount = refundAmount,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _uow.ReturnRequests.AddAsync(returnReq);
+            await _uow.SaveChangesAsync();
+            await _uow.CommitTransactionAsync();
+
+            var product = await _uow.Products.GetByIdAsync(item.ProductId);
+            var buyer = await _uow.Users.GetByIdAsync(buyerId);
+
+            return MapToResponse(returnReq, item, product, buyer);
         }
-
-        decimal refundAmount = item.UnitPrice * request.Quantity;
-
-        var returnReq = new ReturnRequest
+        catch
         {
-            OrderId = order.Id,
-            ShipmentId = shipment.Id,
-            OrderItemId = item.Id,
-            BuyerId = buyerId,
-            SellerId = shipment.SellerId,
-            Quantity = request.Quantity,
-            Reason = request.Reason.Trim(),
-            DefectImageUrl = request.DefectImageUrl?.Trim(),
-            Status = ReturnStatus.Pending,
-            Category = category,
-            RefundAmount = refundAmount,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _uow.ReturnRequests.AddAsync(returnReq);
-        await _uow.SaveChangesAsync();
-
-        var product = await _uow.Products.GetByIdAsync(item.ProductId);
-        var buyer = await _uow.Users.GetByIdAsync(buyerId);
-
-        return MapToResponse(returnReq, item, product, buyer);
+            await _uow.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<ReturnResponse> ResolveReturnAsync(int sellerId, int returnId, ResolveReturnRequest request)
@@ -118,7 +138,8 @@ public class ReturnService : IReturnService
         }
         else if (newStatus == ReturnStatus.Completed || (newStatus == ReturnStatus.Approved && request.ConfirmItemReceived))
         {
-            await ExecuteReturnFulfillmentAsync(returnReq, item, request.AdminOverride);
+            // Sellers cannot invoke admin override; anti-overdraft guard is strictly enforced
+            await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride: false);
             returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
         }
         else if (newStatus == ReturnStatus.Approved || newStatus == ReturnStatus.ApprovedAwaitingReturn)
@@ -151,7 +172,8 @@ public class ReturnService : IReturnService
             throw new BadRequestException("لا يمكن تأكيد استلام مرتجع مرفوض.");
 
         var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
-        bool adminOverride = request?.AdminOverride ?? isAdmin;
+        // Only administrators can invoke admin override to bypass the anti-overdraft guard
+        bool adminOverride = isAdmin && (request?.AdminOverride ?? true);
 
         await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride);
 
@@ -174,6 +196,9 @@ public class ReturnService : IReturnService
 
             returnReq = await _uow.ReturnRequests.GetByIdAsync(returnReq.Id)
                 ?? throw new NotFoundException("طلب الإرجاع غير موجود.");
+
+            if (returnReq.Status == ReturnStatus.Completed)
+                throw new BadRequestException("تم تأكيد استلام هذا المرتجع وإتمام استرداده مسبقاً.");
 
             item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
 
@@ -261,30 +286,37 @@ public class ReturnService : IReturnService
             var returnShipment = await _uow.Shipments.GetByIdAsync(returnReq.ShipmentId);
             bool isPostSettlement = returnShipment != null && (returnShipment.IsCodSettled || returnShipment.CodSettledAt != null);
 
+            decimal commissionRate = _configuration.GetValue<decimal>("Marketplace:CommissionRate", 0.10m);
+            decimal sellerDeduction = Math.Round(returnReq.RefundAmount * (1m - commissionRate), 2);
+
             // Anti-overdraft guard: refund cannot make seller Balance negative without an explicit AdminOverride
-            if (vendorWallet.Balance < returnReq.RefundAmount && !adminOverride)
+            if (vendorWallet.Balance < sellerDeduction && !adminOverride)
             {
-                throw new BadRequestException($"رصيد البائع المتاح ({vendorWallet.Balance} ج.م) غير كافٍ لتغطية الاسترداد بقيمة {returnReq.RefundAmount} ج.م. يتطلب الاسترداد بالسالب موافقة استثنائية (Admin Override).");
+                throw new BadRequestException($"رصيد البائع المتاح ({vendorWallet.Balance} ج.م) غير كافٍ لتغطية خصم المرتجع بقيمة {sellerDeduction} ج.م. يتطلب الاسترداد بالسالب موافقة استثنائية (Admin Override).");
             }
 
-            await _uow.ExecuteSqlRawAsync(
-                @"UPDATE ""VendorWallets"" SET ""Balance"" = ""Balance"" - {0}, ""TotalEarned"" = ""TotalEarned"" - {0}, ""UpdatedAt"" = {1} WHERE ""SellerId"" = {2}",
-                returnReq.RefundAmount,
-                DateTime.UtcNow,
-                returnReq.SellerId);
+            decimal actualDeduction = Math.Min(vendorWallet.Balance, sellerDeduction);
+            if (actualDeduction > 0)
+            {
+                await _uow.ExecuteSqlRawAsync(
+                    @"UPDATE ""VendorWallets"" SET ""Balance"" = ""Balance"" - {0}, ""TotalEarned"" = ""TotalEarned"" - {0}, ""UpdatedAt"" = {1} WHERE ""SellerId"" = {2}",
+                    actualDeduction,
+                    DateTime.UtcNow,
+                    returnReq.SellerId);
+            }
 
             // 6. Record seller vendor wallet transaction (Clawback if post-settlement, otherwise Refund)
             var txType = isPostSettlement ? WalletTransactionType.Clawback : WalletTransactionType.Refund;
             var txDesc = isPostSettlement
-                ? $"استرداد مستردات بعد التسوية (Clawback) بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})"
-                : $"خصم استرداد مرتجع بقيمة {returnReq.RefundAmount} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})";
+                ? $"استرداد مستردات بعد التسوية (Clawback) بقيمة {actualDeduction} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})"
+                : $"خصم استرداد مرتجع بقيمة {actualDeduction} ج.م للطلب #{returnReq.OrderId} (طلب إرجاع #{returnReq.Id})";
 
             var sellerRefundTx = new WalletTransaction
             {
                 WalletId = vendorWallet.Id,
                 OrderId = returnReq.OrderId,
                 ShipmentId = returnReq.ShipmentId,
-                Amount = -returnReq.RefundAmount,
+                Amount = -actualDeduction,
                 Type = txType,
                 Description = txDesc,
                 CreatedAt = DateTime.UtcNow

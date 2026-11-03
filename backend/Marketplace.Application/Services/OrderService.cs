@@ -140,6 +140,37 @@ public class OrderService : IOrderService
             }
         }
 
+        UserAddress? selectedAddress = null;
+        if (request.AddressId.HasValue && request.AddressId.Value > 0)
+        {
+            var addr = await _uow.UserAddresses.GetByIdAsync(request.AddressId.Value);
+            if (addr != null && addr.UserId == buyerId)
+            {
+                selectedAddress = addr;
+            }
+        }
+        else
+        {
+            var defaultAddrs = await _uow.UserAddresses.FindAsync(a => a.UserId == buyerId && a.IsDefault);
+            selectedAddress = defaultAddrs.FirstOrDefault();
+        }
+
+        string? buildingNumber = !string.IsNullOrWhiteSpace(request.BuildingNumber)
+            ? request.BuildingNumber.Trim()
+            : selectedAddress?.BuildingNumber?.Trim();
+
+        string? floor = !string.IsNullOrWhiteSpace(request.Floor)
+            ? request.Floor.Trim()
+            : selectedAddress?.Floor?.Trim();
+
+        string? apartment = !string.IsNullOrWhiteSpace(request.Apartment)
+            ? request.Apartment.Trim()
+            : selectedAddress?.Apartment?.Trim();
+
+        string? landmark = !string.IsNullOrWhiteSpace(request.Landmark)
+            ? request.Landmark.Trim()
+            : selectedAddress?.Landmark?.Trim();
+
         string destinationGovernorate;
         string destinationCity;
         string destinationArea;
@@ -195,7 +226,16 @@ public class OrderService : IOrderService
         }
 
         double? destLat = request.DeliveryLatitude ?? request.Latitude;
+        if ((!destLat.HasValue || destLat.Value == 0) && selectedAddress != null && selectedAddress.Latitude != 0)
+        {
+            destLat = selectedAddress.Latitude;
+        }
+
         double? destLng = request.DeliveryLongitude ?? request.Longitude;
+        if ((!destLng.HasValue || destLng.Value == 0) && selectedAddress != null && selectedAddress.Longitude != 0)
+        {
+            destLng = selectedAddress.Longitude;
+        }
         if ((!destLat.HasValue || !destLng.HasValue || (destLat.Value == 0 && destLng.Value == 0)) && !string.IsNullOrWhiteSpace(destinationCity))
         {
             var destCoords = EgyptianGovernorates.GetCoordinates(destinationCity) ?? EgyptianGovernorates.GetCoordinates(destinationGovernorate);
@@ -296,10 +336,10 @@ public class OrderService : IOrderService
                 City = destinationCity,
                 Area = destinationArea,
                 StreetBuilding = destinationStreetBuilding,
-                BuildingNumber = request.BuildingNumber?.Trim(),
-                Floor = request.Floor?.Trim(),
-                Apartment = request.Apartment?.Trim(),
-                Landmark = request.Landmark?.Trim(),
+                BuildingNumber = buildingNumber,
+                Floor = floor,
+                Apartment = apartment,
+                Landmark = landmark,
                 DeliveryLatitude = destLat,
                 DeliveryLongitude = destLng,
                 IsBuyerConfirmed = false,
@@ -400,10 +440,10 @@ public class OrderService : IOrderService
                     CodAmount = shipmentCodAmount,
                     EtaMinDays = carrierShipment.EtaMinDays,
                     EtaMaxDays = carrierShipment.EtaMaxDays,
-                    BuildingNumber = request.BuildingNumber?.Trim(),
-                    Floor = request.Floor?.Trim(),
-                    Apartment = request.Apartment?.Trim(),
-                    Landmark = request.Landmark?.Trim(),
+                    BuildingNumber = buildingNumber,
+                    Floor = floor,
+                    Apartment = apartment,
+                    Landmark = landmark,
                     DeliveryLatitude = destLat,
                     DeliveryLongitude = destLng,
                     AllowInspection = group.All(g => g.Product.AllowInspection),
@@ -440,6 +480,8 @@ public class OrderService : IOrderService
             if (!string.IsNullOrWhiteSpace(request.CouponCode))
             {
                 var code = request.CouponCode.Trim().ToUpperInvariant();
+                await _uow.ExecuteSqlRawAsync(@"SELECT 1 FROM ""Coupons"" WHERE ""Code"" = {0} FOR UPDATE", code);
+                _uow.ClearChangeTracker();
                 coupon = (await _uow.Coupons.FindAsync(c => c.Code == code)).FirstOrDefault();
                 if (coupon == null || !coupon.IsActive || coupon.ExpiresAt < DateTime.UtcNow)
                 {

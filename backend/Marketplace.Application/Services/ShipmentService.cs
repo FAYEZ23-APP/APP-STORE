@@ -319,6 +319,17 @@ public class ShipmentService : IShipmentService
             throw new BadRequestException($"Invalid carrier shipment status: '{request.Status}'.");
         }
 
+        if (shipment.Status == ShipmentStatus.Delivered && targetStatus != ShipmentStatus.Delivered)
+        {
+            throw new BadRequestException("Cannot change status of an already delivered shipment.");
+        }
+
+        if ((shipment.Status == ShipmentStatus.Returned && targetStatus != ShipmentStatus.Returned) ||
+            (shipment.Status == ShipmentStatus.Cancelled && targetStatus != ShipmentStatus.Cancelled))
+        {
+            throw new BadRequestException($"Cannot modify shipment status from terminal state '{shipment.Status}'.");
+        }
+
         if (targetStatus == ShipmentStatus.Returned)
         {
             // Idempotent: If already Returned, return current state without restoring stock again
@@ -378,6 +389,10 @@ public class ShipmentService : IShipmentService
                         }
                     }
 
+                    if (returnReason == ReturnReason.RefusedByBuyer || string.Equals(request.ReturnReason?.Trim(), "CustomerUnreachable", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await RecordCodRefusalAsync(shipment.OrderId, shipment.Id, returnReason);
+                    }
                     await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.Returned);
                     await _uow.SaveChangesAsync();
                 }
@@ -404,12 +419,24 @@ public class ShipmentService : IShipmentService
                 return MapBuyerShipment(shipment, curItems);
             }
 
+            var allowedPreviousStates = new[]
+            {
+                ShipmentStatus.HandedToCarrier,
+                ShipmentStatus.InTransit,
+                ShipmentStatus.ReadyForPickup
+            };
+
+            if (!allowedPreviousStates.Contains(shipment.Status))
+            {
+                throw new BadRequestException($"Cannot transition shipment from '{shipment.Status}' to 'Delivered'. Allowed previous states: HandedToCarrier, InTransit, ReadyForPickup.");
+            }
+
             // Concurrency-safe: Atomic conditional SQL UPDATE ensuring only ONE parallel request can transition the row
             await _uow.BeginTransactionAsync();
             try
             {
                 var affected = await _uow.ExecuteSqlRawAsync(
-                    @"UPDATE ""Shipments"" SET ""Status"" = 'Delivered', ""DeliveredAt"" = {0} WHERE ""Id"" = {1} AND ""Status"" != 'Delivered'",
+                    @"UPDATE ""Shipments"" SET ""Status"" = 'Delivered', ""DeliveredAt"" = {0} WHERE ""Id"" = {1} AND ""Status"" IN ('HandedToCarrier', 'InTransit', 'ReadyForPickup')",
                     DateTime.UtcNow,
                     shipment.Id);
 
@@ -662,14 +689,9 @@ public class ShipmentService : IShipmentService
         {
             shipment.ReturnReason = parsedReturnReason ?? ReturnReason.RefusedByBuyer;
 
-            if (shipment.ReturnReason == ReturnReason.RefusedByBuyer)
+            if (shipment.ReturnReason == ReturnReason.RefusedByBuyer || string.Equals(request.ReturnReason?.Trim(), "CustomerUnreachable", StringComparison.OrdinalIgnoreCase))
             {
-                var buyer = await _uow.Users.GetByIdAsync(order.BuyerId);
-                if (buyer != null)
-                {
-                    buyer.CodRefusalCount += 1;
-                    _uow.Users.Update(buyer);
-                }
+                await RecordCodRefusalAsync(order.Id, shipment.Id, shipment.ReturnReason.Value);
             }
 
             if (oldStatus != ShipmentStatus.Returned)
@@ -815,4 +837,57 @@ public class ShipmentService : IShipmentService
             Items = itemDtos
         };
     }
+
+    private async Task RecordCodRefusalAsync(int orderId, int shipmentId, ReturnReason returnReason)
+    {
+        var order = await _uow.Orders.GetByIdAsync(orderId);
+        if (order == null) return;
+
+        var buyer = await _uow.Users.GetByIdAsync(order.BuyerId);
+        if (buyer != null)
+        {
+            buyer.CodRefusalCount += 1;
+            _uow.Users.Update(buyer);
+        }
+
+        var normalizedPhone = Marketplace.Application.Common.EgyptianPhoneNormalizer.Normalize(order.RecipientPhone)
+            ?? (buyer != null ? Marketplace.Application.Common.EgyptianPhoneNormalizer.Normalize(buyer.Phone) : null)
+            ?? order.RecipientPhone;
+
+        var existing = await _uow.CodBlacklistEntries.FindAsync(e =>
+            e.PhoneNormalized == normalizedPhone || (e.UserId.HasValue && e.UserId == order.BuyerId));
+
+        var entry = existing.FirstOrDefault();
+        int maxCodRefusals = _configuration.GetValue<int>("Orders:MaxCodRefusals", 3);
+
+        if (entry == null)
+        {
+            entry = new Marketplace.Domain.Entities.CodBlacklistEntry
+            {
+                PhoneNormalized = normalizedPhone,
+                UserId = order.BuyerId,
+                Reason = $"Refusal on shipment #{shipmentId} (Reason: {returnReason})",
+                RefusalCount = buyer?.CodRefusalCount ?? 1,
+                CreatedAt = DateTime.UtcNow
+            };
+            entry.RiskScore = entry.RefusalCount * 35;
+            if (entry.RefusalCount >= maxCodRefusals)
+            {
+                entry.IsBlocked = true;
+            }
+            await _uow.CodBlacklistEntries.AddAsync(entry);
+        }
+        else
+        {
+            entry.RefusalCount = Math.Max(entry.RefusalCount + 1, buyer?.CodRefusalCount ?? 1);
+            entry.RiskScore = entry.RefusalCount * 35;
+            entry.Reason = $"Refusal on shipment #{shipmentId} (Reason: {returnReason}); Previous: {entry.Reason}";
+            if (entry.RefusalCount >= maxCodRefusals)
+            {
+                entry.IsBlocked = true;
+            }
+            _uow.CodBlacklistEntries.Update(entry);
+        }
+    }
+
 }
