@@ -43,6 +43,8 @@ public class UnitOfWork : IUnitOfWork
         WishlistItems = new Repository<WishlistItem>(context);
         UserNotifications = new Repository<UserNotification>(context);
         AdminAuditLogs = new Repository<AdminAuditLog>(context);
+        CodBlacklistEntries = new Repository<CodBlacklistEntry>(context);
+        ProcessedWebhookEvents = new Repository<ProcessedWebhookEvent>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -73,6 +75,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WishlistItem> WishlistItems { get; }
     public IRepository<UserNotification> UserNotifications { get; }
     public IRepository<AdminAuditLog> AdminAuditLogs { get; }
+    public IRepository<CodBlacklistEntry> CodBlacklistEntries { get; }
+    public IRepository<ProcessedWebhookEvent> ProcessedWebhookEvents { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();

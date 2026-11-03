@@ -1,13 +1,17 @@
 using System.Net;
 using System.Text.Json;
 using FluentValidation;
+using Marketplace.Application.Common;
 using Marketplace.Application.Exceptions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Marketplace.API.Middleware;
 
 /// <summary>
 /// Converts every unhandled exception into a consistent JSON error body:
 /// { "status": 400, "error": "...", "errors": { "Field": ["msg"] } }   ("errors" only for validation failures)
+/// Ensures all internal exception messages logged are sanitized to prevent PII/secret leaks.
 /// </summary>
 public class GlobalExceptionMiddleware
 {
@@ -65,8 +69,11 @@ public class GlobalExceptionMiddleware
             UnauthorizedException => (HttpStatusCode.Unauthorized, exception.Message),
             ForbiddenException => (HttpStatusCode.Forbidden, exception.Message),
             NotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            KeyNotFoundException => (HttpStatusCode.NotFound, exception.Message),
+            UnauthorizedAccessException => (HttpStatusCode.Forbidden, exception.Message),
             ConflictException => (HttpStatusCode.Conflict, exception.Message),
             TooManyRequestsException => (HttpStatusCode.TooManyRequests, exception.Message),
+            BadHttpRequestException badHttpEx => ((HttpStatusCode)badHttpEx.StatusCode, badHttpEx.Message),
             Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException =>
                 (HttpStatusCode.Conflict, "حدث تعارض تزامني أثناء معالجة البيانات، يرجى إعادة المحاولة (Concurrency conflict)."),
             Microsoft.EntityFrameworkCore.DbUpdateException dbEx when dbEx.InnerException is Npgsql.PostgresException { SqlState: "23505" } =>
@@ -82,7 +89,10 @@ public class GlobalExceptionMiddleware
         }
 
         if (statusCode == HttpStatusCode.InternalServerError)
-            _logger.LogError(exception, "Unhandled exception occurred");
+        {
+            var sanitizedMessage = LogMasking.SanitizeExceptionMessage(exception.Message);
+            _logger.LogError(exception, "Unhandled exception occurred: {SanitizedMessage}", sanitizedMessage);
+        }
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;

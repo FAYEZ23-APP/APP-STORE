@@ -32,6 +32,8 @@ public interface IUnitOfWork : IDisposable
     IRepository<WishlistItem> WishlistItems { get; }
     IRepository<UserNotification> UserNotifications { get; }
     IRepository<AdminAuditLog> AdminAuditLogs { get; }
+    IRepository<CodBlacklistEntry> CodBlacklistEntries { get; }
+    IRepository<ProcessedWebhookEvent> ProcessedWebhookEvents { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();

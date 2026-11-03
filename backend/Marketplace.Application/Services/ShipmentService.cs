@@ -245,6 +245,97 @@ public class ShipmentService : IShipmentService
         }).ToList();
     }
 
+    public async Task<SellerShipmentResponse> GetSellerShipmentByIdAsync(int sellerId, int shipmentId)
+    {
+        var shipment = await _uow.Shipments.GetByIdAsync(shipmentId);
+        if (shipment == null)
+            throw new NotFoundException("Shipment not found.");
+
+        if (shipment.SellerId != sellerId)
+            throw new ForbiddenException("You do not have permission to view this shipment.");
+
+        var order = await _uow.Orders.GetByIdAsync(shipment.OrderId);
+        var items = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
+        var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+        var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        return MapSellerShipment(shipment, order, items, products);
+    }
+
+    public async Task<CarrierShippingLabelResponse> GetCarrierShippingLabelAsync(int userId, string role, int shipmentId)
+    {
+        var shipment = await _uow.Shipments.GetByIdAsync(shipmentId);
+        if (shipment == null)
+            throw new NotFoundException("Shipment not found.");
+
+        var isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+        var isSeller = string.Equals(role, "Seller", StringComparison.OrdinalIgnoreCase);
+
+        if (!isAdmin)
+        {
+            if (!isSeller || shipment.SellerId != userId)
+                throw new ForbiddenException("You do not have permission to generate a shipping label for this shipment.");
+
+            if (shipment.Status == ShipmentStatus.Cancelled)
+                throw new BadRequestException("Cannot generate shipping label for a cancelled shipment.");
+        }
+
+        var order = await _uow.Orders.GetByIdAsync(shipment.OrderId)
+            ?? throw new NotFoundException("Associated order not found.");
+
+        var buyer = await _uow.Users.GetByIdAsync(order.BuyerId);
+        var seller = await _uow.Users.GetByIdAsync(shipment.SellerId);
+
+        var items = (await _uow.OrderItems.FindAsync(i => i.ShipmentId == shipment.Id)).ToList();
+        var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+        var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        var recipientName = !string.IsNullOrWhiteSpace(order.RecipientName) ? order.RecipientName : (buyer?.Name ?? "Customer");
+        var recipientPhone = !string.IsNullOrWhiteSpace(order.RecipientPhone) ? order.RecipientPhone : (buyer?.Phone ?? string.Empty);
+
+        var itemResponses = items.Select(i => new OrderItemResponse
+        {
+            Id = i.Id,
+            ProductId = i.ProductId,
+            ProductName = products.TryGetValue(i.ProductId, out var p) ? p.Name : "Unknown",
+            VariantId = i.VariantId,
+            VariantSummary = i.VariantSummary,
+            Quantity = i.Quantity,
+            UnitPrice = i.UnitPrice,
+            WeightGrams = products.TryGetValue(i.ProductId, out var pw) ? pw.WeightGrams : 500
+        }).ToList();
+
+        return new CarrierShippingLabelResponse
+        {
+            ShipmentId = shipment.Id,
+            OrderId = shipment.OrderId,
+            TrackingNumber = shipment.TrackingNumber,
+            CarrierName = "Bosta",
+            Barcode = $"EGY-SHP-{shipment.TrackingNumber}",
+            Status = shipment.Status.ToString(),
+            RecipientName = recipientName,
+            RecipientPhone = recipientPhone,
+            Governorate = order.Governorate,
+            City = order.City,
+            Area = order.Area,
+            StreetBuilding = order.StreetBuilding,
+            BuildingNumber = order.BuildingNumber ?? shipment.BuildingNumber,
+            Floor = order.Floor ?? shipment.Floor,
+            Apartment = order.Apartment ?? shipment.Apartment,
+            Landmark = order.Landmark ?? shipment.Landmark,
+            SenderName = seller?.Name ?? "Egypt Shop Merchant",
+            SenderCity = "Cairo",
+            DeliveryMethod = order.DeliveryMethod.ToString(),
+            CodAmount = shipment.CodAmount,
+            DeliveryCost = shipment.DeliveryCost,
+            TotalParcelDue = shipment.CodAmount,
+            AllowInspection = shipment.AllowInspection,
+            ItemsCount = itemResponses.Sum(i => i.Quantity),
+            Items = itemResponses,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
     public async Task<SellerShipmentResponse> UpdateSellerShipmentStatusAsync(
         int sellerId,
         int shipmentId,
@@ -282,6 +373,7 @@ public class ShipmentService : IShipmentService
                 throw new BadRequestException($"Cannot transition shipment from '{shipment.Status}' to 'HandedToCarrier'.");
 
             shipment.Status = ShipmentStatus.HandedToCarrier;
+            if (!string.IsNullOrWhiteSpace(request.TrackingNumber)) shipment.TrackingNumber = request.TrackingNumber.Trim();
             _uow.Shipments.Update(shipment);
 
             await UpdateParentOrderStatusAsync(shipment.OrderId, shipment.Id, ShipmentStatus.HandedToCarrier);
@@ -523,13 +615,14 @@ public class ShipmentService : IShipmentService
             ReturnReason = shipment.ReturnReason?.ToString(),
             EtaMinDays = shipment.EtaMinDays,
             EtaMaxDays = shipment.EtaMaxDays,
-            BuildingNumber = shipment.BuildingNumber,
-            Floor = shipment.Floor,
-            Apartment = shipment.Apartment,
-            Landmark = shipment.Landmark,
+            BuildingNumber = null,
+            Floor = null,
+            Apartment = null,
+            Landmark = null,
             AllowInspection = shipment.AllowInspection,
-            // Privacy rule: ONLY recipient's first name and city — never phone, email, or full address
+            // Privacy rule (PDPL Law 151/2020): ONLY recipient's first name, city, and governorate
             RecipientFirstName = ExtractFirstName(order?.RecipientName),
+            RecipientGovernorate = order?.Governorate ?? string.Empty,
             RecipientCity = order?.City ?? string.Empty,
             ItemsSubtotal = itemDtos.Sum(i => i.UnitPrice * i.Quantity),
             CreatedAt = shipment.CreatedAt,

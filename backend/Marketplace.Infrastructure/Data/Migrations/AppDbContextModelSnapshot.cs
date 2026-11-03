@@ -287,6 +287,60 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.CodBlacklistEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByAdminId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsBlocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PhoneNormalized")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RefusalCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("RiskScore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByAdminId");
+
+                    b.HasIndex("PhoneNormalized")
+                        .HasDatabaseName("IX_CodBlacklistEntries_PhoneNormalized");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CodBlacklistEntries");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Coupon", b =>
                 {
                     b.Property<int>("Id")
@@ -447,6 +501,10 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ConfirmationChannel")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime?>("ConfirmedAt")
                         .HasColumnType("timestamp with time zone");
@@ -652,6 +710,57 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_PayoutRequests_Amount_Positive", "\"Amount\" > 0");
                         });
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ProcessedWebhookEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("ShipmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "EventId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessedWebhookEvents");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Product", b =>
@@ -1214,12 +1323,22 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("ProductImage");
+
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FileName")
@@ -1230,10 +1349,28 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Property<int>("Height")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsLegalHold")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsPrivate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("RelativeUrl")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("RetentionExpiresAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
@@ -1246,8 +1383,12 @@ namespace Marketplace.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Category");
+
                     b.HasIndex("FileName")
                         .IsUnique();
+
+                    b.HasIndex("IsDeleted");
 
                     b.HasIndex("RelativeUrl")
                         .IsUnique();
@@ -1761,6 +1902,23 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("ReturnRequest");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.CodBlacklistEntry", b =>
+                {
+                    b.HasOne("Marketplace.Domain.Entities.User", "CreatedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Marketplace.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedByAdmin");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Coupon", b =>

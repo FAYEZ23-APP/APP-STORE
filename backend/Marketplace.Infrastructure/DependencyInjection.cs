@@ -45,12 +45,18 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IImageUploadService, Marketplace.Infrastructure.Storage.ImageUploadService>();
+        services.AddSingleton<ISsrfProtectionService, Marketplace.Infrastructure.Security.SsrfProtectionService>();
+        services.AddScoped<IWebhookSecurityService, Marketplace.Infrastructure.Security.WebhookSecurityService>();
+        services.AddScoped<IFileRetentionService, Marketplace.Infrastructure.Services.FileRetentionService>();
+        services.AddScoped<ISensitiveDataAccessAuditService, Marketplace.Infrastructure.Services.SensitiveDataAccessAuditService>();
 
         // Auth
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<ITwoFactorSecretProtector, AesGcmSecretProtector>();
+        services.AddSingleton<ICsrfTokenService, CsrfTokenService>();
+        services.AddSingleton<IStepUpAuthService, StepUpAuthService>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         // Email and SMS Senders

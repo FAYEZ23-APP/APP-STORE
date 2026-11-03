@@ -36,6 +36,8 @@ public class AppDbContext : DbContext
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<CodBlacklistEntry> CodBlacklistEntries => Set<CodBlacklistEntry>();
+    public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -519,6 +521,9 @@ public class AppDbContext : DbContext
                 .HasDefaultValue(false);
 
             entity.Property(o => o.ConfirmedAt);
+
+            entity.Property(o => o.ConfirmationChannel)
+                .HasMaxLength(50);
 
             entity.Property(o => o.IdempotencyKey)
                 .HasMaxLength(128);
@@ -1256,10 +1261,30 @@ public class AppDbContext : DbContext
             entity.Property(uf => uf.Height)
                 .IsRequired();
 
+            entity.Property(uf => uf.Category)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(Marketplace.Domain.Enums.FileCategory.ProductImage);
+
+            entity.Property(uf => uf.IsPrivate)
+                .HasDefaultValue(false);
+
+            entity.Property(uf => uf.IsLegalHold)
+                .HasDefaultValue(false);
+
+            entity.Property(uf => uf.RetentionExpiresAt);
+
+            entity.Property(uf => uf.DeletedAt);
+
+            entity.Property(uf => uf.IsDeleted)
+                .HasDefaultValue(false);
+
             entity.Property(uf => uf.CreatedAt)
                 .IsRequired();
 
             entity.HasIndex(uf => uf.UploaderId);
+            entity.HasIndex(uf => uf.Category);
+            entity.HasIndex(uf => uf.IsDeleted);
 
             entity.HasOne(uf => uf.Uploader)
                 .WithMany(u => u.UploadedFiles)
@@ -1347,6 +1372,61 @@ public class AppDbContext : DbContext
                 .WithMany(u => u.AdminAuditLogs)
                 .HasForeignKey(a => a.AdminId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // --- CodBlacklistEntry ------------------------------------
+        modelBuilder.Entity<CodBlacklistEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.PhoneNormalized)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(e => e.Reason)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.RefusalCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.RiskScore)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.IsBlocked)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired();
+
+            entity.HasIndex(e => e.PhoneNormalized)
+                .HasDatabaseName("IX_CodBlacklistEntries_PhoneNormalized");
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.CreatedByAdmin)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByAdminId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // --- ProcessedWebhookEvent --------------------------------
+        modelBuilder.Entity<ProcessedWebhookEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Provider).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.EventId).IsRequired().HasMaxLength(128);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.TrackingNumber).HasMaxLength(100);
+            entity.Property(e => e.PayloadHash).HasMaxLength(64);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.HasIndex(e => new { e.Provider, e.EventId }).IsUnique();
         });
     }
 
