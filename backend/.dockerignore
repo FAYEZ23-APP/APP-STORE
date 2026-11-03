@@ -1,5 +1,7 @@
-**/bin
+﻿**/bin
 **/obj
+**/bin/
+**/obj/
 **/.vs
 **/.vscode
 **/node_modules
@@ -8,3 +10,5 @@
 **/tests
 **/*.md
 **/*.sql
+**/*.log
+**/appsettings.Development.json

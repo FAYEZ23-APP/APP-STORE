@@ -16,6 +16,14 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 // Dynamic container port binding (e.g. Railway, Render, Cloud Run, Heroku)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false; // Suppress Server: Kestrel header
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB maximum request body limit
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+});
+
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(port))
 {
@@ -119,6 +127,7 @@ builder.Services.Configure<FeatureFlags>(options =>
 
 // ─── Layers ─────────────────────────────────────────────────
 builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 // ─── Controllers + FluentValidation filter ──────────────────
@@ -129,6 +138,13 @@ builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>
     });
 
 // ─── Forwarded Headers (Reverse Proxy / Load Balancer) ───────
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -194,7 +210,9 @@ builder.Services
                 // Fall back to HttpOnly access_token cookie if Authorization header is absent (WEB-003)
                 if (string.IsNullOrEmpty(context.Token))
                 {
-                    if (context.Request.Cookies.TryGetValue("access_token", out var cookieToken) && !string.IsNullOrWhiteSpace(cookieToken))
+                    if ((context.Request.Cookies.TryGetValue("__Host-access_token", out var cookieToken) ||
+                         context.Request.Cookies.TryGetValue("access_token", out cookieToken)) &&
+                        !string.IsNullOrWhiteSpace(cookieToken))
                     {
                         context.Token = cookieToken;
                     }
@@ -262,37 +280,46 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ─── CORS ───────────────────────────────────────────────────
+// ─── CORS (Explicit Trusted Origin Allowlist & Host-bound Credentials) ───────
+var configuredCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var configuredAdminOrigins = builder.Configuration.GetSection("Admin:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var trustedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+foreach (var o in configuredCorsOrigins) { if (!string.IsNullOrWhiteSpace(o)) trustedOrigins.Add(o.Trim().TrimEnd('/')); }
+foreach (var o in configuredAdminOrigins) { if (!string.IsNullOrWhiteSpace(o)) trustedOrigins.Add(o.Trim().TrimEnd('/')); }
+
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
+{
+    trustedOrigins.Add("http://localhost:5173");
+    trustedOrigins.Add("http://localhost:3000");
+    trustedOrigins.Add("http://localhost:4173");
+    trustedOrigins.Add("http://localhost:5209");
+    trustedOrigins.Add("http://127.0.0.1:5173");
+    trustedOrigins.Add("http://127.0.0.1:3000");
+    trustedOrigins.Add("http://127.0.0.1:4173");
+    trustedOrigins.Add("http://127.0.0.1:5209");
+}
+
 builder.Services.AddCors(options =>
 {
-    if (builder.Environment.IsDevelopment())
+    options.AddPolicy("AllowAll", policy =>
     {
-        options.AddPolicy("AllowAll", policy =>
-            policy.SetIsOriginAllowed(_ => true)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials());
-    }
-    else
-    {
-        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-                             ?? Array.Empty<string>();
-
-        options.AddPolicy("AllowAll", policy =>
+        policy.SetIsOriginAllowed(origin =>
         {
-            if (allowedOrigins.Length > 0)
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+            var clean = origin.Trim().TrimEnd('/');
+            if (trustedOrigins.Contains(clean)) return true;
+            if ((builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing")) &&
+                (clean.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase) ||
+                 clean.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase)))
             {
-                policy.WithOrigins(allowedOrigins)
-                      .AllowAnyMethod()
-                      .AllowAnyHeader()
-                      .AllowCredentials();
+                return true;
             }
-            else
-            {
-                policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-            }
-        });
-    }
+            return false;
+        })
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
 });
 
 // ─── Rate Limiting (Per-IP, Per-UserId when authenticated, and Per-Normalized-Target) ───
@@ -369,6 +396,27 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
             });
+
+    });
+    // Policy for download operations (rate limited per authenticated user, falling back to IP)
+    options.AddPolicy("download-policy", httpContext =>
+    {
+        var isDev = builder.Environment.IsDevelopment();
+        var permitLimit = builder.Configuration.GetValue<int>("RateLimiting:DownloadPermitLimit", isDev ? 1000 : 30);
+        var userId = httpContext.User?.FindFirst(JwtService.ClaimNames.UserId)?.Value
+                     ?? httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var key = !string.IsNullOrWhiteSpace(userId)
+            ? $"download:user:{userId}"
+            : GetPartitionKey(httpContext, "download");
+        return RateLimitPartition.GetFixedWindowLimiter(
+            key,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+    });
     });
 });
 
@@ -529,9 +577,18 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
 // Forwarded headers for reverse proxies (e.g. Railway, Nginx)
 app.UseForwardedHeaders();
+
+// Browser security headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy) (WEB-006)
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
 
 // Restrict Swagger to Development environment only
 if (app.Environment.IsDevelopment())
@@ -580,6 +637,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseAuthentication();
+app.UseMiddleware<CsrfProtectionMiddleware>();
 
 // Multi-key Rate Limiting enforcement:
 // 1) Per client IP (after ForwardedHeaders with ForwardLimit = 1 and KnownProxies validation)

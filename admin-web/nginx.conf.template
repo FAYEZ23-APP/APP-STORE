@@ -2,6 +2,12 @@ server {
     listen ${PORT};
     server_name localhost;
 
+    # Server hardening: hide Nginx version banner
+    server_tokens off;
+
+    # Enforce request body limits for static SPA gateway
+    client_max_body_size 10M;
+
     root /usr/share/nginx/html;
     index index.html;
 
@@ -17,20 +23,48 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Static assets caching
+    # Static assets caching with security headers retained
     location ~* \.(?:ico|css|js|gif|jpe?g|png|woff2?|eot|ttf|svg)$ {
         expires 6M;
         access_log off;
         add_header Cache-Control "public, max-age=15552000, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         try_files $uri =404;
     }
 
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    # Reverse proxy for backend API with duplicate header stripping
+    location /api/ {
+        proxy_pass ${API_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Prevent duplicate security headers from upstream backend
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
+        proxy_hide_header Content-Security-Policy-Report-Only;
+        proxy_hide_header Strict-Transport-Security;
+    }
+
+    # Security headers (WEB-006)
+    add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com ${API_URL}; frame-ancestors 'self';" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)" always;
+
+    # Content Security Policy (Enforcing Mode)
+    # Note: To transition to Report-Only mode during auditing, swap to 'Content-Security-Policy-Report-Only'
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com ${API_URL}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" always;
+
+    # HTTP Strict Transport Security (HSTS - Only on HTTPS production)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }

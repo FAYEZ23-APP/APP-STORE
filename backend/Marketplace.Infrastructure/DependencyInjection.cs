@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
         {
             options.UseNpgsql(connStr);
+            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -50,6 +51,12 @@ public static class DependencyInjection
         services.AddScoped<IFileRetentionService, Marketplace.Infrastructure.Services.FileRetentionService>();
         services.AddScoped<ISensitiveDataAccessAuditService, Marketplace.Infrastructure.Services.SensitiveDataAccessAuditService>();
 
+        // Privacy, PDPL 151/2020 & Incident Management
+        services.AddScoped<IThirdPartyProcessorDeletionService, Marketplace.Infrastructure.Services.ThirdPartyProcessorDeletionService>();
+        services.AddScoped<IPrivacyIncidentService, Marketplace.Infrastructure.Services.PrivacyIncidentService>();
+        services.AddScoped<IPrivacyProcessingRegisterService, Marketplace.Infrastructure.Services.PrivacyProcessingRegisterService>();
+        services.AddScoped<IPrivacyService, Marketplace.Infrastructure.Services.PrivacyService>();
+
         // Auth
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<IJwtService, JwtService>();
@@ -65,8 +72,10 @@ public static class DependencyInjection
             configuration.GetSection(Marketplace.Application.Common.SmsSettings.SectionName));
 
         var isDev = environment?.IsDevelopment() ?? string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+        var isTest = (environment?.IsEnvironment("Testing") ?? false) || string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Testing", StringComparison.OrdinalIgnoreCase);
+        var emailProvider = configuration["Email:Provider"] ?? ((isDev || isTest) ? "Console" : "Resend");
 
-        if (isDev)
+        if (string.Equals(emailProvider, "Console", StringComparison.OrdinalIgnoreCase) || isDev || isTest)
         {
             services.AddSingleton<IEmailSender, ConsoleEmailSender>();
             services.AddSingleton<ISmsSender, ConsoleSmsSender>();
