@@ -3,27 +3,27 @@
  * Comprehensive Automated End-to-End Security Certification Suite
  * Target Database: PostgreSQL (TEST_DB)
  *
- * Verifies 20 Security Controls across OWASP ASVS 5.0, API Security Top 10:2023, MASVS, and WSTG:
- * 1. Pen-Test Documentation & Seeder Script Validation
- * 2. [ASVS V2.1 / API2] Password Policy & Weak Password Rejection
- * 3. [ASVS V2.2 / API2] Egyptian Phone Number Strict Validation
- * 4. [ASVS V3.5 / API2] Single-Use Refresh Token Rotation
- * 5. [ASVS V3.5 / API2] Refresh Token Reuse / Theft Detection & Family Revocation
- * 6. [ASVS V3.3 / API2] Invalidation on Password Change (TokenVersion increment)
- * 7. [ASVS V4.1 / API1] Horizontal Tenant Isolation: Buyer Orders (BOLA / IDOR)
- * 8. [ASVS V4.1 / API1] Horizontal Tenant Isolation: Seller Products (BOLA / IDOR)
- * 9. [ASVS V4.1 / API1] Horizontal Tenant Isolation: Seller Shipments & Returns (BOLA / IDOR)
- * 10. [ASVS V4.1 / API1] Horizontal Tenant Isolation: Seller Wallets & Payouts (BOLA / IDOR)
- * 11. [ASVS V4.2 / API5] Vertical Privilege Isolation: Administrative Endpoints (BFLA)
- * 12. [ASVS V4.3 / API5] Emergency Surface Inactivation: Admin Web Disabled Guard
- * 13. [ASVS V5.1 / API3] Server-Authoritative Pricing & Product Price Tampering Immunity (BOPLA)
- * 14. [ASVS V5.1 / API3] Server-Authoritative Shipping Fee Calculation (BOPLA)
- * 15. [ASVS V11.1 / Logic] Inventory Concurrency & Anti-Overselling Lock
- * 16. [ASVS V11.2 / Logic] Coupon Single-Use Concurrency Lock
- * 17. [ASVS V13.2 / API10] Webhook Cryptographic Authenticity & HMAC Verification
- * 18. [ASVS V13.3 / API6] Outbound SSRF Protection (Cloud Metadata & RFC1918 Block)
- * 19. [ASVS V14.4 / API7] Production Hardening: Banner Suppression & Stack Trace Sanitization
- * 20. [ASVS V10 / Logging] Central Security Event Audit Trail Verification
+ * Verifies 20 Security Controls across OWASP ASVS 5.0.0, API Security Top 10:2023, MASVS, and WSTG:
+ * 1. Pen-Test Documentation & Seeder Script Validation (6 Dossier Artifacts + Seeder)
+ * 2. [ASVS V6.1.1 / API2:2023] Password Policy & Weak Password Rejection
+ * 3. [ASVS V2.2.1 / API2:2023] Egyptian Phone Number Strict Validation
+ * 4. [ASVS V7.2.1 / API2:2023] Single-Use Refresh Token Rotation
+ * 5. [ASVS V7.2.1 / API2:2023] Refresh Token Reuse / Theft Detection & Family Revocation
+ * 6. [ASVS V7.3.1 / API2:2023] Invalidation on Password Change (TokenVersion increment)
+ * 7. [ASVS V8.2.2 / API1:2023] Horizontal Tenant Isolation: Buyer Orders (BOLA / IDOR)
+ * 8. [ASVS V8.2.2 / API1:2023] Horizontal Tenant Isolation: Seller Products (BOLA / IDOR)
+ * 9. [ASVS V8.2.2 / API1:2023] Horizontal Tenant Isolation: Seller Shipments & Returns (BOLA / IDOR)
+ * 10. [ASVS V8.2.2 / API1:2023] Horizontal Tenant Isolation: Seller Wallets & Payouts (BOLA / IDOR)
+ * 11. [ASVS V8.1.2 / API5:2023] Vertical Privilege Isolation: Administrative Endpoints (BFLA)
+ * 12. [ASVS V1.3.1 / API5:2023] Emergency Surface Inactivation: Admin Web Disabled Guard
+ * 13. [ASVS V8.2.3 / API3:2023] Server-Authoritative Pricing & Product Price Tampering Immunity (BOPLA)
+ * 14. [ASVS V8.2.3 / API3:2023] Server-Authoritative Shipping Fee Calculation (BOPLA)
+ * 15. [ASVS V2.3.1 / API6:2023] Inventory Concurrency & Anti-Overselling Lock
+ * 16. [ASVS V2.3.2 / API6:2023] Coupon Single-Use Concurrency Lock
+ * 17. [ASVS V4.3.1 / API10:2023] Webhook Cryptographic Authenticity & HMAC Verification
+ * 18. [ASVS V1.3.6 / API7:2023] Outbound SSRF Protection (Cloud Metadata & RFC1918 Block)
+ * 19. [ASVS V13.1.1 / API8:2023] Production Hardening: Banner Suppression & Stack Trace Sanitization
+ * 20. [ASVS V16.1.1 / Logging] Central Security Event Audit Trail Verification
  */
 
 const fs = require('fs');
@@ -51,7 +51,7 @@ function assert(condition, message) {
 
 console.log('================================================================================');
 console.log('PHASE 15: INDEPENDENT PEN-TESTING & FINAL SECURITY CERTIFICATION READINESS');
-console.log('Standards: OWASP ASVS 5.0, OWASP API Top 10:2023, OWASP MASVS, OWASP WSTG');
+console.log('Standards: OWASP ASVS 5.0.0, OWASP API Top 10:2023, OWASP MASVS v2.0, OWASP WSTG v4.2');
 console.log('Target Database:', TEST_DB ? 'Configured (PostgreSQL)' : 'NOT CONFIGURED');
 console.log('================================================================================\n');
 
@@ -120,24 +120,30 @@ async function runAudit() {
   const planPath = path.join(pentestDir, '01-penetration-testing-plan.md');
   const matrixPath = path.join(pentestDir, '02-owasp-compliance-matrix.md');
   const dossierPath = path.join(pentestDir, '03-pentester-handover-dossier.md');
+  const asvsMatrixPath = path.join(pentestDir, '04-asvs-level2-verification-matrix.md');
+  const mobileMatrixPath = path.join(pentestDir, '05-mobile-masvs-evidence-matrix.md');
+  const webMatrixPath = path.join(pentestDir, '06-web-wstg-test-matrix.md');
   const seederPath = path.join(REPO_ROOT, 'scripts', 'security', 'setup-pentest-environment.js');
 
   const docsValid =
     fs.existsSync(planPath) &&
     fs.existsSync(matrixPath) &&
     fs.existsSync(dossierPath) &&
+    fs.existsSync(asvsMatrixPath) &&
+    fs.existsSync(mobileMatrixPath) &&
+    fs.existsSync(webMatrixPath) &&
     fs.existsSync(seederPath);
 
   const matrixContent = docsValid ? fs.readFileSync(matrixPath, 'utf8') : '';
   const coversOwasp =
     matrixContent.includes('OWASP ASVS') &&
-    matrixContent.includes('OWASP API Security Top 10') &&
+    matrixContent.includes('OWASP API Security Top 10:2023') &&
     matrixContent.includes('OWASP MASVS') &&
-    matrixContent.includes('BOLA');
+    matrixContent.includes('V8.2.2');
 
   assert(
     docsValid && coversOwasp,
-    'All 3 Pen-Test Dossier documents and Seeder script exist with comprehensive OWASP coverage'
+    'All 6 Pen-Test Dossier documents and Seeder script exist with comprehensive OWASP coverage'
   );
 
   // ---------------------------------------------------------------------------
@@ -257,9 +263,9 @@ async function runAudit() {
 
   try {
     // -------------------------------------------------------------------------
-    // Check 2: Password Policy & Weak Password Rejection [ASVS V2.1 / API2]
+    // Check 2: Password Policy & Weak Password Rejection [ASVS V6.1.1 / API2:2023]
     // -------------------------------------------------------------------------
-    console.log('[Check 2] ASVS V2.1 Password Policy & Weak Password Rejection...');
+    console.log('[Check 2] ASVS V6.1.1 Password Policy & Weak Password Rejection...');
     const weakRegister = await sendRequest(testPort, 'POST', '/api/auth/register', {
       name: 'Weak Password User',
       email: `weak_${Date.now()}@test.com`,
@@ -274,9 +280,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 3: Egyptian Phone Number Strict Validation [ASVS V2.2 / API2]
+    // Check 3: Egyptian Phone Number Strict Validation [ASVS V2.2.1 / API2:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 3] ASVS V2.2 Egyptian Phone Format Strict Validation...');
+    console.log('\n[Check 3] ASVS V2.2.1 Egyptian Phone Format Strict Validation...');
     const invalidPhoneRegister = await sendRequest(testPort, 'POST', '/api/auth/register', {
       name: 'Invalid Phone User',
       email: `inv_phone_${Date.now()}@test.com`,
@@ -291,9 +297,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 4 & 5: Refresh Token Single-Use Rotation & Replay Revocation [ASVS V3.5]
+    // Check 4 & 5: Refresh Token Single-Use Rotation & Replay Revocation [ASVS V7.2.1]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 4 & 5] ASVS V3.5 Refresh Token Rotation & Replay Revocation...');
+    console.log('\n[Check 4 & 5] ASVS V7.2.1 Refresh Token Rotation & Replay Revocation...');
     const buyer1 = await setupUser('Buyer', '1');
     const firstRotation = await sendRequest(testPort, 'POST', '/api/auth/refresh', {
       refreshToken: buyer1.refreshToken,
@@ -314,9 +320,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 6: Invalidation on Password Reset / TokenVersion [ASVS V3.3]
+    // Check 6: Invalidation on Password Reset / TokenVersion [ASVS V7.3.1]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 6] ASVS V3.3 Session Invalidation via TokenVersion Increment...');
+    console.log('\n[Check 6] ASVS V7.3.1 Session Invalidation via TokenVersion Increment...');
     const loginAdmin = await sendRequest(testPort, 'POST', '/api/auth/login', {
       identifier: adminEmail,
       password: adminPassword,
@@ -329,9 +335,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 7: Horizontal Tenant Isolation: Buyer Orders [BOLA / IDOR]
+    // Check 7: Horizontal Tenant Isolation: Buyer Orders [ASVS V8.2.2 / API1:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 7] ASVS V4.1 / API1:2023 Horizontal Tenant Isolation (Buyer Orders)...');
+    console.log('\n[Check 7] ASVS V8.2.2 / API1:2023 Horizontal Tenant Isolation (Buyer Orders)...');
     const buyer2 = await setupUser('Buyer', '2');
     const crossBuyerCancel = await sendRequest(
       testPort,
@@ -346,9 +352,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 8: Horizontal Tenant Isolation: Seller Products [BOLA / IDOR]
+    // Check 8: Horizontal Tenant Isolation: Seller Products [ASVS V8.2.2 / API1:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 8] ASVS V4.1 / API1:2023 Horizontal Tenant Isolation (Seller Products)...');
+    console.log('\n[Check 8] ASVS V8.2.2 / API1:2023 Horizontal Tenant Isolation (Seller Products)...');
     const seller1 = await setupUser('Seller', '1');
     const seller2 = await setupUser('Seller', '2');
 
@@ -389,9 +395,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 9: Horizontal Tenant Isolation: Seller Shipments [BOLA / IDOR]
+    // Check 9: Horizontal Tenant Isolation: Seller Shipments [ASVS V8.2.2 / API1:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 9] ASVS V4.1 / API1:2023 Horizontal Tenant Isolation (Seller Shipments)...');
+    console.log('\n[Check 9] ASVS V8.2.2 / API1:2023 Horizontal Tenant Isolation (Seller Shipments)...');
     const crossSellerShipment = await sendRequest(
       testPort,
       'GET',
@@ -405,9 +411,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 10: Horizontal Tenant Isolation: Seller Wallets [BOLA / IDOR]
+    // Check 10: Horizontal Tenant Isolation: Seller Wallets [ASVS V8.2.2 / API1:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 10] ASVS V4.1 / API1:2023 Horizontal Tenant Isolation (Seller Wallets)...');
+    console.log('\n[Check 10] ASVS V8.2.2 / API1:2023 Horizontal Tenant Isolation (Seller Wallets)...');
     const crossWalletAccess = await sendRequest(
       testPort,
       'GET',
@@ -421,9 +427,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 11: Vertical Privilege Isolation: Administrative Endpoints [BFLA]
+    // Check 11: Vertical Privilege Isolation: Administrative Endpoints [ASVS V8.1.2 / API5:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 11] ASVS V4.2 / API5:2023 Vertical Privilege Isolation (BFLA)...');
+    console.log('\n[Check 11] ASVS V8.1.2 / API5:2023 Vertical Privilege Isolation (BFLA)...');
     const bflaAttempt = await sendRequest(
       testPort,
       'GET',
@@ -437,9 +443,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 12: Emergency Surface Inactivation [BFLA]
+    // Check 12: Emergency Surface Inactivation [ASVS V1.3.1 / API5:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 12] ASVS V4.3 / API5:2023 Emergency Surface Inactivation...');
+    console.log('\n[Check 12] ASVS V1.3.1 / API5:2023 Emergency Surface Inactivation...');
     const securityQuery = await sendRequest(
       testPort,
       'GET',
@@ -453,9 +459,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 13: Server-Authoritative Pricing [BOPLA / Mass-Assignment]
+    // Check 13: Server-Authoritative Pricing [ASVS V8.2.3 / API3:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 13] ASVS V5.1 / API3:2023 Server-Authoritative Product Pricing...');
+    console.log('\n[Check 13] ASVS V8.2.3 / API3:2023 Server-Authoritative Product Pricing...');
     const tamperedOrder = await sendRequest(
       testPort,
       'POST',
@@ -484,9 +490,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 14: Server-Authoritative Shipping Fee Calculation [BOPLA]
+    // Check 14: Server-Authoritative Shipping Fee Calculation [ASVS V8.2.3 / API3:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 14] ASVS V5.1 / API3:2023 Server-Authoritative Shipping Fee Calculation...');
+    console.log('\n[Check 14] ASVS V8.2.3 / API3:2023 Server-Authoritative Shipping Fee Calculation...');
     const deliveryFee = tamperedOrder.body?.deliveryCost ?? tamperedOrder.body?.shippingFee;
     assert(
       tamperedOrder.status === 201 && deliveryFee > 0,
@@ -494,9 +500,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 15: Concurrency Controls & Anti-Overselling [Business Logic]
+    // Check 15: Concurrency Controls & Anti-Overselling [ASVS V2.3.1 / API6:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 15] ASVS V11.1 Concurrency Controls & Anti-Overselling...');
+    console.log('\n[Check 15] ASVS V2.3.1 / API6:2023 Concurrency Controls & Anti-Overselling...');
     const scarceProd = await sendRequest(
       testPort,
       'POST',
@@ -558,9 +564,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 16: Coupon Single-Use Concurrency Lock [Business Logic]
+    // Check 16: Coupon Single-Use Concurrency Lock [ASVS V2.3.2 / API6:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 16] ASVS V11.2 Coupon Single-Use Concurrency Lock...');
+    console.log('\n[Check 16] ASVS V2.3.2 / API6:2023 Coupon Single-Use Concurrency Lock...');
     const couponCode = `CERT${Math.floor(100000 + Math.random() * 900000)}`;
     const createCouponRes = await sendRequest(
       testPort,
@@ -628,9 +634,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 17: Webhook Cryptographic Authenticity [API10 / ASVS V13.2]
+    // Check 17: Webhook Cryptographic Authenticity [ASVS V4.3.1 / API10:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 17] ASVS V13.2 Webhook HMAC Cryptographic Signature Verification...');
+    console.log('\n[Check 17] ASVS V4.3.1 / API10:2023 Webhook HMAC Cryptographic Signature Verification...');
     const forgedWebhook = await sendRequest(
       testPort,
       'POST',
@@ -648,9 +654,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 18: Outbound SSRF Protection [API6 / ASVS V13.3]
+    // Check 18: Outbound SSRF Protection [ASVS V1.3.6 / API7:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 18] ASVS V13.3 / API6:2023 Outbound SSRF Protection...');
+    console.log('\n[Check 18] ASVS V1.3.6 / API7:2023 Outbound SSRF Protection...');
     const ssrfProbe = await sendRequest(
       testPort,
       'POST',
@@ -668,9 +674,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 19: Banner Suppression & Error Sanitization [ASVS V14.4]
+    // Check 19: Banner Suppression & Error Sanitization [ASVS V13.1.1 / API8:2023]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 19] ASVS V14.4 Server Banner Suppression & Error Sanitization...');
+    console.log('\n[Check 19] ASVS V13.1.1 / API8:2023 Server Banner Suppression & Error Sanitization...');
     const healthHeaders = await sendRequest(testPort, 'GET', '/api/health');
     const serverBanner = healthHeaders.headers['server'] || '';
     assert(
@@ -679,9 +685,9 @@ async function runAudit() {
     );
 
     // -------------------------------------------------------------------------
-    // Check 20: Forensic Security Audit Trail [ASVS V10 / Logging]
+    // Check 20: Forensic Security Audit Trail [ASVS V16.1.1 / Logging]
     // -------------------------------------------------------------------------
-    console.log('\n[Check 20] ASVS V10 Forensic Security Event Logging & Audit Buffer...');
+    console.log('\n[Check 20] ASVS V16.1.1 Forensic Security Event Logging & Audit Buffer...');
     const finalEventsRes = await sendRequest(
       testPort,
       'GET',
