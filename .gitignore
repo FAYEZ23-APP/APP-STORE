@@ -511,3 +511,17 @@ android/
 backups/
 *.dump
 *.dump.gz
+
+# Production Secrets & Sensitive Credentials Hardening
+appsettings.Production.json
+appsettings.*.local.json
+secrets.json
+*.pem
+*.pfx
+*.pkcs12
+*.key
+credentials.json
+service-account*.json
+.env.production
+.env.staging
+

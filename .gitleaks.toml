@@ -1,0 +1,59 @@
+title = "Egypt Shop Marketplace Gitleaks Secret Scanner Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for synthetic test mocks and documentation"
+paths = [
+    '''backend/tests/.*''',
+    '''mobile/tests/.*''',
+    '''admin-web/tests/.*''',
+    '''docs/.*''',
+    '''\.gitleaks\.toml$'''
+]
+
+# Rule 1: PostgreSQL Connection Strings with Credentials
+[[rules]]
+id = "postgres-connection-string"
+description = "Detected hardcoded PostgreSQL connection string containing credentials"
+regex = '''(?i)(postgres(?:ql)?:\/\/[a-z0-9_-]+:[^@\s]+@[a-z0-9_.-]+(?::\d+)?\/[a-z0-9_-]+|(?:Server|Host)=[^;]+;.*(?:Password|Pwd)=[^;]+)'''
+keywords = ["postgres://", "postgresql://", "Password=", "Pwd="]
+secretGroup = 1
+entropy = 3.5
+severity = "CRITICAL"
+
+# Rule 2: JWT Secrets & Symmetric Signing Keys
+[[rules]]
+id = "jwt-secret-key"
+description = "Detected potential hardcoded JWT secret key"
+regex = '''(?i)(?:jwt[_-]?secret(?:[_-]?key)?|secret[_-]?key)\s*[:=]\s*["']([a-zA-Z0-9_\-\.\$\!\@\#\%\^\&\*\(\)\+]{32,})["']'''
+keywords = ["jwt_secret", "jwt:secretkey", "secret_key"]
+secretGroup = 1
+entropy = 4.0
+severity = "HIGH"
+
+# Rule 3: Bosta Shipping Provider Secret
+[[rules]]
+id = "bosta-api-secret"
+description = "Detected potential Bosta shipping provider API secret or webhook signature key"
+regex = '''(?i)(?:bosta[_-]?(?:api[_-]?key|secret|webhook[_-]?secret))\s*[:=]\s*["']([a-zA-Z0-9_\-]{20,})["']'''
+keywords = ["bosta", "bosta_api_key", "bosta:secret"]
+secretGroup = 1
+severity = "HIGH"
+
+# Rule 4: Resend Email API Key
+[[rules]]
+id = "resend-api-key"
+description = "Detected Resend API key"
+regex = '''re_[a-zA-Z0-9]{24,36}'''
+keywords = ["re_"]
+severity = "HIGH"
+
+# Rule 5: Generic High-Entropy Private Keys
+[[rules]]
+id = "private-key"
+description = "Detected unencrypted RSA, EC, or OpenSSH Private Key block"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'''
+keywords = ["-----BEGIN"]
+severity = "CRITICAL"

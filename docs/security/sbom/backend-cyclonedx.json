@@ -1,0 +1,233 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:6e986169-51a2-42e7-a998-fae79304dda0",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-07T05:11:51.753Z",
+    "tools": [
+      {
+        "vendor": "Egypt Shop Marketplace Security Team",
+        "name": "EgyptShop-SBOM-Generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "EgyptShop.Backend",
+      "version": "1.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "Microsoft.AspNetCore.Authentication.JwtBearer",
+      "version": "10.0.12",
+      "purl": "pkg:nuget/Microsoft.AspNetCore.Authentication.JwtBearer@10.0.12",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Microsoft.EntityFrameworkCore.Design",
+      "version": "10.0.5",
+      "purl": "pkg:nuget/Microsoft.EntityFrameworkCore.Design@10.0.5",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Microsoft.EntityFrameworkCore.Relational",
+      "version": "10.0.5",
+      "purl": "pkg:nuget/Microsoft.EntityFrameworkCore.Relational@10.0.5",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Swashbuckle.AspNetCore",
+      "version": "10.2.3",
+      "purl": "pkg:nuget/Swashbuckle.AspNetCore@10.2.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "FluentValidation",
+      "version": "12.1.1",
+      "purl": "pkg:nuget/FluentValidation@12.1.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "FluentValidation.DependencyInjectionExtensions",
+      "version": "12.1.1",
+      "purl": "pkg:nuget/FluentValidation.DependencyInjectionExtensions@12.1.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Microsoft.EntityFrameworkCore",
+      "version": "10.0.5",
+      "purl": "pkg:nuget/Microsoft.EntityFrameworkCore@10.0.5",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "BCrypt.Net-Next",
+      "version": "4.2.0",
+      "purl": "pkg:nuget/BCrypt.Net-Next@4.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Google.Apis.Auth",
+      "version": "1.77.0",
+      "purl": "pkg:nuget/Google.Apis.Auth@1.77.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Npgsql.EntityFrameworkCore.PostgreSQL",
+      "version": "10.0.3",
+      "purl": "pkg:nuget/Npgsql.EntityFrameworkCore.PostgreSQL@10.0.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "PostgreSQL"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Microsoft.IdentityModel.JsonWebTokens",
+      "version": "8.19.2",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "SkiaSharp",
+      "version": "3.116.1",
+      "purl": "pkg:nuget/SkiaSharp@3.116.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "Microsoft.NET.Test.Sdk",
+      "version": "17.13.0",
+      "purl": "pkg:nuget/Microsoft.NET.Test.Sdk@17.13.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "test"
+    },
+    {
+      "type": "library",
+      "name": "xunit",
+      "version": "2.9.3",
+      "purl": "pkg:nuget/xunit@2.9.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "scope": "test"
+    },
+    {
+      "type": "library",
+      "name": "xunit.runner.visualstudio",
+      "version": "3.0.2",
+      "purl": "pkg:nuget/xunit.runner.visualstudio@3.0.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "scope": "test"
+    }
+  ]
+}

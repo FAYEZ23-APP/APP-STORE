@@ -1,0 +1,247 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:a784f890-d989-446a-b1dc-4d89fa1b5c52",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-07T05:11:51.755Z",
+    "tools": [
+      {
+        "vendor": "Egypt Shop Marketplace Security Team",
+        "name": "EgyptShop-SBOM-Generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "EgyptShop.AdminWeb",
+      "version": "0.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "@react-google-maps/api",
+      "version": "2.20.8",
+      "purl": "pkg:npm/@react-google-maps/api@2.20.8",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "axios",
+      "version": "1.20.0",
+      "purl": "pkg:npm/axios@1.20.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "i18next",
+      "version": "26.4.7",
+      "purl": "pkg:npm/i18next@26.4.7",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "jwt-decode",
+      "version": "4.0.0",
+      "purl": "pkg:npm/jwt-decode@4.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "lucide-react",
+      "version": "1.58.0",
+      "purl": "pkg:npm/lucide-react@1.58.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react@19.3.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react-dom@19.3.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react-i18next",
+      "version": "17.0.20",
+      "purl": "pkg:npm/react-i18next@17.0.20",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react-router-dom",
+      "version": "7.18.4",
+      "purl": "pkg:npm/react-router-dom@7.18.4",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "@tailwindcss/vite",
+      "version": "4.3.3",
+      "purl": "pkg:npm/@tailwindcss/vite@4.3.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/react",
+      "version": "19.3.0",
+      "purl": "pkg:npm/@types/react@19.3.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/react-dom",
+      "version": "19.3.0",
+      "purl": "pkg:npm/@types/react-dom@19.3.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@vitejs/plugin-react",
+      "version": "4.7.0",
+      "purl": "pkg:npm/@vitejs/plugin-react@4.7.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "oxlint",
+      "version": "1.88.0",
+      "purl": "pkg:npm/oxlint@1.88.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "tailwindcss",
+      "version": "4.3.3",
+      "purl": "pkg:npm/tailwindcss@4.3.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "vite",
+      "version": "6.4.5",
+      "purl": "pkg:npm/vite@6.4.5",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "scope": "optional"
+    }
+  ]
+}

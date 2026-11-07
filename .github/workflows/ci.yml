@@ -1,4 +1,4 @@
-name: Marketplace CI
+name: Marketplace CI & Supply Chain Security
 
 on:
   push:
@@ -6,44 +6,88 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# Least Privilege Principle: read-only access by default across the entire workflow
+permissions:
+  contents: read
+
+# Concurrency Control: cancel redundant in-flight runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  backend:
-    name: Backend Build & xUnit Tests (.NET 10)
+  # ============================================================================
+  # 1. Gitleaks Secret Scanning Gate
+  # ============================================================================
+  secret-scan:
+    name: Secret & Credential Leak Scanning (Gitleaks)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Detector
+        uses: gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34 # v2.3.8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # 2. Backend Security, Vulnerability Audit & Build (.NET 10)
+  # ============================================================================
+  backend:
+    name: Backend Build, SAST & xUnit Tests (.NET 10)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '10.0.x'
 
       - name: Restore Dependencies
         run: dotnet restore backend/Marketplace.slnx
 
-      - name: Build Solution
+      - name: Audit NuGet Package Vulnerabilities
+        run: dotnet list backend/Marketplace.slnx package --vulnerable --include-transitive
+
+      - name: Build Solution with Roslyn Security Analyzers
         run: dotnet build backend/Marketplace.slnx -c Release --no-restore
 
       - name: Run xUnit Tests
         run: dotnet test backend/Marketplace.slnx -c Release --no-build --verbosity normal
 
+  # ============================================================================
+  # 3. Admin Web Security, Dependency Audit & Build (React 19 / Vite)
+  # ============================================================================
   admin-web:
-    name: Admin Web Security & Build (Next.js 16)
+    name: Admin Web Security, npm Audit & Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: admin-web/package-lock.json
 
-      - name: Install Dependencies
+      - name: Enforce Frozen Lockfile (npm ci)
         run: npm --prefix admin-web ci
+
+      - name: Audit Web Dependencies (High & Critical Gate)
+        run: npm --prefix admin-web audit --audit-level=high
 
       - name: Run Security Suite
         run: npm --prefix admin-web run test:security
@@ -51,22 +95,30 @@ jobs:
       - name: Build Web Application
         run: npm --prefix admin-web run build
 
+  # ============================================================================
+  # 4. Mobile i18n, Dependency Audit & Mock Suites (Expo SDK 58 / React Native)
+  # ============================================================================
   mobile:
-    name: Mobile i18n & Unit Tests (Expo / React Native)
+    name: Mobile Security, i18n & Unit Tests (Expo 58)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: mobile/package-lock.json
 
-      - name: Install Dependencies
+      - name: Enforce Frozen Lockfile (npm ci)
         run: npm --prefix mobile ci
+
+      - name: Audit Mobile Dependencies (High & Critical Gate)
+        run: npm --prefix mobile audit --audit-level=high
 
       - name: Verify i18n Locales Parity
         run: node mobile/scripts/check-i18n.js

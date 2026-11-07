@@ -1,4 +1,4 @@
-﻿**/bin
+**/bin
 **/obj
 **/bin/
 **/obj/
@@ -12,3 +12,11 @@
 **/*.sql
 **/*.log
 **/appsettings.Development.json
+**/appsettings.Production.json
+**/*.env*
+**/*.pem
+**/*.key
+**/*.pfx
+**/secrets.json
+**/backups
+

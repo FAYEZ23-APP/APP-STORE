@@ -1,0 +1,26 @@
+# Egypt Shop Marketplace Code Ownership Specification
+# Enforces required code reviews on Pull Requests touching security, database, or core components.
+
+# Default Global Owner
+*       @fayez-dev
+
+# Security & CI/CD Pipeline Infrastructure
+/.github/                     @fayez-dev
+/.gitleaks.toml               @fayez-dev
+/backend/Directory.Build.props @fayez-dev
+
+# Database Migrations & Schemas (Strict Governance)
+/backend/Marketplace.Infrastructure/Data/Migrations/ @fayez-dev
+/backend/Marketplace.Infrastructure/Data/AppDbContext.cs @fayez-dev
+
+# Financial & Authorization Services
+/backend/Marketplace.Application/Services/OrderService.cs @fayez-dev
+/backend/Marketplace.Application/Services/ReturnService.cs @fayez-dev
+/backend/Marketplace.Application/Services/ShipmentService.cs @fayez-dev
+/backend/Marketplace.Application/Services/AuthService.cs @fayez-dev
+
+# Admin Web Portal
+/admin-web/                   @fayez-dev
+
+# Mobile Application (React Native / Expo)
+/mobile/                      @fayez-dev

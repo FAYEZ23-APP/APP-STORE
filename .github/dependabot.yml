@@ -1,0 +1,67 @@
+version: 2
+updates:
+  # 1. Backend NuGet Dependencies
+  - package-ecosystem: "nuget"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Africa/Cairo"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps-nuget)"
+    groups:
+      microsoft-efcore:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql.EntityFrameworkCore*"
+      fluentvalidation:
+        patterns:
+          - "FluentValidation*"
+
+  # 2. Admin Web npm Dependencies
+  - package-ecosystem: "npm"
+    directory: "/admin-web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:30"
+      timezone: "Africa/Cairo"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps-web)"
+    groups:
+      react-ecosystem:
+        patterns:
+          - "react*"
+          - "@types/react*"
+
+  # 3. Mobile npm Dependencies
+  - package-ecosystem: "npm"
+    directory: "/mobile"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "Africa/Cairo"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps-mobile)"
+    groups:
+      expo-ecosystem:
+        patterns:
+          - "expo*"
+          - "@expo/*"
+
+  # 4. GitHub Actions Workflows Pinning & Updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:30"
+      timezone: "Africa/Cairo"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci-actions)"
