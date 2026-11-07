@@ -206,6 +206,7 @@ async function runAudit() {
 
   
   
+  
   console.log('Backend test host is healthy!\n');
 
   async function setupUser(role, suffix, deviceId = 'test-sec-device-01') {
@@ -327,7 +328,7 @@ async function runAudit() {
     const deviceId = 'test-sec-device-01';
 
     // First rotation (legitimate)
-    const firstRefresh = await sendRequest(testPort, 'POST', '/api/auth/refresh-token', {
+    const firstRefresh = await sendRequest(testPort, 'POST', '/api/auth/refresh', {
       refreshToken: buyer1.refreshToken,
       deviceId: deviceId
     });
@@ -338,7 +339,7 @@ async function runAudit() {
     );
 
     // Second rotation with the OLD (already consumed) token -> Token Replay / Theft Attack!
-    const replayRefresh = await sendRequest(testPort, 'POST', '/api/auth/refresh-token', {
+    const replayRefresh = await sendRequest(testPort, 'POST', '/api/auth/refresh', {
       refreshToken: buyer1.refreshToken,
       deviceId: deviceId
     });
