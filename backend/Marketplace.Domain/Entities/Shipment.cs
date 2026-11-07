@@ -29,7 +29,16 @@ public class Shipment
     public double? DeliveryLatitude { get; set; }
     public double? DeliveryLongitude { get; set; }
     public DateTime? EscrowReleaseAt { get; set; }
+    public string? RemittanceBatchReference { get; set; }
     public bool AllowInspection { get; set; } = true;
+    public DateTime? SlaWarningSentAt { get; set; }
+    public DateTime? SlaCancelledAt { get; set; }
+    public bool IsPartiallyDelivered { get; set; } = false;
+    public decimal? AdjustedCodAmount { get; set; }
+    public string? CourierName { get; set; }
+    public string? CourierPhone { get; set; }
+    public DateTime? EstimatedDeliveryAt { get; set; }
+    public string? PickupPointCode { get; set; }
 
     public Order Order { get; set; } = null!;
     public User Seller { get; set; } = null!;

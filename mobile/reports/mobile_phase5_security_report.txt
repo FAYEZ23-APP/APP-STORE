@@ -1,0 +1,64 @@
+================================================================================
+PHASE 5 SECURITY VERIFICATION REPORT: TWO-FACTOR AUTHENTICATION & STORE READINESS
+Egypt Shop Mobile (React Native + Expo SDK 58)
+Security Reference: MOB-005
+Timestamp: 2026-11-03T06:40:00+02:00
+================================================================================
+
+1. OBJECTIVES IMPLEMENTED & VERIFIED
+--------------------------------------------------------------------------------
+- Two-Factor Authentication Integration (MOB-005):
+  * Backend API contract verified: POST /api/auth/login returns RequiresTwoFactor & TwoFactorToken.
+  * Dedicated challenge step: LoginScreen renders OtpInput (6-digit numeric input).
+  * In-memory challenge token isolation: TwoFactorToken kept strictly in component state.
+    Zero challenge tokens written to SecureStore or AsyncStorage.
+  * Protected route boundary: UserRole and UserId remain null until 2FA completes.
+  * Verification endpoint: Submits TwoFactorToken and 6-digit TOTP code to POST /api/auth/2fa/verify-login.
+  * First-time setup support: When TwoFactorSetupRequired is true, setup key is displayed
+    and forwarded as secret during activation.
+  * Expired ticket handling: Automatic cleanup of challenge token on 401/expired errors.
+  * Post-2FA session persistence: On successful verification, access and refresh tokens
+    are saved exclusively in SecureStore, biometrics offered if supported, and role-based
+    navigation initialized.
+
+2. AUTOMATED TEST RESULTS
+--------------------------------------------------------------------------------
+Command: node mobile/tests/test_mobile_two_factor_auth.js
+  [PASS] 1. Initial login requiring 2FA returned challenge token without granting session
+  [PASS] 2. TwoFactorToken kept strictly in-memory; zero persistent storage writes
+  [PASS] 3. User role and session remain unauthenticated during challenge
+  [PASS] 4. Valid TOTP verification established session and persisted in SecureStore
+  [PASS] 5. Token rotation persisted securely after 2FA completion
+  [PASS] 6. TwoFactorToken purged from memory immediately upon completion
+  [PASS] 7. Invalid TOTP code rejected; unauthorized access blocked
+  [PASS] 8. Expired challenge token handled and safely reset
+  [PASS] 9. First-time 2FA activation safely forwarded setup key
+  [PASS] 10. Zero 2FA challenge tokens or credentials leaked to AsyncStorage
+  Result: 10/10 Passed (0 Failed)
+
+3. BUILD & STORE READINESS
+--------------------------------------------------------------------------------
+- EAS Build profiles configured in eas.json:
+  * development: developmentClient internal build
+  * preview: APK distribution
+  * production: AAB app-bundle distribution
+- Android package: com.egyptianmarketplace.app
+- iOS bundle: configured with NSFaceIDUsageDescription, NSCameraUsageDescription,
+  NSPhotoLibraryUsageDescription, NSLocationWhenInUseUsageDescription.
+- Production Hermes JS bundle exported with 0 leaked secrets or endpoints.
+- i18n parity: 100% in sync across 1103 keys (npm run i18n:check).
+
+4. FILES MODIFIED / CREATED IN PHASE 5
+--------------------------------------------------------------------------------
+- mobile/src/context/AuthContext.js:
+  Enhanced login to return full 2FA challenge metadata; enhanced completeTwoFactorLogin to forward setup secret.
+- mobile/src/screens/auth/LoginScreen.js:
+  Added twoFactorSecret state, setup key prompt UI, expired challenge handling, and safe back-navigation.
+- mobile/src/locales/ar.json & mobile/src/locales/en.json:
+  Added twoFactorSetupPrompt, twoFactorSetupKey, twoFactorExpired translations.
+- mobile/tests/test_mobile_two_factor_auth.js (Created):
+  10 comprehensive test cases for mobile 2FA lifecycle.
+- mobile/package.json:
+  Wired test_mobile_two_factor_auth.js into npm run test:security.
+- mobile/reports/mobile_phase5_security_report.txt (Created).
+================================================================================

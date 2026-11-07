@@ -9,6 +9,13 @@ public class UserProfileResponse
     public string? DispatchCity { get; set; }
     public string? DispatchAddress { get; set; }
     public string? ContactPhone { get; set; }
+    public string? CommercialRegisterNumber { get; set; }
+    public string? TaxCardNumber { get; set; }
+    public string? NationalIdNumber { get; set; }
+    public string? KybDocumentUrl { get; set; }
+    public string KybStatus { get; set; } = "Unverified";
+    public string? KybRejectionReason { get; set; }
+    public DateTime? KybVerifiedAt { get; set; }
 }
 
 public class UpdateProfileRequest
@@ -24,6 +31,13 @@ public class SellerProfileDto
     public string DispatchCity { get; set; } = string.Empty;
     public string? DispatchAddress { get; set; }
     public string? ContactPhone { get; set; }
+    public string? CommercialRegisterNumber { get; set; }
+    public string? TaxCardNumber { get; set; }
+    public string? NationalIdNumber { get; set; }
+    public string? KybDocumentUrl { get; set; }
+    public string KybStatus { get; set; } = "Unverified";
+    public string? KybRejectionReason { get; set; }
+    public DateTime? KybVerifiedAt { get; set; }
 }
 
 public class ChangePasswordRequest
@@ -125,6 +139,7 @@ public class UserDataExportDto
     public List<NotificationExportDto> Notifications { get; set; } = new();
     public List<DeviceTokenExportDto> DeviceTokens { get; set; } = new();
     public List<OrderExportDto> Orders { get; set; } = new();
+    public List<ReturnExportDto> Returns { get; set; } = new();
 }
 
 public class WishlistExportDto
@@ -235,4 +250,48 @@ public class OrderItemExportDto
     public int ProductId { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+}
+
+public class ReturnExportDto
+{
+    public int Id { get; set; }
+    public int OrderId { get; set; }
+    public int ShipmentId { get; set; }
+    public int OrderItemId { get; set; }
+    public int Quantity { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public decimal RefundAmount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+}
+
+
+public class SubmitKybRequest
+{
+    public string? CommercialRegisterNumber { get; set; }
+    public string? TaxCardNumber { get; set; }
+    public string? NationalIdNumber { get; set; }
+    public string? KybDocumentUrl { get; set; }
+}
+
+public class UpdateKybStatusRequest
+{
+    public string Status { get; set; } = string.Empty;
+    public string? RejectionReason { get; set; }
+}
+
+
+public class SellerPerformanceMetricsDto
+{
+    public int SellerId { get; set; }
+    public int TotalOrders { get; set; }
+    public int FulfilledOrders { get; set; }
+    public int CancelledOrders { get; set; }
+    public decimal FulfillmentRate { get; set; }
+    public decimal AverageHandoverHours { get; set; }
+    public decimal ReturnRate { get; set; }
+    public decimal FulfillmentScore { get; set; }
+    public string WarningStatus { get; set; } = "Good";
 }

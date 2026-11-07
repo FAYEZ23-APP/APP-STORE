@@ -24,6 +24,7 @@ public class ReturnsController : ControllerBase
 
     /// <summary>Upload return defect evidence image (PDPL Law 151/2020 private storage).</summary>
     [HttpPost("upload-evidence")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("upload-policy")]
     [Authorize(Roles = "Buyer")]
     [RequestSizeLimit(6 * 1024 * 1024)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -42,7 +43,9 @@ public class ReturnsController : ControllerBase
             stream,
             file.FileName,
             file.Length,
-            subFolder: "returns");
+            subFolder: "returns",
+            clientContentType: file.ContentType,
+            category: Marketplace.Domain.Enums.FileCategory.ReturnEvidence);
 
         return Ok(new
         {
@@ -54,7 +57,7 @@ public class ReturnsController : ControllerBase
         });
     }
 
-    /// <summary>Submit a 14-day post-delivery return request under Egyptian Consumer Protection Law 181/2018.</summary>
+    /// <summary>Submit a post-delivery return request under Egyptian Consumer Protection Law 181/2018 (14-day standard or 30-day manufacturing defect).</summary>
     [HttpPost]
     [Authorize(Roles = "Buyer")]
     [ProducesResponseType(typeof(ReturnResponse), StatusCodes.Status201Created)]
@@ -79,7 +82,7 @@ public class ReturnsController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Resolve a return request (Seller can approve and credit buyer wallet, or reject with reason).</summary>
+    /// <summary>Resolve a return request (Seller can approve for return shipment, or reject with reason).</summary>
     [HttpPut("{id:int}/resolve")]
     [Authorize(Roles = "Seller")]
     [ProducesResponseType(typeof(ReturnResponse), StatusCodes.Status200OK)]
@@ -109,6 +112,21 @@ public class ReturnsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Dispute a return request (Seller can open a dispute for damaged/swapped returns). (GAP-SEL-03)</summary>
+    [HttpPost("{id:int}/dispute")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(ReturnResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ReturnResponse>> DisputeReturn(int id, [FromBody] DisputeReturnRequest request)
+    {
+        var sellerId = User.GetUserId();
+        var result = await _returnService.DisputeReturnAsync(sellerId, id, request);
+        return Ok(result);
+    }
+
     /// <summary>List all return requests for items belonging to the logged-in seller.</summary>
     [HttpGet("seller")]
     [Authorize(Roles = "Seller")]
@@ -117,6 +135,33 @@ public class ReturnsController : ControllerBase
     {
         var sellerId = User.GetUserId();
         var result = await _returnService.GetSellerReturnsAsync(sellerId);
+        return Ok(result);
+    }
+
+    /// <summary>List all returns for admin overview and dispute resolution. (Admin only)</summary>
+    [HttpGet("/api/admin/returns")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(IEnumerable<ReturnResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IEnumerable<ReturnResponse>>> GetAdminReturns([FromQuery] bool? isDisputed = null)
+    {
+        var result = await _returnService.GetAdminReturnsAsync(isDisputed);
+        return Ok(result);
+    }
+
+    /// <summary>Resolve a disputed return (Admin only). (GAP-SEL-03)</summary>
+    [HttpPut("/api/admin/returns/{id:int}/resolve-dispute")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(ReturnResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ReturnResponse>> ResolveDispute(int id, [FromBody] ResolveReturnDisputeRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _returnService.ResolveReturnDisputeAsync(adminId, id, request);
         return Ok(result);
     }
 }

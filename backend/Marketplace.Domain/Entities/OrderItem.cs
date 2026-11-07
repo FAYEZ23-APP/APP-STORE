@@ -10,6 +10,8 @@ public class OrderItem
     public decimal UnitPrice { get; set; }
     public int? VariantId { get; set; }
     public string? VariantSummary { get; set; }
+    public int AcceptedQuantity { get; set; } = 0;
+    public int RefusedQuantity { get; set; } = 0;
 
     public Order Order { get; set; } = null!;
     public Shipment Shipment { get; set; } = null!;

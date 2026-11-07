@@ -53,7 +53,12 @@
     "days_few": "{{count}} أيام",
     "days_many": "{{count}} يوماً",
     "days_other": "{{count}} يوم",
-    "all": "الكل"
+    "all": "الكل",
+    "inactivityWarningTitle": "تنبيه اقتراب انتهاء الجلسة",
+    "inactivitySecondsLeft": "ستنتهي الجلسة خلال {{seconds}} ثانية",
+    "inactivityWarningPrompt": "جلستك الإدارية على وشك الانتهاء بسبب عدم النشاط. هل ترغب في البقاء متصلاً؟",
+    "staySignedIn": "البقاء متصلاً",
+    "logout": "تسجيل الخروج"
   },
   "nav": {
     "home": "الرئيسية",
@@ -853,7 +858,9 @@
     "stepUpPlaceholder": "أدخل كلمة المرور لتأكيد الصلاحية",
     "stepUpRequired": "يرجى إدخال كلمة مرور المشرف لتأكيد هذا الإجراء الإداري الحساس",
     "payoutsDisabledTitle": "ميزة تسوية أرباح التجار معطلة حالياً",
-    "payoutsDisabledDesc": "ميزة تسويات وأرباح التجار معطلة حالياً وفق السياسات التنظيمية والضوابط القانونية (Features:EnableVendorPayouts=false)."
+    "payoutsDisabledDesc": "ميزة تسويات وأرباح التجار معطلة حالياً وفق السياسات التنظيمية والضوابط القانونية (Features:EnableVendorPayouts=false).",
+    "stepUpTotpLabel": "رمز المصادقة الثنائية (TOTP)",
+    "stepUpTotpPlaceholder": "رمز مكون من 6 أرقام"
   },
   "buyer": {
     "catalog": "المنتجات",
@@ -1012,7 +1019,13 @@
     "tabs": {
       "auditLogs": "سجل التدقيق",
       "security": "الأمان والمصادقة (2FA)",
-      "shipments": "إدارة الشحنات والتوصيل"
+      "shipments": "إدارة الشحنات والتوصيل",
+      "codBlacklist": "حظر الدفع عند الاستلام",
+      "returns": "المرتجعات والنزاعات"
+    },
+    "codBlacklist": {
+      "title": "قائمة حظر الدفع عند الاستلام (COD Blacklist)",
+      "subtitle": "إدارة العملاء وأرقام الهواتف المحظورة من خيار الدفع عند الاستلام بسبب تكرار رفض الاستلام أو الاحتيال"
     },
     "twoFactor": {
       "title": "المصادقة الثنائية لحساب المدير (Admin TOTP 2FA)",
@@ -1070,6 +1083,18 @@
       "filterOrderId": "رقم الطلب",
       "filterSellerId": "معرّف البائع",
       "settleCod": "تسوية نقدية COD"
+    },
+    "returns": {
+      "title": "إدارة المرتجعات والنزاعات",
+      "noReturns": "لا توجد مرتجعات حالياً",
+      "resolve": "البت في النزاع",
+      "favorSeller": "لصالح البائع (رفض الإرجاع)",
+      "favorBuyer": "لصالح المشتري (قبول الإرجاع)",
+      "resolutionNotes": "ملاحظات القرار",
+      "confirmResolve": "تأكيد القرار",
+      "disputeOnly": "النزاعات فقط",
+      "allReturns": "جميع المرتجعات",
+      "subtitle": "متابعة وفض نزاعات مرتجعات المشتريين والتجار والتحكيم فيها وفق قانون حماية المستهلك"
     }
   },
   "invoice": {
@@ -1111,5 +1136,29 @@
     "notFound": "المتجر غير موجود أو تم إيقافه",
     "visitStore": "زيارة المتجر",
     "sortBy": "الترتيب"
+  },
+  "returns": {
+    "title": "المرتجعات",
+    "category": {
+      "label": "نوع الإرجاع",
+      "standard14Day": "عدول خلال 14 يوماً (المادة 17)",
+      "defect30Day": "عيب صناعي خلال 30 يوماً (المادة 21)"
+    },
+    "reverseTracking": "رقم تتبع الشحن العكسي",
+    "confirmReceived": "تأكيد استلام البضاعة",
+    "dispute": {
+      "button": "فتح نزاع",
+      "reason": "سبب النزاع",
+      "evidence": "روابط الأدلة (كل رابط في سطر)",
+      "submit": "إرسال النزاع",
+      "title": "نزاع مفتوح"
+    },
+    "status": {
+      "Pending": "قيد الانتظار",
+      "Approved": "موافق عليه",
+      "ApprovedAwaitingReturn": "بانتظار استلام البضاعة",
+      "Rejected": "مرفوض",
+      "Completed": "مكتمل"
+    }
   }
 }

@@ -37,7 +37,7 @@ const cardShadow = Platform.select({
 export default function NotificationsScreen({ navigation }) {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { userRole } = useContext(AuthContext);
+  const { userRole, userId } = useContext(AuthContext);
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -45,6 +45,12 @@ export default function NotificationsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifs = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      setRefreshing(false);
+      setNotifications([]);
+      return;
+    }
     try {
       const [listRes, countRes] = await Promise.all([
         getNotifications(1, 30),
@@ -170,7 +176,7 @@ export default function NotificationsScreen({ navigation }) {
           tw`mx-4 mb-2.5 p-3.5 rounded-2xl border flex-row items-start gap-3`,
           item.isRead
             ? tw`bg-white border-slate-100`
-            : tw`bg-orange-50/40 border-orange-200/60`,
+            : [{ backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }],
           cardShadow,
         ]}
       >
@@ -179,7 +185,7 @@ export default function NotificationsScreen({ navigation }) {
           <View
             style={[
               tw`w-2 h-2 rounded-full`,
-              item.isRead ? tw`bg-transparent` : tw`bg-orange-500`,
+              item.isRead ? tw`bg-transparent` : [{ backgroundColor: colors.primary }],
             ]}
           />
         </View>
@@ -188,7 +194,7 @@ export default function NotificationsScreen({ navigation }) {
         <View
           style={[
             tw`w-9 h-9 rounded-xl items-center justify-center`,
-            item.isRead ? tw`bg-slate-100` : tw`bg-orange-100`,
+            item.isRead ? tw`bg-slate-100` : [{ backgroundColor: colors.primarySoft }],
           ]}
         >
           <MaterialCommunityIcons name={icon.name} size={18} color={icon.color} />
@@ -223,9 +229,9 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   return (
-    <View style={tw`flex-1 bg-slate-50`}>
+    <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       {/* Header */}
-      <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-slate-100 flex-row items-center justify-between`}>
+      <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-[#ECE9E6] flex-row items-center justify-between`}>
         <View style={tw`flex-row items-center gap-2`}>
           <TouchableOpacity accessible={true} accessibilityRole="button"
             onPress={() => navigation.goBack()}
@@ -245,7 +251,7 @@ export default function NotificationsScreen({ navigation }) {
                 {t('notifications.title')}
               </Text>
               {unreadCount > 0 && (
-                <View style={tw`bg-red-500 px-2 py-0.5 rounded-full`}>
+                <View style={[tw`px-2 py-0.5 rounded-full`, { backgroundColor: colors.primary }]}>
                   <Text style={tw`text-white text-[10px] font-black`}>
                     {unreadCount}
                   </Text>
@@ -261,7 +267,7 @@ export default function NotificationsScreen({ navigation }) {
             style={tw`bg-slate-100 px-3 py-1.5 rounded-xl flex-row items-center gap-1`}
           >
             <MaterialCommunityIcons name="check-all" size={14} color={colors.primary} />
-            <Text style={tw`text-orange-600 text-xs font-bold`}>
+            <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>
               {t('notifications.markAllRead')}
             </Text>
           </TouchableOpacity>
@@ -269,7 +275,41 @@ export default function NotificationsScreen({ navigation }) {
       </View>
 
       {/* Content */}
-      {loading ? (
+      {!userId ? (
+        <View style={tw`flex-1 items-center justify-center px-6`}>
+          <View style={[tw`w-20 h-20 rounded-full items-center justify-center mb-4`, { backgroundColor: colors.primarySoft }]}>
+            <MaterialCommunityIcons name="bell-outline" size={40} color={colors.primary} />
+          </View>
+          <Text style={[tw`text-lg font-bold text-center mb-2`, { color: colors.textPrimary }]}>
+            {isRTL ? 'تسجيل الدخول لعرض الإشعارات' : 'Sign In to View Notifications'}
+          </Text>
+          <Text style={[tw`text-xs text-center mb-6 leading-5`, { color: colors.textSecondary }]}>
+            {isRTL
+              ? 'سجل الدخول بحسابك لمتابعة تحديثات طلباتك وشحناتك والعروض الحصرية أولاً بأول.'
+              : 'Sign in to receive real-time updates on your orders, shipments, and exclusive deals.'}
+          </Text>
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            style={[tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center mb-3`, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={tw`text-white font-bold text-base`}>
+              {isRTL ? 'تسجيل الدخول' : 'Sign In'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            style={[tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
+              {isRTL ? 'إنشاء حساب جديد' : 'Create New Account'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>

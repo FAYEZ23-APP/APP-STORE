@@ -16,6 +16,7 @@ import { getImageUrl } from '../utils/imageUrl';
 import { useWishlist } from '../context/WishlistContext';
 import { getCategoryIconName } from '../utils/categoryIcons';
 import { CartContext } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,6 +45,7 @@ export default function ProductCard({
   const navigation = useNavigation();
   const { getQuantity, add } = useContext(CartContext);
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const { userId } = useContext(AuthContext);
 
   const isRTL = i18n.language === 'ar';
   const isFavorite = isWishlisted(product?.id) || Boolean(product?.isFavorite ?? initialFavorite);
@@ -101,6 +103,10 @@ export default function ProductCard({
 
   const handleFavoritePress = (e) => {
     e?.stopPropagation?.();
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     const next = !isFavorite;
     toggleWishlist(product.id).catch((err) => console.warn(err));
     if (onToggleFavorite) {
@@ -110,6 +116,10 @@ export default function ProductCard({
 
   const handleAddToCart = (e) => {
     e?.stopPropagation?.();
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (isOutOfStock) return;
     add(product, 1);
     if (Platform.OS === 'android') {
@@ -122,6 +132,10 @@ export default function ProductCard({
 
   const handleOpenCart = (e) => {
     e?.stopPropagation?.();
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     try {
       navigation.navigate('Cart');
     } catch (_e) {

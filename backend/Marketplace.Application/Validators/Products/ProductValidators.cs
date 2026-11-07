@@ -1,3 +1,5 @@
+using Marketplace.Application.DTOs.Dashboard;
+using Marketplace.Application.DTOs.Search;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using Marketplace.Application.DTOs.Products;
@@ -136,4 +138,57 @@ public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequ
             .SetValidator(new CreateProductVariantRequestValidator())
             .When(x => x.Variants != null && x.Variants.Any());
     }
+
+public class QuickStockUpdateRequestValidator : AbstractValidator<QuickStockUpdateRequest>
+{
+    public QuickStockUpdateRequestValidator()
+    {
+        RuleFor(x => x)
+            .Must(x => x.Stock.HasValue || x.Price.HasValue)
+            .WithMessage("Either Stock or Price must be provided.");
+
+        RuleFor(x => x.Stock)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.Stock.HasValue)
+            .WithMessage("Stock must be greater than or equal to 0.");
+
+        RuleFor(x => x.Price)
+            .GreaterThan(0)
+            .When(x => x.Price.HasValue)
+            .WithMessage("Price must be greater than 0.");
+    }
+}
+
+public class ProductSearchRequestValidator : AbstractValidator<ProductSearchRequest>
+{
+    public ProductSearchRequestValidator()
+    {
+        RuleFor(x => x.MinPrice)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.MinPrice.HasValue)
+            .WithMessage("MinPrice must be greater than or equal to 0.");
+
+        RuleFor(x => x.MaxPrice)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.MaxPrice.HasValue)
+            .WithMessage("MaxPrice must be greater than or equal to 0.");
+
+        RuleFor(x => x.MaxPrice)
+            .GreaterThanOrEqualTo(x => x.MinPrice!.Value)
+            .When(x => x.MinPrice.HasValue && x.MaxPrice.HasValue)
+            .WithMessage("MaxPrice must be greater than or equal to MinPrice.");
+
+        RuleFor(x => x.PageNumber)
+            .GreaterThanOrEqualTo(1)
+            .WithMessage("PageNumber must be at least 1.");
+
+        RuleFor(x => x.PageSize)
+            .InclusiveBetween(1, 100)
+            .WithMessage("PageSize must be between 1 and 100.");
+
+        RuleFor(x => x.Lang)
+            .Must(l => string.IsNullOrEmpty(l) || l == "ar" || l == "en")
+            .WithMessage("Lang must be 'ar' or 'en'.");
+    }
+}
 }

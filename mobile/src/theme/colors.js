@@ -30,6 +30,11 @@ export const colors = {
   accentBorder: '#EBD6A7',      // Border for gold highlight banners
   accentText: '#7A4F00',        // WCAG AA compliant dark gold/amber for text on light backgrounds (6.72:1)
   accentContrast: '#1F2329',    // High-contrast charcoal text for elements on gold backgrounds (6.88:1)
+  gold: '#D6A33A',              // Alias for accent (Calm Gold)
+  goldHover: '#C08F2D',         // Alias for accentHover
+  goldSoft: '#FBF6EC',          // Alias for accentSoft
+  goldBorder: '#EBD6A7',        // Alias for accentBorder
+  goldText: '#7A4F00',          // Alias for accentText
 
   // Surfaces & Backgrounds
   screenBg: '#FAF8F5',          // Warm white dominant surface

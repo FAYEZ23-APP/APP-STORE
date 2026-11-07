@@ -1,3 +1,4 @@
+using Marketplace.Application.DTOs.Payments;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,7 @@ public class WebhooksController : ControllerBase
     private readonly ISsrfProtectionService _ssrfService;
     private readonly IUnitOfWork _uow;
     private readonly IConfiguration _configuration;
+    private readonly IPaymentGatewayProvider _paymentGateway;
     private readonly ILogger<WebhooksController> _logger;
 
     public WebhooksController(
@@ -26,6 +28,7 @@ public class WebhooksController : ControllerBase
         IShipmentService shipmentService,
         ISsrfProtectionService ssrfService,
         IUnitOfWork uow,
+        IPaymentGatewayProvider paymentGateway,
         IConfiguration configuration,
         ILogger<WebhooksController> logger)
     {
@@ -33,6 +36,7 @@ public class WebhooksController : ControllerBase
         _shipmentService = shipmentService;
         _ssrfService = ssrfService;
         _uow = uow;
+        _paymentGateway = paymentGateway;
         _configuration = configuration;
         _logger = logger;
     }
@@ -112,7 +116,8 @@ public class WebhooksController : ControllerBase
         {
             payload = JsonSerializer.Deserialize<BostaWebhookPayload>(rawBodyBytes, new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
             });
         }
         catch (JsonException ex)
@@ -341,4 +346,184 @@ public class WebhooksController : ControllerBase
             scheme = uri.Scheme
         });
     }
+
+
+    /// <summary>
+    /// Generic Carrier webhook receiver secured via HMAC-SHA256 signature (X-Carrier-Signature).
+    /// </summary>
+    [HttpPost("carrier")]
+    [RequestSizeLimit(64 * 1024)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ProcessCarrierWebhook()
+    {
+        if (!Request.HasJsonContentType())
+            return BadRequest(new { error = "Unsupported Media Type. Content-Type must be application/json." });
+
+        byte[] rawBodyBytes;
+        using (var ms = new MemoryStream())
+        {
+            await Request.Body.CopyToAsync(ms);
+            rawBodyBytes = ms.ToArray();
+        }
+
+        if (rawBodyBytes.Length == 0)
+            return BadRequest(new { error = "Request body cannot be empty." });
+
+        var signatureHeader = Request.Headers["X-Carrier-Signature"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(signatureHeader))
+            return Unauthorized(new { error = "Missing signature header (X-Carrier-Signature is required)." });
+
+        var webhookSecret = _configuration["Delivery:WebhookSecret"]
+            ?? _configuration["Carrier:DevSecret"]
+            ?? "test-webhook-secret-wave2";
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(webhookSecret));
+        var computedHash = hmac.ComputeHash(rawBodyBytes);
+        var computedHex = Convert.ToHexString(computedHash);
+
+        byte[] providedBytes;
+        try { providedBytes = Convert.FromHexString(signatureHeader); }
+        catch { return Unauthorized(new { error = "Invalid signature encoding." }); }
+
+        if (!CryptographicOperations.FixedTimeEquals(computedHash, providedBytes))
+        {
+            _logger.LogWarning("Carrier webhook rejected: Invalid HMAC signature.");
+            return Unauthorized(new { error = "Invalid carrier webhook HMAC signature." });
+        }
+
+        using var doc = JsonDocument.Parse(rawBodyBytes);
+        var root = doc.RootElement;
+        string? trackingNumber = root.TryGetProperty("trackingNumber", out var tn) ? tn.GetString() : null;
+        string? rawState = root.TryGetProperty("status", out var st) ? st.GetString() : null;
+        int? shipmentId = root.TryGetProperty("shipmentId", out var sid) && sid.TryGetInt32(out var idVal) ? idVal : null;
+
+        Shipment? shipment = null;
+        if (shipmentId.HasValue)
+            shipment = await _uow.Shipments.GetByIdAsync(shipmentId.Value);
+        else if (!string.IsNullOrWhiteSpace(trackingNumber))
+            shipment = (await _uow.Shipments.FindAsync(s => s.TrackingNumber == trackingNumber)).FirstOrDefault();
+
+        if (shipment == null)
+            return NotFound(new { error = "Shipment not found." });
+
+        if (!string.IsNullOrWhiteSpace(rawState) && Enum.TryParse<ShipmentStatus>(rawState, true, out var targetStatus))
+        {
+            await _shipmentService.UpdateCarrierShipmentStatusAsync(shipment.Id, new UpdateShipmentStatusRequest
+            {
+                Status = targetStatus.ToString(),
+                TrackingNumber = trackingNumber ?? shipment.TrackingNumber
+            });
+        }
+
+        return Ok(new { success = true, shipmentId = shipment.Id, status = shipment.Status.ToString() });
+    }
+
+    /// <summary>
+    /// Inbound webhook receiver for Paymob payment status callbacks.
+    /// Secured via constant-time HMAC-SHA512 signature verification over raw JSON body.
+    /// </summary>
+    [HttpPost("paymob")]
+    [RequestSizeLimit(64 * 1024)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ProcessPaymobWebhook([FromQuery] string? hmac = null)
+    {
+        // 1. Read Raw Request Body for Byte-Exact HMAC Verification
+        const int maxBodySizeBytes = 64 * 1024;
+        if (Request.ContentLength.HasValue && Request.ContentLength.Value > maxBodySizeBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "Payload exceeds maximum allowable size of 64 KB." });
+        }
+
+        byte[] rawBodyBytes;
+        using (var memoryStream = new MemoryStream())
+        {
+            var buffer = new byte[8192];
+            int bytesRead;
+            long totalRead = 0;
+            while ((bytesRead = await Request.Body.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                totalRead += bytesRead;
+                if (totalRead > maxBodySizeBytes)
+                {
+                    return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "Payload exceeds maximum allowable size of 64 KB." });
+                }
+                memoryStream.Write(buffer, 0, bytesRead);
+            }
+            rawBodyBytes = memoryStream.ToArray();
+        }
+
+        if (rawBodyBytes.Length == 0)
+        {
+            return BadRequest(new { error = "Request body cannot be empty." });
+        }
+
+        var rawBodyString = Encoding.UTF8.GetString(rawBodyBytes);
+
+        // 2. Extract HMAC from query string or headers
+        var receivedHmac = hmac
+            ?? Request.Headers["X-Paymob-Signature"].FirstOrDefault()
+            ?? Request.Headers["hmac"].FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(receivedHmac))
+        {
+            _logger.LogWarning("Paymob webhook rejected: Missing HMAC signature in query string or headers.");
+            return Unauthorized(new { error = "Missing HMAC signature." });
+        }
+
+        var hmacSecret = _configuration["Payment:Paymob:HmacSecret"]
+            ?? _configuration["Payment__Paymob__HmacSecret"]
+            ?? "paymob_mock_hmac_secret_512";
+
+        if (!_paymentGateway.VerifyWebhookHmac(rawBodyString, receivedHmac, hmacSecret))
+        {
+            _logger.LogWarning("Paymob webhook rejected: Invalid HMAC-SHA512 signature.");
+            return Unauthorized(new { error = "Invalid webhook HMAC signature." });
+        }
+
+        // 3. Deserialize Payload
+        PaymobWebhookPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<PaymobWebhookPayload>(rawBodyBytes, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Paymob webhook rejected: Invalid JSON syntax.");
+            return BadRequest(new { error = "Invalid JSON payload syntax." });
+        }
+
+        if (payload?.Obj == null)
+        {
+            return BadRequest(new { error = "Invalid Paymob webhook payload structure." });
+        }
+
+        _logger.LogInformation("Paymob webhook received: Transaction {TxnId}, Success: {Success}", payload.Obj.Id, payload.Obj.Success);
+
+        if (payload.Obj.Success)
+        {
+            var merchantOrderId = payload.Obj.Order?.MerchantOrderId;
+            if (!string.IsNullOrWhiteSpace(merchantOrderId) && int.TryParse(merchantOrderId, out var orderId))
+            {
+                var order = await _uow.Orders.GetByIdAsync(orderId);
+                if (order != null)
+                {
+                    order.IsBuyerConfirmed = true;
+                    order.ConfirmedAt = DateTime.UtcNow;
+                    order.ConfirmationChannel = "Paymob";
+                    await _uow.SaveChangesAsync();
+                    _logger.LogInformation("Order {OrderId} confirmed via Paymob transaction {TxnId}.", order.Id, payload.Obj.Id);
+                }
+            }
+        }
+
+        return Ok(new { success = true, transactionId = payload.Obj.Id });
+    }
+
 }

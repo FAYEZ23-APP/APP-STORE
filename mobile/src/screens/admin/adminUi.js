@@ -56,13 +56,13 @@ export function AdminHeader({ title, subtitle, icon = 'shield-account' }) {
             width: 44,
             height: 44,
             borderRadius: 22,
-            backgroundColor: 'rgba(255,107,0,0.18)',
+            backgroundColor: colors.primarySoft,
             alignItems: 'center',
             justifyContent: 'center',
             marginEnd: 12,
           }}
         >
-          <MaterialCommunityIcons name={icon} size={24} color={colors.accent} />
+          <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
         </View>
         <View style={tw`flex-1`}>
           <Text style={{ color: colors.white, fontSize: 18, fontWeight: '800' }} numberOfLines={1}>

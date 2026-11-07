@@ -112,7 +112,8 @@ export default function MapAddressPicker({
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
 
-  const mapApiKey = apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const rawApiKey = apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const mapApiKey = (rawApiKey.startsWith('YOUR_') || rawApiKey === 'undefined') ? '' : rawApiKey.trim();
 
   // Load Google Maps JavaScript API
   const { isLoaded, loadError } = useJsApiLoader({

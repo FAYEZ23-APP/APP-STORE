@@ -35,6 +35,18 @@ public class DeliveryController : ControllerBase
         return Ok(points);
     }
 
+    /// <summary>List PUDO pickup hubs and smart lockers across Egyptian regions with optional distance calculation.</summary>
+    [HttpGet("pudo-points")]
+    [ProducesResponseType(typeof(IReadOnlyList<PudoPointDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PudoPointDto>>> GetPudoPoints(
+        [FromQuery] string? city = null,
+        [FromQuery] double? lat = null,
+        [FromQuery] double? lng = null)
+    {
+        var points = await _deliveryProvider.GetPudoPointsAsync(city, lat, lng);
+        return Ok(points);
+    }
+
     /// <summary>Calculate per-seller parcel delivery quotes (cost and ETA) for a set of items and destination.</summary>
     [HttpPost("quote")]
     [ProducesResponseType(typeof(DeliveryQuoteResponse), StatusCodes.Status200OK)]

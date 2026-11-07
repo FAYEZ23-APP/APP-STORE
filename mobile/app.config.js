@@ -1,4 +1,24 @@
+const isProduction =
+  process.env.NODE_ENV === 'production' ||
+  process.env.APP_ENV === 'production' ||
+  process.env.EAS_BUILD_PROFILE === 'production';
+
 const allowCleartext = process.env.ALLOW_CLEARTEXT === '1';
+
+// ─── Production Build Guard (Security MOB-013) ───────────────
+if (isProduction) {
+  if (allowCleartext) {
+    throw new Error(
+      '[SECURITY VIOLATION] ALLOW_CLEARTEXT=1 cannot be enabled in a production build (MOB-013).'
+    );
+  }
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl && !apiUrl.startsWith('https://')) {
+    throw new Error(
+      `[SECURITY VIOLATION] Insecure production API URL '${apiUrl}'. Production builds must use HTTPS exclusively (MOB-013).`
+    );
+  }
+}
 
 const FACE_ID_PERMISSION_TEXT =
   'السماح بالدخول السريع والآمن بالبصمة / Allow Face ID for quick and secure biometric login';
@@ -61,6 +81,9 @@ module.exports = {
         'android.permission.WRITE_EXTERNAL_STORAGE',
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.RECORD_AUDIO',
+        'android.permission.READ_MEDIA_VIDEO',
+        'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.ACCESS_BACKGROUND_LOCATION',
       ],
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
@@ -73,8 +96,7 @@ module.exports = {
       favicon: './assets/favicon.png',
     },
     plugins: [
-      './plugins/withAndroidSecurity',
-      ...(allowCleartext ? ['./plugins/withCleartextTraffic'] : []),
+      './plugins/withMobileSecurity',
       'expo-image',
       'expo-web-browser',
       'expo-font',

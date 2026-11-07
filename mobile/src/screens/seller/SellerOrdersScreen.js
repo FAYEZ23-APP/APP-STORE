@@ -245,7 +245,7 @@ export default function SellerOrdersScreen({ route }) {
             <Text style={[tw`text-[11px]`, { color: colors.textSecondary }]}>
               {t('seller.itemsSubtotal', { amount: formatCurrency(item.itemsSubtotal) })}
             </Text>
-            <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+            <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>
               {t('seller.requiredCod', { amount: formatCurrency(item.codAmount) })}
             </Text>
           </View>
@@ -324,7 +324,7 @@ export default function SellerOrdersScreen({ route }) {
       >
         <View style={tw`flex-row items-center justify-between mb-2`}>
           <View style={tw`flex-row items-center`}>
-            <MaterialCommunityIcons name="keyboard-return" size={20} color={colors.accent} />
+            <MaterialCommunityIcons name="keyboard-return" size={20} color={colors.primary} />
             <Text style={[tw`font-bold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
               {t('seller.returnRequestTitle', { id: item.id, orderId: item.orderId })}
             </Text>
@@ -440,7 +440,7 @@ export default function SellerOrdersScreen({ route }) {
                 style={[
                   tw`px-3.5 py-1.5 rounded-full mr-2 border`,
                   isSelected
-                    ? { backgroundColor: colors.accent, borderColor: colors.accent }
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
                     : { backgroundColor: colors.screenBg, borderColor: colors.border },
                 ]}
               >

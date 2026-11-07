@@ -1,0 +1,73 @@
+================================================================================
+PHASE 2 VERIFICATION REPORT: Android Native Security & Permission Hardening
+Project: Egypt Shop Mobile (React Native + Expo SDK 58)
+Security Reference: MOB-012
+Timestamp: 2026-11-03
+================================================================================
+
+1. ANDROID BACKUP PROTECTION IMPLEMENTATION:
+--------------------------------------------------------------------------------
+- Config Plugin: `plugins/withMobileSecurity.js` registered in `app.config.js`.
+- Manifest Configuration:
+  * `android:allowBackup="false"` applied to `<application>` in `AndroidManifest.xml`.
+  * `android:dataExtractionRules="@xml/secure_data_extraction_rules"` (Android 12+ / API 31+).
+  * `android:fullBackupContent="@xml/secure_full_backup_content"` (Android 6.0-11 / API 23-30).
+- Generated XML Rules:
+  * `secure_data_extraction_rules.xml`:
+    - `<cloud-backup><exclude path="." /></cloud-backup>`
+    - `<device-transfer><exclude path="." /></device-transfer>`
+    - Complete protection against cloud extraction, cable transfer, and Wi-Fi Direct D2D migration.
+  * `secure_full_backup_content.xml`:
+    - `<exclude domain="sharedpref" path="." />` (guarantees exclusion of SecureStore / KeyStore SharedPreferences)
+    - `<exclude domain="database" path="." />`
+    - `<exclude domain="root" path="." />`
+    - `<exclude domain="file" path="." />`
+
+2. PERMISSION AUDIT & DECISIONS:
+--------------------------------------------------------------------------------
+- Intentionally Blocked / Stripped Permissions (`tools:node="remove"` in manifest):
+  1. `android.permission.READ_EXTERNAL_STORAGE`: Unnecessary. Modern Android uses system Photo Picker.
+  2. `android.permission.WRITE_EXTERNAL_STORAGE`: Unnecessary. App does not store files in public external directories.
+  3. `android.permission.READ_MEDIA_IMAGES`: Unnecessary. Android 13+ Photo Picker operates without broad media permissions.
+  4. `android.permission.RECORD_AUDIO`: Unnecessary. The application has zero audio, microphone, or voice features.
+  5. `android.permission.READ_MEDIA_VIDEO`: Unnecessary. No video capture/upload functionality.
+  6. `android.permission.READ_MEDIA_AUDIO`: Unnecessary. No audio capture/upload functionality.
+  7. `android.permission.ACCESS_BACKGROUND_LOCATION`: Unnecessary. Location is strictly foreground when-in-use.
+
+- Intentionally Retained Permissions (with business rationale):
+  1. `android.permission.INTERNET`: Required for REST API communication, image loading, and Google Maps tiles.
+  2. `android.permission.CAMERA`: Required for taking product pictures (`AddEditProductScreen`) and proof photos for returns (`ReturnRequestModal`).
+  3. `android.permission.ACCESS_FINE_LOCATION`: Required for GPS delivery pinpointing on interactive map (`MobileLocationPicker`).
+  4. `android.permission.ACCESS_COARSE_LOCATION`: Required for governorate/city detection to compute shipping fees accurately.
+  5. `android.permission.USE_BIOMETRIC`: Required for biometric fingerprint and face unlock (`LocalAuthentication`).
+  6. `android.permission.USE_FINGERPRINT`: Legacy biometric compatibility for Android 9 and lower.
+  7. `android.permission.VIBRATE`: Required for haptic feedback during user interactions.
+
+3. IOS USAGE DESCRIPTIONS AUDIT:
+--------------------------------------------------------------------------------
+- Verified `NSFaceIDUsageDescription` is configured with bilingual Arabic/English disclosure.
+- Verified `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, and `NSLocationWhenInUseUsageDescription` are properly set.
+- Ensured `NSMicrophoneUsageDescription` and `NSLocationAlwaysUsageDescription` are completely absent.
+
+4. AUTOMATED TEST SUITE EXECUTION RESULTS:
+--------------------------------------------------------------------------------
+`tests/test_android_security_and_permissions.js`:
+  1. Manifest existence & XML validity: PASSED
+  2. android:allowBackup="false" enforcement: PASSED
+  3. dataExtractionRules and fullBackupContent attributes: PASSED
+  4. secure_data_extraction_rules.xml (cloud + D2D transfer exclusions): PASSED
+  5. secure_full_backup_content.xml (sharedpref SecureStore exclusion): PASSED
+  6. Blocked permissions removal with tools:node="remove": PASSED
+  7. Retained essential business permissions: PASSED
+  8. Idempotency & zero duplicate uses-permission tags: PASSED
+  9. iOS Info.plist configuration & permission pruning: PASSED
+Result: 9 Passed, 0 Failed.
+
+All Combined Mobile Tests:
+  - Security Test Suite (Storage + Biometrics + Navigation + Permissions): 32/32 Passed
+  - Biometric Lock State Machine: 14/14 Passed
+  - Smart Search Test Suite: 31/31 Passed
+  - i18n Check: 1100 keys (100% parity between ar.json and en.json)
+
+TOTAL: 77 Passed, 0 Failed, 0 Skipped.
+================================================================================

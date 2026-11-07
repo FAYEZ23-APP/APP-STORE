@@ -181,6 +181,13 @@ $verificationPackCatalog = @(
     @{ Id = "11"; Name = "/api/dev/* and Swagger Absent in Staging & Production" }
 )
 
+$adminRefusalCatalog = @(
+    @{ Id = "D007-1"; Name = "Sellers cannot set status to Returned (enforces 403 Forbidden)" },
+    @{ Id = "D007-2"; Name = "Non-refusal return reasons do not increment COD refusal counter" },
+    @{ Id = "D007-3"; Name = "Three RefusedByBuyer returns block COD at POST /api/orders with neutral message" },
+    @{ Id = "D007-4"; Name = "Refusal counter is not exposed to sellers in order/shipment API responses" }
+)
+
 $suites = @(
     @{
         Id = "mobile_auth_flows"
@@ -383,6 +390,30 @@ $suites = @(
         ScriptPath = Join-Path $repoRoot "backend/tests/test_batch9_rate_limit_and_health_postgres.js"
         WorkingDir = $repoRoot
         RequiresBackend = $true
+        CheckTableTitle = $null
+        ExpectedChecks = @()
+    },
+    @{
+        Id = "backend_admin_refusal_cod_blocking_postgres"
+        Name = "Backend Admin Refusal & COD Blocking (D-007)"
+        Provider = "POSTGRES (TEST_DB)"
+        Command = "node"
+        Args = @("backend/tests/test_admin_refusal_cod_blocking_postgres.js")
+        ScriptPath = Join-Path $repoRoot "backend/tests/test_admin_refusal_cod_blocking_postgres.js"
+        WorkingDir = $repoRoot
+        RequiresBackend = $true
+        CheckTableTitle = "Admin Refusal & Buyer COD Blocking Checks (D-007)"
+        ExpectedChecks = $adminRefusalCatalog
+    },
+    @{
+        Id = "backend_unit_and_dto_validators"
+        Name = "Backend Unit Tests & DTO Validator Coverage"
+        Provider = "STATIC / UNIT"
+        Command = "dotnet"
+        Args = @("test", "backend/Marketplace.Tests/Marketplace.Tests.csproj", "--nologo", "-v", "quiet")
+        ScriptPath = Join-Path $repoRoot "backend/Marketplace.Tests/Marketplace.Tests.csproj"
+        WorkingDir = $repoRoot
+        RequiresBackend = $false
         CheckTableTitle = $null
         ExpectedChecks = @()
     },

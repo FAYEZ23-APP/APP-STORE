@@ -20,9 +20,23 @@ public class ReturnRequest
     public DateTime? ResolvedAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
 
+    // Reverse Logistics (GAP-LOG-06)
+    public string? ReverseTrackingNumber { get; set; }
+    public bool IsItemReceivedBySeller { get; set; } = false;
+    public DateTime? ItemReceivedAt { get; set; }
+
+    // Dispute Management (GAP-SEL-03)
+    public bool IsDisputed { get; set; } = false;
+    public string? DisputeReason { get; set; }
+    public string? DisputeEvidenceUrlsJson { get; set; }
+    public DateTime? DisputedAt { get; set; }
+    public string? DisputeResolutionNotes { get; set; }
+    public int? DisputeResolvedByAdminId { get; set; }
+
     public Order Order { get; set; } = null!;
     public Shipment Shipment { get; set; } = null!;
     public OrderItem OrderItem { get; set; } = null!;
     public User Buyer { get; set; } = null!;
     public User Seller { get; set; } = null!;
+    public User? DisputeResolvedByAdmin { get; set; }
 }

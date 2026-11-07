@@ -86,6 +86,7 @@ public class LocalFileStorageProvider : IFileStorageProvider
             candidates.Add(Path.Combine(basePrivatePath, subFolder.Trim().Trim('/', '\\'), safeFileName));
         }
         candidates.Add(Path.Combine(basePrivatePath, "returns", safeFileName));
+        candidates.Add(Path.Combine(basePrivatePath, "disputes", safeFileName));
         candidates.Add(Path.Combine(basePrivatePath, safeFileName));
 
         foreach (var path in candidates)
@@ -121,6 +122,7 @@ public class LocalFileStorageProvider : IFileStorageProvider
             candidates.Add(Path.Combine(basePrivatePath, subFolder.Trim().Trim('/', '\\'), safeFileName));
         }
         candidates.Add(Path.Combine(basePrivatePath, "returns", safeFileName));
+        candidates.Add(Path.Combine(basePrivatePath, "disputes", safeFileName));
         candidates.Add(Path.Combine(basePrivatePath, safeFileName));
 
         foreach (var path in candidates)
@@ -144,12 +146,26 @@ public class LocalFileStorageProvider : IFileStorageProvider
         try
         {
             var safeFileName = Path.GetFileName(relativePathOrFileName);
-            var root = isPrivate ? GetPrivateRootPath() : GetPublicRootPath();
-            var fullPath = Path.Combine(root, safeFileName);
-            if (File.Exists(fullPath))
+            var root = Path.GetFullPath(isPrivate ? GetPrivateRootPath() : GetPublicRootPath());
+
+            var candidates = new List<string>
             {
-                File.Delete(fullPath);
-                return Task.FromResult(true);
+                Path.Combine(root, safeFileName),
+                Path.Combine(root, "returns", safeFileName),
+                Path.Combine(root, "disputes", safeFileName),
+                Path.Combine(root, "reviews", safeFileName)
+            };
+
+            foreach (var fullPath in candidates)
+            {
+                if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                    return Task.FromResult(true);
+                }
             }
         }
         catch (Exception ex)

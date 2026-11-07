@@ -45,6 +45,14 @@ public class UnitOfWork : IUnitOfWork
         AdminAuditLogs = new Repository<AdminAuditLog>(context);
         CodBlacklistEntries = new Repository<CodBlacklistEntry>(context);
         ProcessedWebhookEvents = new Repository<ProcessedWebhookEvent>(context);
+        PrivacySubjectRequests = new Repository<PrivacySubjectRequest>(context);
+        ProcessorDeletionLogs = new Repository<ProcessorDeletionLog>(context);
+        PrivacyIncidentLogs = new Repository<PrivacyIncidentLog>(context);
+        ExchangeRequests = new Repository<ExchangeRequest>(context);
+        SupportTickets = new Repository<SupportTicket>(context);
+        SupportTicketMessages = new Repository<SupportTicketMessage>(context);
+        CarrierRemittanceBatches = new Repository<CarrierRemittanceBatch>(context);
+        TaxInvoices = new Repository<TaxInvoice>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -77,6 +85,14 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<AdminAuditLog> AdminAuditLogs { get; }
     public IRepository<CodBlacklistEntry> CodBlacklistEntries { get; }
     public IRepository<ProcessedWebhookEvent> ProcessedWebhookEvents { get; }
+    public IRepository<PrivacySubjectRequest> PrivacySubjectRequests { get; }
+    public IRepository<ProcessorDeletionLog> ProcessorDeletionLogs { get; }
+    public IRepository<PrivacyIncidentLog> PrivacyIncidentLogs { get; }
+    public IRepository<ExchangeRequest> ExchangeRequests { get; }
+    public IRepository<SupportTicket> SupportTickets { get; }
+    public IRepository<SupportTicketMessage> SupportTicketMessages { get; }
+    public IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches { get; }
+    public IRepository<TaxInvoice> TaxInvoices { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();

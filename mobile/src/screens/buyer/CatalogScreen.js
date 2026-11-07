@@ -1,5 +1,6 @@
 import tw from 'twrnc';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import {
   View,
   Text,
@@ -121,6 +122,7 @@ export default function CatalogScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const isRTL = i18n?.language === 'ar';
   const { wishlistCount } = useWishlist();
+  const { userId } = useContext(AuthContext);
 
   const [categories, setCategories] = useState([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -576,12 +578,18 @@ export default function CatalogScreen({ route, navigation }) {
           <View style={styles.headerIconsGroup}>
             {/* Wishlist Button with Badge */}
             <TouchableOpacity
-              onPress={() => navigation.navigate('Wishlist')}
+              onPress={() => {
+                if (!userId) {
+                  navigation.navigate('Login');
+                } else {
+                  navigation.navigate('Wishlist');
+                }
+              }}
               activeOpacity={0.8}
               style={styles.headerIconButton}
             >
               <MaterialCommunityIcons name="heart-outline" size={22} color={colors.textPrimary} />
-              {wishlistCount > 0 && (
+              {userId && wishlistCount > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{wishlistCount}</Text>
                 </View>
@@ -590,7 +598,13 @@ export default function CatalogScreen({ route, navigation }) {
 
             {/* Notifications Button */}
             <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications')}
+              onPress={() => {
+                if (!userId) {
+                  navigation.navigate('Login');
+                } else {
+                  navigation.navigate('Notifications');
+                }
+              }}
               activeOpacity={0.8}
               style={styles.headerIconButton}
             >

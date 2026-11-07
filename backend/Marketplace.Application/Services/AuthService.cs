@@ -303,6 +303,22 @@ public class AuthService : IAuthService
             throw new UnauthorizedException("Invalid email or password.");
         }
 
+        // Transparent migration: upgrade outdated BCrypt work factor / prefix after a successful verification.
+        // Never blocks login if the upgrade fails; plaintext is never stored or logged.
+        try
+        {
+            if (_hasher.NeedsRehash(user.PasswordHash!))
+            {
+                user.PasswordHash = _hasher.Hash(request.Password);
+                _uow.Users.Update(user);
+                await _uow.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            _uow.ClearChangeTracker();
+        }
+
         // Verification check
         var requireVerification = _configuration.GetValue<bool>("Auth:RequireVerification", true);
         if (requireVerification)
@@ -406,6 +422,7 @@ public class AuthService : IAuthService
         foreach (var t in userTokens)
         {
             t.RevokedAt = DateTime.UtcNow;
+            t.RevokeReason = "PasswordReset";
             _uow.RefreshTokens.Update(t);
         }
 
@@ -554,6 +571,14 @@ public class AuthService : IAuthService
         await _uow.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Refresh-token rotation with token families and replay detection.
+    /// Design decision (Phase 4): the former 20-second "grace window" is REMOVED. A consumed refresh token is never
+    /// accepted again: the client-supplied DeviceId is not a secret and cannot bind a retry to the original caller, so any
+    /// grace window would hand a fresh successor to whoever holds a stale token. Duplicate concurrent refreshes are
+    /// prevented client-side (single-flight in mobile and admin-web). Consumption is atomic (conditional UPDATE), so two
+    /// concurrent requests can never both mint a successor.
+    /// </summary>
     public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken) || string.IsNullOrWhiteSpace(request.DeviceId))
@@ -561,6 +586,7 @@ public class AuthService : IAuthService
             throw new UnauthorizedException("Refresh token and device ID are required.");
         }
 
+        var deviceId = request.DeviceId.Trim();
         var hash = HashRefreshToken(request.RefreshToken.Trim());
         var tokenRecord = (await _uow.RefreshTokens.FindAsync(r => r.TokenHash == hash)).FirstOrDefault();
 
@@ -569,59 +595,37 @@ public class AuthService : IAuthService
             throw new UnauthorizedException("Invalid refresh token.");
         }
 
-        // Reuse detection with Grace Window (default 20s):
-        // Accepts the immediately previous refresh token once, so a crash between rotation
-        // and storage does not log the user out; reuse beyond the window or repeat reuse still revokes the family.
-        var graceWindowSeconds = _configuration.GetValue<int>("Auth:RefreshTokenGraceWindowSeconds", 20);
-        bool handledInGrace = false;
+        var now = DateTime.UtcNow;
 
-        if (tokenRecord.RevokedAt != null)
+        // Replay detection: a token that was already exchanged for a successor must never be presented again.
+        if (tokenRecord.ConsumedAt != null)
         {
-            if (tokenRecord.ReplacedByTokenId != null &&
-                tokenRecord.RevokedAt.HasValue &&
-                (DateTime.UtcNow - tokenRecord.RevokedAt.Value).TotalSeconds <= graceWindowSeconds &&
-                string.Equals(tokenRecord.DeviceId, request.DeviceId.Trim(), StringComparison.OrdinalIgnoreCase))
+            await RevokeFamilyAsync(tokenRecord.FamilyId, "ReuseDetected", now);
+            await _uow.AdminAuditLogs.AddAsync(new AdminAuditLog
             {
-                // Verify the replacement token exists and has NOT yet been used/revoked
-                var replacementToken = await _uow.RefreshTokens.GetByIdAsync(tokenRecord.ReplacedByTokenId.Value);
-                if (replacementToken != null && replacementToken.RevokedAt == null)
-                {
-                    handledInGrace = true;
-                    // Revoke the unreceived replacement token
-                    replacementToken.RevokedAt = DateTime.UtcNow;
-                    _uow.RefreshTokens.Update(replacementToken);
-
-                    // Invalidate grace eligibility for this token so it cannot be used a second time
-                    tokenRecord.RevokedAt = DateTime.UtcNow.AddSeconds(-graceWindowSeconds - 10);
-                    _uow.RefreshTokens.Update(tokenRecord);
-                    await _uow.SaveChangesAsync();
-                }
-            }
-
-            if (!handledInGrace)
-            {
-                var familyTokens = await _uow.RefreshTokens.FindAsync(r => r.UserId == tokenRecord.UserId && r.DeviceId == tokenRecord.DeviceId && r.RevokedAt == null);
-                foreach (var t in familyTokens)
-                {
-                    t.RevokedAt = DateTime.UtcNow;
-                    _uow.RefreshTokens.Update(t);
-                }
-                await _uow.SaveChangesAsync();
-                throw new UnauthorizedException("Revoked refresh token reuse detected. All sessions for this device have been revoked.");
-            }
+                AdminId = null,
+                Action = "RefreshTokenReuseDetected",
+                EntityType = "RefreshTokenFamily",
+                EntityId = tokenRecord.FamilyId.ToString(),
+                Details = $"Consumed refresh token replayed for user {tokenRecord.UserId}; token family revoked."
+            });
+            await _uow.SaveChangesAsync();
+            throw new UnauthorizedException("Refresh token reuse detected. This session has been revoked.");
         }
 
-        // Expired check
-        if (tokenRecord.ExpiresAt <= DateTime.UtcNow)
+        // Revoked (logout / password change / admin action / device limit): dead, not restorable.
+        if (tokenRecord.RevokedAt != null)
         {
-            tokenRecord.RevokedAt = DateTime.UtcNow;
-            _uow.RefreshTokens.Update(tokenRecord);
-            await _uow.SaveChangesAsync();
+            throw new UnauthorizedException("Refresh token has been revoked.");
+        }
+
+        if (tokenRecord.ExpiresAt <= now)
+        {
+            await RevokeFamilyAsync(tokenRecord.FamilyId, "Expired", now);
             throw new UnauthorizedException("Refresh token has expired.");
         }
 
-        // Wrong deviceId check
-        if (!string.Equals(tokenRecord.DeviceId, request.DeviceId.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(tokenRecord.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase))
         {
             throw new UnauthorizedException("Device ID mismatch.");
         }
@@ -629,21 +633,80 @@ public class AuthService : IAuthService
         var user = await _uow.Users.GetByIdAsync(tokenRecord.UserId);
         if (user == null || !user.IsActive)
         {
+            await RevokeFamilyAsync(tokenRecord.FamilyId, "AccountInactive", now);
             throw new UnauthorizedException("User account is inactive or not found.");
         }
 
-        // Rotation: issue new token, revoke old token, link ReplacedByTokenId
-        var (newRawToken, newTokenEntity) = await IssueRefreshTokenAsync(
-            user.Id,
-            tokenRecord.DeviceId,
-            request.DeviceName ?? tokenRecord.DeviceName,
-            cancellationToken: cancellationToken);
+        // Server-side inactivity & absolute lifetime enforcement for Admin sessions
+        if (user.Role == UserRole.Admin)
+        {
+            var adminIdleTimeoutMinutes = _configuration.GetValue<int>("Auth:AdminIdleTimeoutMinutes", 15);
+            var lastActivity = tokenRecord.LastUsedAt ?? tokenRecord.CreatedAt;
+            if ((now - lastActivity).TotalMinutes > adminIdleTimeoutMinutes)
+            {
+                await RevokeFamilyAsync(tokenRecord.FamilyId, "AdminIdleTimeout", now);
+                throw new UnauthorizedException("Administrative session timed out due to inactivity (15 minutes). Please re-authenticate.");
+            }
 
-        tokenRecord.RevokedAt = handledInGrace ? DateTime.UtcNow.AddSeconds(-graceWindowSeconds - 10) : DateTime.UtcNow;
-        tokenRecord.LastUsedAt = DateTime.UtcNow;
-        tokenRecord.ReplacedByTokenId = newTokenEntity.Id;
-        _uow.RefreshTokens.Update(tokenRecord);
-        await _uow.SaveChangesAsync();
+            var adminAbsoluteLifetimeHours = _configuration.GetValue<int>("Auth:AdminAbsoluteSessionLifetimeHours", 8);
+            if ((now - tokenRecord.CreatedAt).TotalHours > adminAbsoluteLifetimeHours)
+            {
+                await RevokeFamilyAsync(tokenRecord.FamilyId, "AdminAbsoluteLifetime", now);
+                throw new UnauthorizedException("Administrative session reached absolute maximum lifetime (8 hours). Please re-authenticate.");
+            }
+        }
+
+        // Rotation (atomic): consume the presented token, issue the successor in the same family, link them.
+        string newRawToken;
+        RefreshToken newTokenEntity;
+        await _uow.BeginTransactionAsync();
+        try
+        {
+            var consumed = await _uow.ExecuteSqlRawAsync(
+                @"UPDATE ""RefreshTokens"" SET ""ConsumedAt"" = {0}, ""RevokedAt"" = {0}, ""LastUsedAt"" = {0}, ""RevokeReason"" = 'Rotated' WHERE ""Id"" = {1} AND ""ConsumedAt"" IS NULL AND ""RevokedAt"" IS NULL",
+                now, tokenRecord.Id);
+
+            if (consumed == 0)
+            {
+                // Lost a race with another request presenting the same token: treat as replay.
+                await _uow.RollbackTransactionAsync();
+                _uow.ClearChangeTracker();
+                await RevokeFamilyAsync(tokenRecord.FamilyId, "ReuseDetected", now);
+                await _uow.AdminAuditLogs.AddAsync(new AdminAuditLog
+                {
+                    AdminId = null,
+                    Action = "RefreshTokenReuseDetected",
+                    EntityType = "RefreshTokenFamily",
+                    EntityId = tokenRecord.FamilyId.ToString(),
+                    Details = $"Concurrent/duplicate use of a refresh token for user {tokenRecord.UserId}; token family revoked."
+                });
+                await _uow.SaveChangesAsync();
+                throw new UnauthorizedException("Refresh token reuse detected. This session has been revoked.");
+            }
+
+            (newRawToken, newTokenEntity) = await IssueRefreshTokenAsync(
+                user.Id,
+                tokenRecord.DeviceId,
+                request.DeviceName ?? tokenRecord.DeviceName,
+                familyId: tokenRecord.FamilyId,
+                skipDeviceLimit: true,
+                cancellationToken: cancellationToken);
+
+            await _uow.ExecuteSqlRawAsync(
+                @"UPDATE ""RefreshTokens"" SET ""ReplacedByTokenId"" = {0} WHERE ""Id"" = {1}",
+                newTokenEntity.Id, tokenRecord.Id);
+
+            await _uow.CommitTransactionAsync();
+        }
+        catch (UnauthorizedException)
+        {
+            throw;
+        }
+        catch
+        {
+            await _uow.RollbackTransactionAsync();
+            throw;
+        }
 
         var jwt = _jwt.GenerateToken(user);
         var expiresInSeconds = (int)Math.Max(0, (jwt.ExpiresAt - DateTime.UtcNow).TotalSeconds);
@@ -661,6 +724,14 @@ public class AuthService : IAuthService
             Phone = user.Phone,
             Role = user.Role.ToString()
         };
+    }
+
+    /// <summary>Revokes every still-active token of a rotation family (atomic conditional UPDATE).</summary>
+    private async Task RevokeFamilyAsync(Guid familyId, string reason, DateTime now)
+    {
+        await _uow.ExecuteSqlRawAsync(
+            @"UPDATE ""RefreshTokens"" SET ""RevokedAt"" = {0}, ""RevokeReason"" = {1} WHERE ""FamilyId"" = {2} AND ""RevokedAt"" IS NULL",
+            now, reason, familyId);
     }
 
     public async Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken = default)
@@ -687,10 +758,23 @@ public class AuthService : IAuthService
         if (tokenRecord != null && tokenRecord.RevokedAt == null)
         {
             tokenRecord.RevokedAt = DateTime.UtcNow;
+            tokenRecord.RevokeReason = "Logout";
             _uow.RefreshTokens.Update(tokenRecord);
         }
 
         await _uow.SaveChangesAsync();
+    }
+
+    public async Task HeartbeatAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var activeTokens = await _uow.RefreshTokens.FindAsync(r => r.UserId == userId && r.RevokedAt == null && r.ExpiresAt > DateTime.UtcNow);
+        var latestToken = activeTokens.OrderByDescending(r => r.LastUsedAt ?? r.CreatedAt).FirstOrDefault();
+        if (latestToken != null)
+        {
+            latestToken.LastUsedAt = DateTime.UtcNow;
+            _uow.RefreshTokens.Update(latestToken);
+            await _uow.SaveChangesAsync();
+        }
     }
 
     public async Task LogoutAllAsync(int userId, CancellationToken cancellationToken = default)
@@ -706,6 +790,7 @@ public class AuthService : IAuthService
         foreach (var t in userTokens)
         {
             t.RevokedAt = DateTime.UtcNow;
+            t.RevokeReason = "LogoutAll";
             _uow.RefreshTokens.Update(t);
         }
 
@@ -736,6 +821,8 @@ public class AuthService : IAuthService
         string? deviceId,
         string? deviceName,
         int? replacedByTokenId = null,
+        Guid? familyId = null,
+        bool skipDeviceLimit = false,
         CancellationToken cancellationToken = default)
     {
         var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
@@ -757,7 +844,7 @@ public class AuthService : IAuthService
         var activeUserTokens = (await _uow.RefreshTokens.FindAsync(r => r.UserId == userId && r.RevokedAt == null && r.ExpiresAt > DateTime.UtcNow)).ToList();
         var activeDeviceIds = activeUserTokens.Select(r => r.DeviceId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-        if (!activeDeviceIds.Contains(effectiveDeviceId, StringComparer.OrdinalIgnoreCase) && activeDeviceIds.Count >= maxDevices)
+        if (!skipDeviceLimit && !activeDeviceIds.Contains(effectiveDeviceId, StringComparer.OrdinalIgnoreCase) && activeDeviceIds.Count >= maxDevices)
         {
             var oldestDevice = activeUserTokens
                 .GroupBy(r => r.DeviceId, StringComparer.OrdinalIgnoreCase)
@@ -769,6 +856,7 @@ public class AuthService : IAuthService
                 foreach (var tok in oldestDevice)
                 {
                     tok.RevokedAt = DateTime.UtcNow;
+                    tok.RevokeReason = "DeviceLimit";
                     _uow.RefreshTokens.Update(tok);
                 }
             }
@@ -787,7 +875,8 @@ public class AuthService : IAuthService
             ExpiresAt = expiresAt,
             LastUsedAt = DateTime.UtcNow,
             RevokedAt = null,
-            ReplacedByTokenId = replacedByTokenId
+            ReplacedByTokenId = replacedByTokenId,
+            FamilyId = familyId ?? Guid.NewGuid()
         };
 
         await _uow.RefreshTokens.AddAsync(tokenEntity);

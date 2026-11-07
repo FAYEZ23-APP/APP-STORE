@@ -104,13 +104,34 @@ public class OrderService : IOrderService
             throw new BadRequestException("DeliveryMethod must be 'Pickup' or 'Courier'.");
 
         if (!Enum.TryParse<PaymentMethod>(request.PaymentMethod, true, out var paymentMethod))
-            throw new BadRequestException("PaymentMethod must be 'OnReceipt'.");
+            throw new BadRequestException("Invalid PaymentMethod.");
+
+        var enableOnlinePayments = _configuration.GetValue<bool>("Features:EnableOnlinePayments");
+        if (paymentMethod != PaymentMethod.OnReceipt && !enableOnlinePayments)
+        {
+            throw new BadRequestException("Online payments are currently disabled. Please select Cash on Delivery (OnReceipt).");
+        }
 
         var normalizedPhone = EgyptianPhoneNormalizer.Normalize(request.RecipientPhone);
 
-        // Refusal threshold check for Cash on Delivery (COD) - both by buyerId, refusal counter, and phone
+        // Refusal threshold check for Cash on Delivery (COD) - check CodBlacklistEntries table, refusal counter, and phone
         if (paymentMethod == PaymentMethod.OnReceipt)
         {
+            var buyerPhoneNormalized = !string.IsNullOrWhiteSpace(buyer.Phone)
+                ? EgyptianPhoneNormalizer.Normalize(buyer.Phone)
+                : null;
+
+            var blacklistEntries = await _uow.CodBlacklistEntries.FindAsync(e =>
+                (e.PhoneNormalized == normalizedPhone ||
+                 (buyerPhoneNormalized != null && e.PhoneNormalized == buyerPhoneNormalized) ||
+                 (e.UserId.HasValue && e.UserId.Value == buyerId)) &&
+                e.IsBlocked);
+
+            if (blacklistEntries.Any())
+            {
+                throw new BadRequestException("تم إيقاف خيار الدفع عند الاستلام لحسابك نظراً لتجاوز الحد الأقصى المسموح به لمرات رفض استلام الشحنات السابقة.");
+            }
+
             int maxCodRefusals = _configuration.GetValue<int>("Orders:MaxCodRefusals", 3);
             if (buyer.CodRefusalCount >= maxCodRefusals)
             {
@@ -924,15 +945,64 @@ public class OrderService : IOrderService
                 TotalPrice = item.UnitPrice * item.Quantity,
                 Status = order.Status.ToString(),
                 Date = order.CreatedAt,
-                BuildingNumber = order.BuildingNumber,
-                Floor = order.Floor,
-                Apartment = order.Apartment,
-                Landmark = order.Landmark,
-                IsBuyerConfirmed = order.IsBuyerConfirmed
+                Governorate = order.Governorate,
+                City = order.City,
+                BuildingNumber = null,
+                Floor = null,
+                Apartment = null,
+                Landmark = null,
+                IsBuyerConfirmed = order.IsBuyerConfirmed,
+                ConfirmationChannel = order.ConfirmationChannel
             });
         }
 
         return response.OrderByDescending(r => r.Date);
+    }
+
+    public async Task<SellerOrderDetailResponse> GetSellerOrderDetailsAsync(int sellerId, int orderId)
+    {
+        var shipments = (await _uow.Shipments.FindAsync(s => s.OrderId == orderId && s.SellerId == sellerId)).ToList();
+        if (!shipments.Any())
+        {
+            throw new NotFoundException($"Order with ID {orderId} not found or you do not have permission to view it.");
+        }
+
+        var order = await _uow.Orders.GetByIdAsync(orderId);
+        if (order == null)
+            throw new NotFoundException($"Order with ID {orderId} not found.");
+
+        var shipmentIds = shipments.Select(s => s.Id).ToList();
+        var items = (await _uow.OrderItems.FindAsync(i => shipmentIds.Contains(i.ShipmentId))).ToList();
+        var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+        var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        var buyerName = (await _uow.Users.GetByIdAsync(order.BuyerId))?.Name;
+        var rawName = order.RecipientName.Length > 0 ? order.RecipientName : buyerName;
+
+        var itemResponses = items.Select(i => new OrderItemResponse
+        {
+            Id = i.Id,
+            ProductId = i.ProductId,
+            ProductName = products.TryGetValue(i.ProductId, out var p) ? p.Name : "Unknown",
+            VariantId = i.VariantId,
+            VariantSummary = i.VariantSummary,
+            Quantity = i.Quantity,
+            UnitPrice = i.UnitPrice,
+            WeightGrams = products.TryGetValue(i.ProductId, out var pw) ? pw.WeightGrams : 500
+        }).ToList();
+
+        return new SellerOrderDetailResponse
+        {
+            OrderId = order.Id,
+            BuyerFirstName = ExtractFirstName(rawName),
+            Governorate = order.Governorate,
+            City = order.City,
+            MaskedPhone = LogMasking.MaskPhone(order.RecipientPhone),
+            Status = order.Status.ToString(),
+            CreatedAt = order.CreatedAt,
+            TotalSellerAmount = items.Sum(i => i.UnitPrice * i.Quantity),
+            Items = itemResponses
+        };
     }
 
     public async Task UpdateOrderStatusAsync(int orderId, string status)
@@ -998,6 +1068,10 @@ public class OrderService : IOrderService
                 DeliveryLongitude = s.DeliveryLongitude,
                 EscrowReleaseAt = s.EscrowReleaseAt,
                 AllowInspection = s.AllowInspection,
+                CourierName = s.CourierName,
+                CourierPhone = s.CourierPhone,
+                EstimatedDeliveryAt = s.EstimatedDeliveryAt,
+                PickupPointCode = s.PickupPointCode,
                 Items = shipmentItems
             };
         }).ToList();
@@ -1043,6 +1117,7 @@ public class OrderService : IOrderService
             DeliveryLongitude = order.DeliveryLongitude,
             IsBuyerConfirmed = order.IsBuyerConfirmed,
             ConfirmedAt = order.ConfirmedAt,
+            ConfirmationChannel = order.ConfirmationChannel,
             PaymentMethod = order.PaymentMethod.ToString(),
             IdempotencyKey = order.IdempotencyKey,
             CreatedAt = order.CreatedAt,
@@ -1051,7 +1126,7 @@ public class OrderService : IOrderService
         };
     }
 
-    public async Task<ConfirmOrderResponse> ConfirmOrderAsync(int userId, bool isAdmin, int orderId)
+    public async Task<ConfirmOrderResponse> ConfirmOrderAsync(int userId, bool isAdmin, int orderId, string? channel = null)
     {
         var order = await _uow.Orders.GetByIdAsync(orderId);
         if (order == null)
@@ -1067,12 +1142,14 @@ public class OrderService : IOrderService
                 OrderId = order.Id,
                 IsBuyerConfirmed = true,
                 ConfirmedAt = order.ConfirmedAt,
+                ConfirmationChannel = order.ConfirmationChannel,
                 Message = "Order is already confirmed."
             };
         }
 
         order.IsBuyerConfirmed = true;
         order.ConfirmedAt = DateTime.UtcNow;
+        order.ConfirmationChannel = !string.IsNullOrWhiteSpace(channel) ? channel.Trim() : (isAdmin ? "Admin" : "App");
         _uow.Orders.Update(order);
         await _uow.SaveChangesAsync();
 
@@ -1081,6 +1158,7 @@ public class OrderService : IOrderService
             OrderId = order.Id,
             IsBuyerConfirmed = true,
             ConfirmedAt = order.ConfirmedAt,
+            ConfirmationChannel = order.ConfirmationChannel,
             Message = "Order confirmed successfully."
         };
     }

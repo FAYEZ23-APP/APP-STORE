@@ -44,7 +44,14 @@ public class UserService : IUserService
             Role = user.Role.ToString(),
             DispatchCity = sellerProfile?.DispatchCity,
             DispatchAddress = sellerProfile?.DispatchAddress,
-            ContactPhone = sellerProfile?.ContactPhone
+            ContactPhone = sellerProfile?.ContactPhone,
+            CommercialRegisterNumber = sellerProfile?.CommercialRegisterNumber,
+            TaxCardNumber = sellerProfile?.TaxCardNumber,
+            NationalIdNumber = sellerProfile?.NationalIdNumber,
+            KybDocumentUrl = sellerProfile?.KybDocumentUrl,
+            KybStatus = sellerProfile?.KybStatus ?? "Unverified",
+            KybRejectionReason = sellerProfile?.KybRejectionReason,
+            KybVerifiedAt = sellerProfile?.KybVerifiedAt
         };
     }
 
@@ -114,7 +121,14 @@ public class UserService : IUserService
         {
             DispatchCity = sellerProfile?.DispatchCity ?? string.Empty,
             DispatchAddress = sellerProfile?.DispatchAddress,
-            ContactPhone = sellerProfile?.ContactPhone
+            ContactPhone = sellerProfile?.ContactPhone,
+            CommercialRegisterNumber = sellerProfile?.CommercialRegisterNumber,
+            TaxCardNumber = sellerProfile?.TaxCardNumber,
+            NationalIdNumber = sellerProfile?.NationalIdNumber,
+            KybDocumentUrl = sellerProfile?.KybDocumentUrl,
+            KybStatus = sellerProfile?.KybStatus ?? "Unverified",
+            KybRejectionReason = sellerProfile?.KybRejectionReason,
+            KybVerifiedAt = sellerProfile?.KybVerifiedAt
         };
     }
 
@@ -157,8 +171,90 @@ public class UserService : IUserService
         {
             DispatchCity = profile.DispatchCity,
             DispatchAddress = profile.DispatchAddress,
-            ContactPhone = profile.ContactPhone
+            ContactPhone = profile.ContactPhone,
+            CommercialRegisterNumber = profile.CommercialRegisterNumber,
+            TaxCardNumber = profile.TaxCardNumber,
+            NationalIdNumber = profile.NationalIdNumber,
+            KybDocumentUrl = profile.KybDocumentUrl,
+            KybStatus = profile.KybStatus,
+            KybRejectionReason = profile.KybRejectionReason,
+            KybVerifiedAt = profile.KybVerifiedAt
         };
+    }
+
+
+    public async Task<SellerProfileDto> SubmitKybAsync(int userId, SubmitKybRequest request)
+    {
+        var user = await _uow.Users.GetByIdAsync(userId);
+        if (user == null)
+            throw new NotFoundException($"User with ID {userId} not found.");
+
+        if (user.Role != UserRole.Seller)
+            throw new ForbiddenException("Only sellers can submit KYB verification.");
+
+        var profile = (await _uow.SellerProfiles.FindAsync(sp => sp.UserId == userId)).FirstOrDefault();
+        if (profile == null)
+        {
+            profile = new SellerProfile
+            {
+                UserId = userId,
+                DispatchCity = "القاهرة",
+                CommercialRegisterNumber = request.CommercialRegisterNumber?.Trim(),
+                TaxCardNumber = request.TaxCardNumber?.Trim(),
+                NationalIdNumber = request.NationalIdNumber?.Trim(),
+                KybDocumentUrl = request.KybDocumentUrl?.Trim(),
+                KybStatus = "Pending"
+            };
+            await _uow.SellerProfiles.AddAsync(profile);
+        }
+        else
+        {
+            profile.CommercialRegisterNumber = request.CommercialRegisterNumber?.Trim();
+            profile.TaxCardNumber = request.TaxCardNumber?.Trim();
+            profile.NationalIdNumber = request.NationalIdNumber?.Trim();
+            profile.KybDocumentUrl = request.KybDocumentUrl?.Trim();
+            profile.KybStatus = "Pending";
+            profile.KybRejectionReason = null;
+            _uow.SellerProfiles.Update(profile);
+        }
+
+        await _uow.SaveChangesAsync();
+        return await GetSellerProfileAsync(userId);
+    }
+
+    public async Task<SellerProfileDto> UpdateKybStatusAsync(int sellerId, UpdateKybStatusRequest request, int adminId)
+    {
+        var profile = (await _uow.SellerProfiles.FindAsync(sp => sp.UserId == sellerId)).FirstOrDefault();
+        if (profile == null)
+            throw new NotFoundException($"Seller profile for user {sellerId} not found.");
+
+        var normalizedStatus = request.Status.Trim();
+        profile.KybStatus = normalizedStatus;
+        if (string.Equals(normalizedStatus, "Verified", StringComparison.OrdinalIgnoreCase))
+        {
+            profile.KybVerifiedAt = DateTime.UtcNow;
+            profile.KybRejectionReason = null;
+        }
+        else if (string.Equals(normalizedStatus, "Rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            profile.KybRejectionReason = request.RejectionReason?.Trim();
+            profile.KybVerifiedAt = null;
+        }
+
+        _uow.SellerProfiles.Update(profile);
+
+        await _uow.AdminAuditLogs.AddAsync(new AdminAuditLog
+        {
+            AdminId = adminId,
+            Action = "UpdateKybStatus",
+            EntityType = "SellerProfile",
+            EntityId = profile.Id.ToString(),
+            Details = $"Admin {adminId} updated KYB status of seller {sellerId} to {profile.KybStatus}. Reason: {request.RejectionReason}",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _uow.SaveChangesAsync();
+        return await GetSellerProfileAsync(sellerId);
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
@@ -180,6 +276,7 @@ public class UserService : IUserService
         foreach (var t in activeTokens)
         {
             t.RevokedAt = DateTime.UtcNow;
+            t.RevokeReason = "PasswordChange";
             _uow.RefreshTokens.Update(t);
         }
 
@@ -1061,4 +1158,55 @@ public class UserService : IUserService
             CreatedAt = address.CreatedAt
         };
     }
+
+    public async Task<SellerPerformanceMetricsDto> GetSellerPerformanceMetricsAsync(int sellerId)
+    {
+        var shipments = await _uow.Shipments.FindAsync(s => s.SellerId == sellerId);
+        var shipmentList = shipments.ToList();
+
+        var totalOrders = shipmentList.Count;
+        var fulfilledOrders = shipmentList.Count(s => s.Status == Marketplace.Domain.Enums.ShipmentStatus.Delivered);
+        var cancelledOrders = shipmentList.Count(s => s.Status == Marketplace.Domain.Enums.ShipmentStatus.Cancelled);
+
+        var fulfillmentRate = totalOrders > 0
+            ? Math.Round((decimal)fulfilledOrders / totalOrders * 100m, 2)
+            : 100m;
+
+        // Average handover hours (from CreatedAt to DeliveredAt or now)
+        decimal avgHours = 24.0m;
+        var deliveredShipments = shipmentList.Where(s => s.DeliveredAt.HasValue).ToList();
+        if (deliveredShipments.Any())
+        {
+            var totalHours = deliveredShipments.Sum(s => (s.DeliveredAt!.Value - s.CreatedAt).TotalHours);
+            avgHours = Math.Round((decimal)(totalHours / deliveredShipments.Count), 1);
+        }
+
+        var returns = await _uow.ReturnRequests.FindAsync(r => r.SellerId == sellerId && r.Status != Marketplace.Domain.Enums.ReturnStatus.Rejected);
+        var returnsCount = returns.Count();
+
+        var returnRate = totalOrders > 0
+            ? Math.Round((decimal)returnsCount / totalOrders * 100m, 2)
+            : 0m;
+
+        // FulfillmentScore: weighted calculation (70% fulfillment - 30% returns)
+        var score = Math.Clamp(Math.Round(fulfillmentRate * 0.7m + (100m - returnRate) * 0.3m, 2), 0m, 100m);
+
+        string warningStatus = "Good";
+        if (score < 50m) warningStatus = "Critical";
+        else if (score < 75m) warningStatus = "Warning";
+
+        return new SellerPerformanceMetricsDto
+        {
+            SellerId = sellerId,
+            TotalOrders = totalOrders,
+            FulfilledOrders = fulfilledOrders,
+            CancelledOrders = cancelledOrders,
+            FulfillmentRate = fulfillmentRate,
+            AverageHandoverHours = avgHours,
+            ReturnRate = returnRate,
+            FulfillmentScore = score,
+            WarningStatus = warningStatus
+        };
+    }
+
 }

@@ -47,9 +47,29 @@ export const resolveReturn = (id, data) => client.put(`/returns/${id}/resolve`, 
 /**
  * Confirm receipt of returned package and complete buyer refund & restock
  * @param {number} id
- * @param {{ adminOverride?: boolean, notes?: string }} data
+ * @param {{ adminOverride?: boolean, note?: string }} data
  */
 export const confirmReturnReceived = (id, data = {}) => client.put(`/returns/${id}/confirm-received`, data);
+
+/**
+ * Dispute a damaged or swapped returned item (Seller)
+ * @param {number} id
+ * @param {{ reason: string, evidenceUrls?: string[] }} data
+ */
+export const disputeReturn = (id, data) => client.post(`/returns/${id}/dispute`, data);
+
+/**
+ * Get all return requests for admin overview
+ * @param {{ isDisputed?: boolean }} params
+ */
+export const getAdminReturns = (params) => client.get('/admin/returns', { params });
+
+/**
+ * Resolve a disputed return request (Admin)
+ * @param {number} id
+ * @param {{ decision: 'FavorSeller' | 'FavorBuyer', resolutionNotes?: string }} data
+ */
+export const resolveReturnDispute = (id, data) => client.put(`/admin/returns/${id}/resolve-dispute`, data);
 
 export default {
   createReturnRequest,
@@ -58,4 +78,7 @@ export default {
   getSellerReturns,
   resolveReturn,
   confirmReturnReceived,
+  disputeReturn,
+  getAdminReturns,
+  resolveReturnDispute,
 };

@@ -48,7 +48,10 @@ public class ProductsController : ControllerBase
             sellerId,
             stream,
             file.FileName,
-            file.Length);
+                file.Length,
+                subFolder: null,
+                clientContentType: file.ContentType,
+                category: Marketplace.Domain.Enums.FileCategory.ProductImage);
 
         return Ok(new
         {
@@ -96,7 +99,10 @@ public class ProductsController : ControllerBase
                 sellerId,
                 stream,
                 file.FileName,
-                file.Length);
+                file.Length,
+                subFolder: null,
+                clientContentType: file.ContentType,
+                category: Marketplace.Domain.Enums.FileCategory.ProductImage);
             results.Add(result);
         }
 
@@ -235,4 +241,35 @@ public class ProductsController : ControllerBase
         var products = await _productService.SearchProductsAsync(query);
         return Ok(products);
     }
+
+    /// <summary>Download CSV template for bulk product upload.</summary>
+    [HttpGet("bulk-template")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public IActionResult DownloadBulkTemplate()
+    {
+        var bytes = _productService.GenerateBulkUploadTemplate();
+        return File(bytes, "text/csv; charset=utf-8", "products_bulk_template.csv");
+    }
+
+    /// <summary>Bulk upload or update products from CSV file.</summary>
+    [HttpPost("bulk-upload")]
+    [Authorize(Roles = "Seller")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(BulkProductUploadReportDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<BulkProductUploadReportDto>> BulkUploadProducts([FromForm] Microsoft.AspNetCore.Http.IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "الملف مطلوب ولم يتم اختياره." });
+
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "صيغة الملف غير مدعومة؛ يجب رفع ملف CSV." });
+
+        var sellerId = User.GetUserId();
+        using var stream = file.OpenReadStream();
+        var report = await _productService.BulkUploadProductsAsync(sellerId, stream);
+        return Ok(report);
+    }
+
 }

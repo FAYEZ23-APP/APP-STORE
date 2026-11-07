@@ -7,7 +7,7 @@ namespace Marketplace.Infrastructure.Notifications;
 
 /// <summary>
 /// Configurable HTTP SMS provider supporting standard Egyptian SMS gateways (SMSMisr, VictoryLink),
-/// local console fallback, and fail-safe error handling to prevent request crashes.
+/// local console fallback, NTRA approved sender IDs, and fail-safe error handling.
 /// </summary>
 public class ConfigurableHttpSmsSender : ISmsSender
 {
@@ -49,10 +49,16 @@ public class ConfigurableHttpSmsSender : ISmsSender
 
     private async Task SendSmsInternalAsync(string toPhone, string message, string? code, string messageType, CancellationToken cancellationToken)
     {
+        var finalSenderId = _settings.NtraSenderId ?? _settings.SenderId ?? "Marketplace";
+        var finalMessage = string.IsNullOrWhiteSpace(_settings.ApprovedTemplatePrefix) || message.StartsWith(_settings.ApprovedTemplatePrefix)
+            ? message
+            : $"{_settings.ApprovedTemplatePrefix} {message}";
+
         // 1. Console / Development mode
         if (string.Equals(_settings.Provider, "Console", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogInformation("[SMS - CONSOLE DISPATCH] Type: {Type} | Phone: {Phone} | Code: {Code}. Use GET /api/dev/auth/last-code in Development.", messageType, LogMasking.MaskPhone(toPhone), code == null ? "N/A" : LogMasking.MaskCode(code));
+            _logger.LogInformation("[SMS - CONSOLE DISPATCH] Sender: {Sender} | Type: {Type} | Phone: {Phone} | Code: {Code}. Use GET /api/dev/auth/last-code in Development.",
+                finalSenderId, messageType, LogMasking.MaskPhone(toPhone), code == null ? "N/A" : LogMasking.MaskCode(code));
             return;
         }
 
@@ -73,9 +79,9 @@ public class ConfigurableHttpSmsSender : ISmsSender
                 ["environment"] = _settings.Environment ?? "1",
                 ["username"] = _settings.Username ?? string.Empty,
                 ["password"] = _settings.Password ?? string.Empty,
-                ["sender"] = _settings.SenderId ?? "Marketplace",
+                ["sender"] = finalSenderId,
                 ["mobile"] = toPhone,
-                ["message"] = message,
+                ["message"] = finalMessage,
                 ["language"] = "2" // 2 = Arabic (UTF-8)
             };
 
@@ -88,7 +94,7 @@ public class ConfigurableHttpSmsSender : ISmsSender
             }
             else
             {
-                _logger.LogInformation("SMS ({Type}) successfully handed over to HTTP gateway.", messageType);
+                _logger.LogInformation("SMS ({Type}) successfully handed over to HTTP gateway with NTRA Sender '{Sender}'.", messageType, finalSenderId);
             }
         }
         catch (Exception ex)

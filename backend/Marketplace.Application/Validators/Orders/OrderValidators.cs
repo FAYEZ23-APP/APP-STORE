@@ -24,7 +24,7 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
         RuleFor(x => x.PaymentMethod)
             .NotEmpty().WithMessage("PaymentMethod is required.")
             .IsEnumName(typeof(PaymentMethod), caseSensitive: false)
-            .WithMessage("PaymentMethod must be 'OnReceipt'.");
+            .WithMessage("PaymentMethod must be a valid payment method ('OnReceipt', 'Card', 'MobileWallet', 'InstaPay').");
 
         RuleFor(x => x.RecipientName)
             .NotEmpty().WithMessage("RecipientName is required.")
@@ -97,5 +97,15 @@ public class UpdateOrderStatusRequestValidator : AbstractValidator<UpdateOrderSt
             .NotEmpty().WithMessage("Status is required.")
             .IsEnumName(typeof(OrderStatus), caseSensitive: false)
             .WithMessage("Invalid order status.");
+    }
+}
+
+public class ConfirmOrderRequestValidator : AbstractValidator<ConfirmOrderRequest>
+{
+    public ConfirmOrderRequestValidator()
+    {
+        RuleFor(x => x.Channel)
+            .MaximumLength(50)
+            .When(x => !string.IsNullOrEmpty(x.Channel));
     }
 }

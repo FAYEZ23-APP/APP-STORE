@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings, MapPin, Phone, Building, CheckCircle, AlertCircle, Save } from 'lucide-react';
-import { getMySellerProfile, updateMySellerProfile } from '../../api/usersApi';
+import { getMySellerProfile, updateMySellerProfile, submitSellerKyb } from '../../api/usersApi';
+import { ShieldCheck, FileText, Award } from 'lucide-react';
 import { getDeliveryCities } from '../../api/deliveryApi';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 
@@ -12,6 +13,14 @@ export default function SellerProfilePage() {
   const [dispatchCity, setDispatchCity] = useState('القاهرة');
   const [dispatchAddress, setDispatchAddress] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [commReg, setCommReg] = useState('');
+  const [taxCard, setTaxCard] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [kybDoc, setKybDoc] = useState('');
+  const [kybStatus, setKybStatus] = useState('Unverified');
+  const [kybRejection, setKybRejection] = useState('');
+  const [submittingKyb, setSubmittingKyb] = useState(false);
+  const [kybFeedback, setKybFeedback] = useState(null);
 
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +36,12 @@ export default function SellerProfilePage() {
           setDispatchCity(profRes.data.dispatchCity || 'القاهرة');
           setDispatchAddress(profRes.data.dispatchAddress || '');
           setContactPhone(profRes.data.contactPhone || '');
+          setCommReg(profRes.data.commercialRegisterNumber || '');
+          setTaxCard(profRes.data.taxCardNumber || '');
+          setNationalId(profRes.data.nationalIdNumber || '');
+          setKybDoc(profRes.data.kybDocumentUrl || '');
+          setKybStatus(profRes.data.kybStatus || 'Unverified');
+          setKybRejection(profRes.data.kybRejectionReason || '');
         }
         if (Array.isArray(citiesRes.data)) {
           setCities(citiesRes.data);
@@ -41,6 +56,32 @@ export default function SellerProfilePage() {
       isMounted = false;
     };
   }, []);
+
+  const handleKybSubmit = async (e) => {
+    e.preventDefault();
+    setKybFeedback(null);
+    setSubmittingKyb(true);
+    try {
+      const res = await submitSellerKyb({
+        commercialRegisterNumber: commReg.trim(),
+        taxCardNumber: taxCard.trim(),
+        nationalIdNumber: nationalId.trim(),
+        kybDocumentUrl: kybDoc.trim(),
+      });
+      setKybStatus(res.data?.kybStatus || 'Pending');
+      setKybFeedback({
+        type: 'success',
+        text: isRTL ? 'تم إرسال مستندات التوثيق بنجاح وهي قيد المراجعة' : 'KYB verification submitted and pending review',
+      });
+    } catch (err) {
+      setKybFeedback({
+        type: 'error',
+        text: err?.response?.data?.error || (isRTL ? 'فشل إرسال التوثيق' : 'Failed to submit KYB'),
+      });
+    } finally {
+      setSubmittingKyb(false);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -184,6 +225,89 @@ export default function SellerProfilePage() {
           <span>{saving ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : t('common.save')}</span>
         </button>
       </form>
+      {/* KYB Business Verification Card (GAP-SEL-05) */}
+      <div className="border-t border-slate-100 pt-6 mt-6 space-y-4">
+        <div className="flex items-center justify-between pb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-sm">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-sm">
+                {isRTL ? 'توثيق الهوية التجارية والضريبية (KYB)' : 'Business Verification (KYB)'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isRTL ? 'تسجيل السجل التجاري والبطاقة الضريبية والرقم القومي لاعتماد المتجر' : 'Register Commercial ID and Tax Card for store verification'}
+              </p>
+            </div>
+          </div>
+          <div>
+            {kybStatus === 'Verified' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800">
+                <Award className="w-3.5 h-3.5 text-emerald-600" />
+                {isRTL ? 'موثق تجارياً' : 'Verified'}
+              </span>
+            )}
+            {kybStatus === 'Pending' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800">
+                {isRTL ? 'قيد المراجعة' : 'Pending Review'}
+              </span>
+            )}
+            {kybStatus === 'Rejected' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-red-100 text-red-800">
+                {isRTL ? 'مرفوض' : 'Rejected'}
+              </span>
+            )}
+            {kybStatus === 'Unverified' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-100 text-slate-700">
+                {isRTL ? 'غير موثق' : 'Unverified'}
+              </span>
+            )}
+          </div>
+        </div>
+        {kybRejection && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 font-semibold">
+            {isRTL ? `سبب الرفض: ${kybRejection}` : `Rejection reason: ${kybRejection}`}
+          </div>
+        )}
+        {kybFeedback && (
+          <div className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${kybFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+            <span>{kybFeedback.text}</span>
+          </div>
+        )}
+        <form onSubmit={handleKybSubmit} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isRTL ? 'رقم السجل التجاري' : 'Commercial Register Number'}
+              </label>
+              <input type="text" value={commReg} onChange={(e) => setCommReg(e.target.value)} placeholder="123456" className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isRTL ? 'رقم البطاقة الضريبية' : 'Tax Card Number'}
+              </label>
+              <input type="text" value={taxCard} onChange={(e) => setTaxCard(e.target.value)} placeholder="100-200-300" className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isRTL ? 'الرقم القومي لصاحب العمل' : 'National ID Number'}
+              </label>
+              <input type="text" value={nationalId} onChange={(e) => setNationalId(e.target.value)} placeholder="2900101..." className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isRTL ? 'رابط ملف السجل التجاري / البطاقة' : 'Document URL (PDF/Image)'}
+              </label>
+              <input type="url" value={kybDoc} onChange={(e) => setKybDoc(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs" />
+            </div>
+          </div>
+          <button type="submit" disabled={submittingKyb} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50">
+            <FileText className="w-4 h-4" />
+            <span>{submittingKyb ? (isRTL ? 'جاري الإرسال...' : 'Submitting...') : (isRTL ? 'إرسال بيانات التوثيق' : 'Submit Verification')}</span>
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

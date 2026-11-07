@@ -1,0 +1,8 @@
+Machine: 8 logical cores, OS=Microsoft Windows NT 10.0.26200.0, Runtime=10.0.5
+Date(UTC): 2026-11-06T01:12:43.5796557Z
+cost | hash avg ms | verify avg ms (n=5 after warm-up)
+  10 |        71.4 |        67.8
+  11 |       132.4 |       145.9
+  12 |       301.9 |       289.8
+  13 |       721.8 |       832.4
+  14 |      1580.5 |      1502.3

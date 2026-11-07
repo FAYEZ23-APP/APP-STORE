@@ -57,7 +57,7 @@ export default function AdminStatsScreen() {
   if (loading && !refreshing) {
     return (
       <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,8 +90,8 @@ export default function AdminStatsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[colors.accent]}
-            tintColor={colors.accent}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
@@ -113,8 +113,8 @@ export default function AdminStatsScreen() {
 
           {/* Total Orders Card */}
           <View style={[styles.kpiCard, cardShadow, tw`w-[48%] mb-3`]}>
-            <View style={[styles.iconWrap, { backgroundColor: '#FFF7ED' }]}>
-              <MaterialCommunityIcons name="cart-check" size={22} color={colors.accent} />
+            <View style={[styles.iconWrap, { backgroundColor: colors.goldSoft }]}>
+              <MaterialCommunityIcons name="cart-check" size={22} color={colors.gold} />
             </View>
             <Text style={styles.kpiLabel}>{t('admin.totalOrdersPlaced')}</Text>
             <Text style={styles.kpiValue}>
@@ -170,7 +170,7 @@ export default function AdminStatsScreen() {
             </View>
             <View style={tw`flex-1 items-center pl-2`}>
               <Text style={styles.statLabel}>{t('admin.approvedVendors')}</Text>
-              <Text style={[styles.statSubNumber, { color: colors.accent }]}>
+              <Text style={[styles.statSubNumber, { color: colors.gold }]}>
                 {stats?.totalSellers || 0}
               </Text>
             </View>

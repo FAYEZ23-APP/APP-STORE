@@ -60,7 +60,7 @@ public class ShippingController : ControllerBase
             return BadRequest(new { message = "Origin longitude must be between -180 and 180 degrees." });
         }
 
-        _logger.LogInformation("Calculating shipping fee for destination ({Lat}, {Lng})", request.Latitude, request.Longitude);
+        _logger.LogInformation("Calculating shipping fee for destination");
 
         var result = await _shippingDistanceService.CalculateShippingFeeAsync(
             request.Latitude,

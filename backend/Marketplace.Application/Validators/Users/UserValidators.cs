@@ -211,3 +211,36 @@ public class DeleteAccountRequestValidator : AbstractValidator<DeleteAccountRequ
             .WithMessage("Either CurrentPassword or GoogleIdToken is required to delete account.");
     }
 }
+
+
+public class SubmitKybRequestValidator : AbstractValidator<SubmitKybRequest>
+{
+    public SubmitKybRequestValidator()
+    {
+        RuleFor(x => x.CommercialRegisterNumber)
+            .MaximumLength(50);
+
+        RuleFor(x => x.TaxCardNumber)
+            .MaximumLength(50);
+
+        RuleFor(x => x.NationalIdNumber)
+            .MaximumLength(30);
+
+        RuleFor(x => x.KybDocumentUrl)
+            .MaximumLength(500);
+    }
+}
+
+public class UpdateKybStatusRequestValidator : AbstractValidator<UpdateKybStatusRequest>
+{
+    public UpdateKybStatusRequestValidator()
+    {
+        RuleFor(x => x.Status)
+            .NotEmpty().WithMessage("Status is required.")
+            .Must(s => new[] { "Verified", "Rejected", "Pending", "Unverified" }.Contains(s))
+            .WithMessage("Status must be Verified, Rejected, Pending, or Unverified.");
+
+        RuleFor(x => x.RejectionReason)
+            .MaximumLength(500);
+    }
+}

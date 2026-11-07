@@ -13,7 +13,7 @@ import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import tw from 'twrnc';
+import tw from '../theme/tw';
 import { colors } from '../theme/colors';
 import { calculateShippingFee } from '../api/shippingApi';
 

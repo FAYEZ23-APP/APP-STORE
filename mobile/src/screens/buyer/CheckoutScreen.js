@@ -375,6 +375,8 @@ export default function CheckoutScreen({ route, navigation }) {
           ? streetBuilding.trim()
           : (isRTL ? 'استلام من الفرع' : 'Branch Pickup'),
       deliveryNotes: deliveryNotes.trim() || null,
+      landmark: deliveryNotes.trim() || null,
+      addressId: selectedAddressId || null,
       paymentMethod: 'OnReceipt',
       idempotencyKey: idempotencyKeyRef.current,
       couponCode: couponsEnabled && appliedCoupon?.code ? appliedCoupon.code : null,
@@ -1231,6 +1233,14 @@ export default function CheckoutScreen({ route, navigation }) {
               {isRTL
                 ? 'دفع آمن 100% نقداً عند الاستلام مع حق المعاينة وفقاً لقانون حماية المستهلك'
                 : '100% Secure Cash on Delivery with full inspection right'}
+            </Text>
+          </View>
+
+          {/* Inspection Badge (GAP-BUY-01) */}
+          <View style={[styles.trustFooterBox, { marginTop: 6, backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+            <MaterialCommunityIcons name="check-decagram" size={16} color="#059669" />
+            <Text style={[styles.trustFooterText, { color: '#065F46', fontWeight: 'bold' }]}>
+              {t('product.allowInspectionTitle', isRTL ? 'معاينة الطرد عند الاستلام أمام المندوب' : 'Open-box inspection upon delivery permitted')}
             </Text>
           </View>
         </View>

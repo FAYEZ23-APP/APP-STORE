@@ -12,14 +12,14 @@ export const getAdminUsers = (params = {}) => {
   return client.get('/admin/users', { params: cleanParams });
 };
 
-export const updateUserStatus = (id, data) =>
-  client.put(`/admin/users/${id}/status`, data);
+export const updateUserStatus = (id, data, options = {}) =>
+  client.put(`/admin/users/${id}/status`, data, options);
 
 export const getAdminPayouts = (status = null) =>
   client.get('/admin/wallet/payouts', { params: status ? { status } : {} });
 
-export const processAdminPayout = (id, data) =>
-  client.post(`/admin/wallet/payouts/${id}/process`, data);
+export const processAdminPayout = (id, data, options = {}) =>
+  client.post(`/admin/wallet/payouts/${id}/process`, data, options);
 
 export const settleAdminCod = (shipmentId, notes = null) =>
   client.post(`/admin/shipments/${shipmentId}/settle-cod`, { notes });
@@ -58,6 +58,16 @@ export const getAdminAuditLogs = (params = {}) => {
   return client.get('/admin/audit-logs', { params: cleanParams });
 };
 
+// COD Refusal Blacklist Management (Admin only)
+export const getCodBlacklist = () =>
+  client.get('/admin/cod-blacklist');
+
+export const addToCodBlacklist = (data) =>
+  client.post('/admin/cod-blacklist', data);
+
+export const removeFromCodBlacklist = (id) =>
+  client.delete(`/admin/cod-blacklist/${id}`);
+
 export default {
   getAdminStats,
   getAdminUsers,
@@ -71,4 +81,7 @@ export default {
   hideReview,
   unhideReview,
   getAdminAuditLogs,
+  getCodBlacklist,
+  addToCodBlacklist,
+  removeFromCodBlacklist,
 };

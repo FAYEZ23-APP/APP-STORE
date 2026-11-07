@@ -138,7 +138,12 @@ public class ReturnService : IReturnService
         }
         else if (newStatus == ReturnStatus.Completed || (newStatus == ReturnStatus.Approved && request.ConfirmItemReceived))
         {
-            // Sellers cannot invoke admin override; anti-overdraft guard is strictly enforced
+            returnReq.IsItemReceivedBySeller = true;
+            returnReq.ItemReceivedAt = DateTime.UtcNow;
+            if (string.IsNullOrEmpty(returnReq.ReverseTrackingNumber))
+            {
+                returnReq.ReverseTrackingNumber = $"RET-EG-{returnReq.Id:D6}-{DateTime.UtcNow:yyyyMMdd}";
+            }
             await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride: false);
             returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
         }
@@ -146,6 +151,10 @@ public class ReturnService : IReturnService
         {
             returnReq.Status = ReturnStatus.ApprovedAwaitingReturn;
             returnReq.ResolvedAt = DateTime.UtcNow;
+            if (string.IsNullOrEmpty(returnReq.ReverseTrackingNumber))
+            {
+                returnReq.ReverseTrackingNumber = $"RET-EG-{returnReq.Id:D6}-{DateTime.UtcNow:yyyyMMdd}";
+            }
             _uow.ReturnRequests.Update(returnReq);
             await _uow.SaveChangesAsync();
         }
@@ -171,13 +180,105 @@ public class ReturnService : IReturnService
         if (returnReq.Status == ReturnStatus.Rejected)
             throw new BadRequestException("لا يمكن تأكيد استلام مرتجع مرفوض.");
 
+        if (returnReq.IsDisputed && !isAdmin)
+            throw new BadRequestException("لا يمكن تأكيد استلام مرتجع قيد النزاع إلا بعد فصل الإدارة فيه.");
+
         var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
-        // Only administrators can invoke admin override to bypass the anti-overdraft guard
         bool adminOverride = isAdmin && (request?.AdminOverride ?? true);
+
+        returnReq.IsItemReceivedBySeller = true;
+        returnReq.ItemReceivedAt = DateTime.UtcNow;
+        if (string.IsNullOrEmpty(returnReq.ReverseTrackingNumber))
+        {
+            returnReq.ReverseTrackingNumber = $"RET-EG-{returnReq.Id:D6}-{DateTime.UtcNow:yyyyMMdd}";
+        }
 
         await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride);
 
         returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
+        var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
+        var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);
+
+        return MapToResponse(returnReq, item, product, buyer);
+    }
+
+    public async Task<ReturnResponse> DisputeReturnAsync(int sellerId, int returnId, DisputeReturnRequest request)
+    {
+        var returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId);
+        if (returnReq == null)
+            throw new NotFoundException("طلب الإرجاع غير موجود.");
+
+        if (returnReq.SellerId != sellerId)
+            throw new ForbiddenException("ليس لديك صلاحية فتح نزاع لهذا المرتجع.");
+
+        if (returnReq.IsDisputed)
+            throw new BadRequestException("تم فتح نزاع لهذا المرتجع مسبقاً وبانتظار قرار الإدارة.");
+
+        if (returnReq.Status == ReturnStatus.Rejected)
+            throw new BadRequestException("لا يمكن فتح نزاع لطلب إرجاع مرفوض.");
+
+        returnReq.IsDisputed = true;
+        returnReq.DisputeReason = request.Reason.Trim();
+        returnReq.DisputeEvidenceUrlsJson = request.EvidenceUrls != null && request.EvidenceUrls.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(request.EvidenceUrls)
+            : null;
+        returnReq.DisputedAt = DateTime.UtcNow;
+
+        _uow.ReturnRequests.Update(returnReq);
+        await _uow.SaveChangesAsync();
+
+        var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
+        var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
+        var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);
+
+        return MapToResponse(returnReq, item, product, buyer);
+    }
+
+    public async Task<ReturnResponse> ResolveReturnDisputeAsync(int adminId, int returnId, ResolveReturnDisputeRequest request)
+    {
+        var returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId);
+        if (returnReq == null)
+            throw new NotFoundException("طلب الإرجاع غير موجود.");
+
+        if (!returnReq.IsDisputed)
+            throw new BadRequestException("طلب الإرجاع ليس قيد النزاع.");
+
+        var item = await _uow.OrderItems.GetByIdAsync(returnReq.OrderItemId);
+
+        if (request.Decision.Equals("FavorSeller", StringComparison.OrdinalIgnoreCase))
+        {
+            // Admin rules in favor of seller: Reject return, do not restock, do not credit buyer wallet
+            returnReq.Status = ReturnStatus.Rejected;
+            returnReq.DisputeResolutionNotes = request.ResolutionNotes?.Trim();
+            returnReq.DisputeResolvedByAdminId = adminId;
+            returnReq.ResolvedAt = DateTime.UtcNow;
+
+            _uow.ReturnRequests.Update(returnReq);
+            await _uow.SaveChangesAsync();
+        }
+        else if (request.Decision.Equals("FavorBuyer", StringComparison.OrdinalIgnoreCase))
+        {
+            // Admin rules in favor of buyer: Force return fulfillment with admin override
+            returnReq.DisputeResolutionNotes = request.ResolutionNotes?.Trim();
+            returnReq.DisputeResolvedByAdminId = adminId;
+            returnReq.IsItemReceivedBySeller = true;
+            returnReq.ItemReceivedAt ??= DateTime.UtcNow;
+            if (string.IsNullOrEmpty(returnReq.ReverseTrackingNumber))
+            {
+                returnReq.ReverseTrackingNumber = $"RET-EG-{returnReq.Id:D6}-{DateTime.UtcNow:yyyyMMdd}";
+            }
+
+            _uow.ReturnRequests.Update(returnReq);
+            await _uow.SaveChangesAsync();
+
+            await ExecuteReturnFulfillmentAsync(returnReq, item, adminOverride: true);
+            returnReq = await _uow.ReturnRequests.GetByIdAsync(returnId) ?? returnReq;
+        }
+        else
+        {
+            throw new BadRequestException("قرار النزاع غير صحيح. يجب أن يكون 'FavorSeller' أو 'FavorBuyer'.");
+        }
+
         var product = item != null ? await _uow.Products.GetByIdAsync(item.ProductId) : null;
         var buyer = await _uow.Users.GetByIdAsync(returnReq.BuyerId);
 
@@ -326,7 +427,9 @@ public class ReturnService : IReturnService
             // 7. Update return status & receipt time
             returnReq.Status = ReturnStatus.Completed;
             returnReq.ResolvedAt ??= DateTime.UtcNow;
-            returnReq.ReceivedAt = DateTime.UtcNow;
+            returnReq.IsItemReceivedBySeller = true;
+            returnReq.ItemReceivedAt ??= DateTime.UtcNow;
+            returnReq.ReceivedAt = returnReq.ItemReceivedAt;
             _uow.ReturnRequests.Update(returnReq);
             await _uow.SaveChangesAsync();
 
@@ -394,8 +497,49 @@ public class ReturnService : IReturnService
         });
     }
 
+    public async Task<IEnumerable<ReturnResponse>> GetAdminReturnsAsync(bool? isDisputed = null)
+    {
+        var query = await _uow.ReturnRequests.GetAllAsync();
+        if (isDisputed.HasValue)
+        {
+            query = query.Where(r => r.IsDisputed == isDisputed.Value);
+        }
+        var returns = query.OrderByDescending(r => r.CreatedAt).ToList();
+
+        if (!returns.Any())
+            return Enumerable.Empty<ReturnResponse>();
+
+        var itemIds = returns.Select(r => r.OrderItemId).Distinct().ToList();
+        var items = (await _uow.OrderItems.FindAsync(i => itemIds.Contains(i.Id))).ToDictionary(i => i.Id);
+
+        var productIds = items.Values.Select(i => i.ProductId).Distinct().ToList();
+        var products = (await _uow.Products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
+        var buyerIds = returns.Select(r => r.BuyerId).Distinct().ToList();
+        var buyers = (await _uow.Users.FindAsync(u => buyerIds.Contains(u.Id))).ToDictionary(u => u.Id);
+
+        return returns.Select(r =>
+        {
+            items.TryGetValue(r.OrderItemId, out var item);
+            Product? product = null;
+            if (item != null) products.TryGetValue(item.ProductId, out product);
+            buyers.TryGetValue(r.BuyerId, out var buyer);
+            return MapToResponse(r, item, product, buyer);
+        });
+    }
+
     private static ReturnResponse MapToResponse(ReturnRequest ret, OrderItem? item, Product? product, User? buyer)
     {
+        List<string>? evidenceUrls = null;
+        if (!string.IsNullOrWhiteSpace(ret.DisputeEvidenceUrlsJson))
+        {
+            try
+            {
+                evidenceUrls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(ret.DisputeEvidenceUrlsJson);
+            }
+            catch { }
+        }
+
         return new ReturnResponse
         {
             Id = ret.Id,
@@ -418,7 +562,18 @@ public class ReturnService : IReturnService
             Category = ret.Category.ToString(),
             ReceivedAt = ret.ReceivedAt,
             CreatedAt = ret.CreatedAt,
-            ResolvedAt = ret.ResolvedAt
+            ResolvedAt = ret.ResolvedAt,
+
+            ReverseTrackingNumber = ret.ReverseTrackingNumber,
+            IsItemReceivedBySeller = ret.IsItemReceivedBySeller,
+            ItemReceivedAt = ret.ItemReceivedAt,
+
+            IsDisputed = ret.IsDisputed,
+            DisputeReason = ret.DisputeReason,
+            DisputeEvidenceUrls = evidenceUrls,
+            DisputedAt = ret.DisputedAt,
+            DisputeResolutionNotes = ret.DisputeResolutionNotes,
+            DisputeResolvedByAdminId = ret.DisputeResolvedByAdminId
         };
     }
 }

@@ -213,7 +213,7 @@ export default function AdminReviewsScreen() {
         {/* Seller Reply if present */}
         {item.sellerReply ? (
           <View style={styles.replyBox}>
-            <MaterialCommunityIcons name="reply" size={14} color={colors.accent} style={tw`mr-1.5 mt-0.5`} />
+            <MaterialCommunityIcons name="reply" size={14} color={colors.gold} style={tw`mr-1.5 mt-0.5`} />
             <Text style={styles.replyText}>
               {t('admin.sellerReplyLine', { reply: item.sellerReply })}
             </Text>
@@ -238,7 +238,7 @@ export default function AdminReviewsScreen() {
             <MaterialCommunityIcons
               name="alert-decagram-outline"
               size={15}
-              color={colors.accent}
+              color={colors.gold}
               style={tw`mr-1.5`}
             />
             <Text style={styles.reportsHeaderTitle}>
@@ -334,7 +334,7 @@ export default function AdminReviewsScreen() {
 
       {loading && !refreshing ? (
         <View style={tw`flex-1 justify-center items-center`}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error && reviews.length === 0 ? (
         <ErrorState text={error} retryLabel={t('common.retry')} onRetry={fetchReviews} />
@@ -353,8 +353,8 @@ export default function AdminReviewsScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[colors.accent]}
-              tintColor={colors.accent}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={

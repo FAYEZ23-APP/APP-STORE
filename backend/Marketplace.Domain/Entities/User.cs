@@ -37,4 +37,6 @@ public class User
     public ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
     public ICollection<UserNotification> Notifications { get; set; } = new List<UserNotification>();
     public ICollection<AdminAuditLog> AdminAuditLogs { get; set; } = new List<AdminAuditLog>();
+    public ICollection<PrivacySubjectRequest> PrivacyRequests { get; set; } = new List<PrivacySubjectRequest>();
+    public ICollection<PrivacyIncidentLog> ReportedIncidents { get; set; } = new List<PrivacyIncidentLog>();
 }

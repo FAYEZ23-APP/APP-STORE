@@ -578,6 +578,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
+app.UseMiddleware<Marketplace.API.Middleware.SecurityEventLoggingMiddleware>();
 
 // Forwarded headers for reverse proxies (e.g. Railway, Nginx)
 app.UseForwardedHeaders();

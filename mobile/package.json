@@ -41,8 +41,11 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "i18n:check": "node scripts/check-i18n.js",
-    "test:biometrics": "node tests/test_biometric_lock_state_machine_mock.js",
-    "test:search": "node tests/test_mobile_smart_search.js"
+    "test:biometrics": "node tests/test_biometric_lock_state_machine_mock.js && node tests/test_biometric_cold_start_and_use_password_mock.js",
+    "test:auth": "node tests/test_auth_flows_mock.js && node tests/test_feature_gating_mock.js && node tests/test_single_flight_refresh_mock.js",
+    "test:search": "node tests/test_mobile_smart_search.js",
+    "test:security": "node tests/test_secure_auth_storage.js && node tests/test_hardware_biometrics_and_lock.js && node tests/test_navigation_lock_and_deep_links.js && node tests/test_android_security_and_permissions.js && node tests/test_mobile_network_security.js && node tests/test_token_lifecycle_and_logout.js && node tests/test_mobile_two_factor_auth.js",
+    "test": "npm run test:security && npm run test:biometrics && npm run test:auth && npm run test:search"
   },
   "private": true,
   "devDependencies": {

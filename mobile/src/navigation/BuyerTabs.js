@@ -10,6 +10,7 @@ import CartScreen from '../screens/buyer/CartScreen';
 import MyOrdersScreen from '../screens/buyer/MyOrdersScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
 import { CartContext } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -17,6 +18,7 @@ const Tab = createBottomTabNavigator();
 export default function BuyerTabs() {
   const { t } = useTranslation();
   const { totalCount } = useContext(CartContext);
+  const { userId } = useContext(AuthContext);
   const insets = useSafeAreaInsets();
 
   // Ensure plenty of bottom padding on Android navigation bar (3 buttons or gesture handle)
@@ -111,6 +113,14 @@ export default function BuyerTabs() {
       <Tab.Screen
         name="MyOrders"
         component={MyOrdersScreen}
+        listeners={({ navigation: nav }) => ({
+          tabPress: (e) => {
+            if (!userId) {
+              e.preventDefault();
+              nav.navigate('Login');
+            }
+          },
+        })}
         options={{
           title: t('buyer.myOrders'),
           tabBarIcon: ({ color, focused }) => (
@@ -125,6 +135,14 @@ export default function BuyerTabs() {
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
+        listeners={({ navigation: nav }) => ({
+          tabPress: (e) => {
+            if (!userId) {
+              e.preventDefault();
+              nav.navigate('Login');
+            }
+          },
+        })}
         options={{
           title: t('profile.title'),
           tabBarIcon: ({ color, focused }) => (

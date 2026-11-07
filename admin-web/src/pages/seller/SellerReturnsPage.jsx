@@ -13,7 +13,7 @@ import {
   FileText,
   User,
 } from 'lucide-react';
-import { getSellerReturns, resolveReturn } from '../../api/returnsApi';
+import { getSellerReturns, resolveReturn, confirmReturnReceived, disputeReturn } from '../../api/returnsApi';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl, handleImageError } from '../../utils/imageUrl';
 
@@ -32,6 +32,17 @@ export default function SellerReturnsPage() {
   const [sellerNote, setSellerNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState(null);
+
+  // Confirm Received Modal State
+  const [confirmingItem, setConfirmingItem] = useState(null);
+  const [confirmNote, setConfirmNote] = useState('');
+  const [submittingConfirm, setSubmittingConfirm] = useState(false);
+
+  // Dispute Modal State
+  const [disputingItem, setDisputingItem] = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeEvidenceUrl, setDisputeEvidenceUrl] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const fetchReturns = async () => {
     setLoading(true);
@@ -60,6 +71,53 @@ export default function SellerReturnsPage() {
         : (isRTL ? 'تم رفض الإرجاع لعدم استيفاء الشروط' : 'Return rejected due to non-compliance')
     );
     setActionError(null);
+  };
+
+  const handleConfirmReceivedSubmit = async (e) => {
+    e.preventDefault();
+    if (submittingConfirm || !confirmingItem) return;
+    try {
+      setSubmittingConfirm(true);
+      setActionError(null);
+      await confirmReturnReceived(confirmingItem.id, {
+        note: confirmNote.trim() || undefined,
+      });
+      setConfirmingItem(null);
+      setConfirmNote('');
+      await fetchReturns();
+    } catch (err) {
+      console.error('Failed to confirm return received', err);
+      setActionError(err?.response?.data?.error || err?.response?.data?.message || t('common.error'));
+    } finally {
+      setSubmittingConfirm(false);
+    }
+  };
+
+  const handleDisputeSubmit = async (e) => {
+    e.preventDefault();
+    if (submittingDispute || !disputingItem) return;
+    if (!disputeReason.trim()) {
+      setActionError(isRTL ? 'يرجى كتابة سبب النزاع' : 'Please specify dispute reason');
+      return;
+    }
+    try {
+      setSubmittingDispute(true);
+      setActionError(null);
+      const evidence = disputeEvidenceUrl.trim() ? [disputeEvidenceUrl.trim()] : [];
+      await disputeReturn(disputingItem.id, {
+        reason: disputeReason.trim(),
+        evidenceUrls: evidence,
+      });
+      setDisputingItem(null);
+      setDisputeReason('');
+      setDisputeEvidenceUrl('');
+      await fetchReturns();
+    } catch (err) {
+      console.error('Failed to dispute return', err);
+      setActionError(err?.response?.data?.error || err?.response?.data?.message || t('common.error'));
+    } finally {
+      setSubmittingDispute(false);
+    }
   };
 
   const handleConfirmResolve = async (e) => {
@@ -126,7 +184,9 @@ export default function SellerReturnsPage() {
         {[
           { key: 'All', label: isRTL ? 'الكل' : 'All', count: returnsList.length },
           { key: 'Pending', label: isRTL ? 'قيد المراجعة' : 'Pending', count: pendingCount, highlight: pendingCount > 0 },
-          { key: 'Approved', label: isRTL ? 'تمت الموافقة' : 'Approved', count: returnsList.filter((r) => r.status === 'Approved').length },
+          { key: 'ApprovedAwaitingReturn', label: isRTL ? 'بانتظار الاستلام' : 'Awaiting Parcel', count: returnsList.filter((r) => r.status === 'ApprovedAwaitingReturn').length },
+          { key: 'Completed', label: isRTL ? 'مكتمل ومسترد' : 'Completed', count: returnsList.filter((r) => r.status === 'Completed' || r.status === 'Approved').length },
+          { key: 'Disputed', label: isRTL ? 'قيد النزاع' : 'Disputed', count: returnsList.filter((r) => r.isDisputed).length },
           { key: 'Rejected', label: isRTL ? 'المرفوضة' : 'Rejected', count: returnsList.filter((r) => r.status === 'Rejected').length },
         ].map((tab) => {
           const isSelected = activeFilter === tab.key;
@@ -258,7 +318,7 @@ export default function SellerReturnsPage() {
                       <a
                         href={getImageUrl(item.defectImageUrl)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-orange-600 font-bold hover:underline"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -298,6 +358,134 @@ export default function SellerReturnsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Confirm Received Modal */}
+      {confirmingItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4">
+            <h3 className="font-black text-lg text-slate-900 flex items-center gap-2">
+              <CheckCheck className="w-6 h-6 text-emerald-600" />
+              <span>{isRTL ? 'تأكيد استلام الطرد المرتجع' : 'Confirm Return Parcel Receipt'}</span>
+            </h3>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {isRTL
+                ? `هل تم استلام الطرد المرتجع وفحصه بنجاح؟ عند التأكيد، سيتم إعادة ${confirmingItem.quantity} قطعة إلى مخزون المنتج وإيداع ${formatCurrency(confirmingItem.refundAmount)} في محفظة المشتري.`
+                : `Confirm that you have physically received and inspected the returned parcel. ${confirmingItem.quantity} pcs will be returned to inventory and ${formatCurrency(confirmingItem.refundAmount)} credited to the buyer wallet.`}
+            </p>
+
+            {actionError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmReceivedSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isRTL ? 'ملاحظات الفحص والاستلام (اختياري)' : 'Inspection Notes (Optional)'}
+                </label>
+                <textarea
+                  rows={2}
+                  value={confirmNote}
+                  onChange={(e) => setConfirmNote(e.target.value)}
+                  placeholder={isRTL ? 'تم فحص المنتج بحالة سليمة...' : 'Product inspected in good order...'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingItem(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingConfirm}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submittingConfirm ? t('common.loading') : (isRTL ? 'تأكيد وإتمام الاسترداد' : 'Confirm & Complete Refund')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Open Dispute Modal */}
+      {disputingItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4">
+            <h3 className="font-black text-lg text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6 text-purple-600" />
+              <span>{isRTL ? 'فتح نزاع بشأن المرتجع' : 'Dispute Returned Parcel'}</span>
+            </h3>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {isRTL
+                ? 'إذا كان الطرد المرتجع تالفاً بسبب سوء استخدام المشتري أو مبدلاً بمنتج آخر غير الأصلي، يمكنك فتح نزاع رسمي لإيقاف الاسترداد وتحويل الشكوى لإدارة المنصة للبت فيها.'
+                : 'If the returned item was damaged by the buyer or swapped with a different item, file a dispute to freeze the refund and escalate to platform arbitration.'}
+            </p>
+
+            {actionError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDisputeSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isRTL ? 'سبب النزاع والتلف *:' : 'Dispute Reason & Damage *:'}
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder={isRTL ? 'اذكر بالتفصيل حالة الطرد المستلم ووجه الخلاف...' : 'Detailed description of received damage or discrepancy...'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isRTL ? 'رابط صورة إثبات التلف/التبديل (اختياري):' : 'Evidence Image URL (Optional):'}
+                </label>
+                <input
+                  type="text"
+                  value={disputeEvidenceUrl}
+                  onChange={(e) => setDisputeEvidenceUrl(e.target.value)}
+                  placeholder="e.g. /uploads/dispute.jpg"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-500 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDisputingItem(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDispute}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submittingDispute ? t('common.loading') : (isRTL ? 'إرسال النزاع للإدارة' : 'Submit Dispute to Admin')}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

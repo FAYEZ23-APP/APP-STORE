@@ -31,6 +31,7 @@ import {
 import { getAllProducts } from '../api/productsApi';
 import { getCategories } from '../api/categoriesApi';
 import ProductCard from '../components/ProductCard';
+import heroFallbackImg from '../assets/hero.png';
 
 // Icon and color themes for category visual cards
 const CATEGORY_THEMES = {
@@ -110,6 +111,202 @@ const getCategoryTheme = (key) => {
   const normalized = (key || '').toLowerCase().trim();
   return CATEGORY_THEMES[normalized] || CATEGORY_THEMES.other;
 };
+
+// Premium Campaign Slides for the Hero Banner
+const CAMPAIGN_SLIDES = [
+  {
+    id: 'master',
+    categoryKey: null,
+    eyebrowAr: 'سوق مصر | المنصة المتكاملة للتسوق',
+    eyebrowEn: 'Egypt Shop | The Complete Marketplace',
+    headlineArPrefix: 'كل اللي بتحبه.. ',
+    headlineArHighlight: 'في مكان واحد',
+    headlineEnPrefix: 'Everything You Love.. ',
+    headlineEnHighlight: 'In One Place',
+    subheadlineAr: 'تسوق أذكى مع مصر شوب',
+    subheadlineEn: 'Shop Smarter with Egypt Shop',
+    descAr: 'اكتشف منتجات متنوعة من تجار مصر، وقارن الأسعار، واختار اللي يناسبك من مكان واحد.',
+    descEn: 'Discover diverse products from vetted Egyptian merchants, compare prices, and choose what suits you best.',
+    ctaPrimaryAr: 'اكتشف المنتجات',
+    ctaPrimaryEn: 'Explore Products',
+    ctaSecondaryAr: 'تصفح الأقسام',
+    ctaSecondaryEn: 'Browse Categories',
+    tagAr: 'منصة تسوق مصرية متكاملة',
+    tagEn: 'All-in-One Egyptian Marketplace',
+    heroProduct: {
+      image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=700&auto=format&fit=crop&q=80',
+      titleAr: 'أحدث الهواتف والأجهزة الذكية',
+      titleEn: 'Flagship Smartphones',
+      category: 'electronics',
+      badgeAr: 'الأكثر طلباً',
+      badgeEn: 'Best Seller',
+    },
+    sideProductTop: {
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'سماعات وصوتيات عالية النقاء',
+      titleEn: 'Hi-Fi Audio Gear',
+      category: 'electronics',
+      badgeAr: 'صوت محيطي',
+      badgeEn: 'Surround Sound',
+    },
+    sideProductBottom: {
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'أحذية رياضية وعصرية أنيقة',
+      titleEn: 'Trendy Sneakers',
+      category: 'clothing',
+      badgeAr: 'تشكيلة حصرية',
+      badgeEn: 'New Release',
+    },
+    floatBadge: {
+      textAr: 'تجار موثقون • أسعار رسمية بالجنيه',
+      textEn: 'Verified Sellers • Official EGP',
+    },
+  },
+  {
+    id: 'electronics',
+    categoryKey: 'electronics',
+    eyebrowAr: 'عالم التكنولوجيا | أحدث الأجهزة الذكية',
+    eyebrowEn: 'Tech World | Latest Smart Devices',
+    headlineArPrefix: 'عالم التكنولوجيا.. ',
+    headlineArHighlight: 'بأفضل الأسعار',
+    headlineEnPrefix: 'Smart Technology.. ',
+    headlineEnHighlight: 'Best Value',
+    subheadlineAr: 'هواتف، أجهزة لوحية، وإلكترونيات معتمدة',
+    subheadlineEn: 'Smartphones, Tablets & Audio Gear',
+    descAr: 'تسوق أحدث الأجهزة الذكية ومستلزمات التقنية بأسعار الجنيه الرسمية ومن كبار الموردين المحليين.',
+    descEn: 'Shop modern tech, smartphones, and accessories directly from verified local suppliers with official pricing.',
+    ctaPrimaryAr: 'تصفح الإلكترونيات',
+    ctaPrimaryEn: 'Shop Electronics',
+    ctaSecondaryAr: 'عروض الأجهزة',
+    ctaSecondaryEn: 'Tech Deals',
+    tagAr: 'أجهزة ذكية بضمان معتمد',
+    tagEn: 'Certified Electronics',
+    heroProduct: {
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&auto=format&fit=crop&q=80',
+      titleAr: 'سماعات لاسلكية احترافية عازلة للضوضاء',
+      titleEn: 'Noise Cancelling Headphones',
+      category: 'electronics',
+      badgeAr: 'عزل ذكي',
+      badgeEn: 'Smart ANC',
+    },
+    sideProductTop: {
+      image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'هواتف وشاشات فائقة الوضوح',
+      titleEn: 'AMOLED Smartphones',
+      category: 'electronics',
+      badgeAr: 'أداء قوي',
+      badgeEn: 'Top Speed',
+    },
+    sideProductBottom: {
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'ساعات ذكية للياقة والأنشطة',
+      titleEn: 'Smart Fitness Watches',
+      category: 'accessories',
+      badgeAr: 'تتبع النشاط',
+      badgeEn: 'Fitness Track',
+    },
+    floatBadge: {
+      textAr: 'أجهزة أصلية معتمدة مع ضمان الوكيل',
+      textEn: 'Certified Products with Warranty',
+    },
+  },
+  {
+    id: 'fashion',
+    categoryKey: 'clothing',
+    eyebrowAr: 'أناقة متجددة | أزياء وموضة حصرية',
+    eyebrowEn: 'Daily Elegance | Exclusive Fashion',
+    headlineArPrefix: 'أحدث صيحات الموضة.. ',
+    headlineArHighlight: 'لكل العائلة',
+    headlineEnPrefix: 'Trending Styles.. ',
+    headlineEnHighlight: 'For Everyone',
+    subheadlineAr: 'ملابس وأحذية وإكسسوارات راقية',
+    subheadlineEn: 'Apparel, Footwear & Accessories',
+    descAr: 'تألق بأحدث التصاميم العصرية وخامات عالية الجودة تناسب جميع الأذواق والمناسبات بأسعار منافسة.',
+    descEn: 'Elevate your daily look with versatile styles, quality materials, and competitive prices.',
+    ctaPrimaryAr: 'تسوق الأزياء',
+    ctaPrimaryEn: 'Shop Fashion',
+    ctaSecondaryAr: 'تصفح الأحذية',
+    ctaSecondaryEn: 'Browse Footwear',
+    tagAr: 'خامات مريحة وتصاميم عصرية',
+    tagEn: 'Modern Cut & Comfort',
+    heroProduct: {
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80',
+      titleAr: 'أحذية رياضية خفيفة وأنيقة',
+      titleEn: 'Lightweight Sneakers',
+      category: 'clothing',
+      badgeAr: 'الأكثر مبيعاً',
+      badgeEn: 'Top Seller',
+    },
+    sideProductTop: {
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'ساعات يد كلاسيكية أنيقة',
+      titleEn: 'Classic Wristwatches',
+      category: 'accessories',
+      badgeAr: 'جلد طبيعي',
+      badgeEn: 'Genuine Leather',
+    },
+    sideProductBottom: {
+      image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'عطور ومستحضرات فاخرة',
+      titleEn: 'Luxury Perfumes',
+      category: 'beauty',
+      badgeAr: 'ثبات يدوم',
+      badgeEn: 'Long Lasting',
+    },
+    floatBadge: {
+      textAr: 'تشكيلة مختارة بعناية لموسم اليوم',
+      textEn: 'Carefully Curated Collection',
+    },
+  },
+  {
+    id: 'home',
+    categoryKey: 'home',
+    eyebrowAr: 'البيت العصري | أجهزة ومستلزمات المطبخ',
+    eyebrowEn: 'Modern Home | Kitchen & Living Essentials',
+    headlineArPrefix: 'كل ما يحتاجه بيتك.. ',
+    headlineArHighlight: 'بلمسة عصرية',
+    headlineEnPrefix: 'Everything for Home.. ',
+    headlineEnHighlight: 'With Modern Touch',
+    subheadlineAr: 'أجهزة وأدوات منزلية ومطبخية متكاملة',
+    subheadlineEn: 'Home Appliances & Kitchen Essentials',
+    descAr: 'جهز منزلك بأحدث الأجهزة الكهربائية والمستلزمات الذكية مع خدمة توصيل مباشرة لباب منزلك.',
+    descEn: 'Equip your home with durable appliances and kitchen tools delivered directly to your doorstep.',
+    ctaPrimaryAr: 'تصفح مستلزمات البيت',
+    ctaPrimaryEn: 'Shop Home & Living',
+    ctaSecondaryAr: 'أجهزة المطبخ',
+    ctaSecondaryEn: 'Kitchen Tools',
+    tagAr: 'راحة وأناقة تدوم في كل ركن',
+    tagEn: 'Comfort & Durability',
+    heroProduct: {
+      image: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=700&auto=format&fit=crop&q=80',
+      titleAr: 'ماكينات تحضير القهوة والإسبريسو',
+      titleEn: 'Espresso & Coffee Machines',
+      category: 'home',
+      badgeAr: 'جودة استخلاص',
+      badgeEn: 'Pro Extraction',
+    },
+    sideProductTop: {
+      image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'خلاطات وأجهزة طهي ذكية',
+      titleEn: 'Kitchen Prep & Blenders',
+      category: 'home',
+      badgeAr: 'متعدد الاستخدام',
+      badgeEn: 'Multi-Function',
+    },
+    sideProductBottom: {
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80',
+      titleAr: 'أجهزة صوتية وأجواء منزلية',
+      titleEn: 'Home Ambient Audio',
+      category: 'electronics',
+      badgeAr: 'صوت محيطي',
+      badgeEn: 'Pure Sound',
+    },
+    floatBadge: {
+      textAr: 'أجهزة ومستلزمات منزلية بضمان حقيقي',
+      textEn: 'Certified Home Essentials',
+    },
+  },
+];
 
 export default function HomePage() {
   const { t, i18n } = useTranslation();
@@ -221,6 +418,70 @@ export default function HomePage() {
       : selectedCategoryObj.nameEn || selectedCategoryObj.name
     : null;
 
+  // Hero Banner Campaign Carousel State
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
+
+  // Auto-advance campaign slides (paused on hover/focus, strictly never auto-rotates on mobile per Rule 5)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isMobile = window.innerWidth < 768 || ('ontouchstart' in window);
+    if (isMobile || isHeroPaused) return;
+
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % CAMPAIGN_SLIDES.length);
+    }, 6500);
+
+    return () => clearInterval(timer);
+  }, [isHeroPaused]);
+
+  const activeSlide = CAMPAIGN_SLIDES[currentSlideIndex] || CAMPAIGN_SLIDES[0];
+
+  const handlePrevSlide = () => {
+    setCurrentSlideIndex((prev) => (prev === 0 ? CAMPAIGN_SLIDES.length - 1 : prev - 1));
+  };
+
+  const handleNextSlide = () => {
+    setCurrentSlideIndex((prev) => (prev + 1) % CAMPAIGN_SLIDES.length);
+  };
+
+  const handleShowcaseItemClick = (categoryKey) => {
+    if (!categoryKey) {
+      document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    const matchedCategory = categories.find(
+      (c) =>
+        c.key === categoryKey ||
+        c.name?.toLowerCase().includes(categoryKey) ||
+        (categoryKey === 'clothing' && (c.nameAr?.includes('ملابس') || c.nameAr?.includes('أزياء'))) ||
+        (categoryKey === 'electronics' && c.nameAr?.includes('إلكتروني')) ||
+        (categoryKey === 'home' && (c.nameAr?.includes('منزل') || c.nameAr?.includes('مطبخ')))
+    );
+    if (matchedCategory) {
+      handleCategorySelect(matchedCategory.id, true);
+    } else {
+      document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleCtaPrimaryClick = () => {
+    if (activeSlide.categoryKey) {
+      handleShowcaseItemClick(activeSlide.categoryKey);
+    } else {
+      document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleCtaSecondaryClick = () => {
+    const el = document.getElementById('categories-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const hasActiveFilters =
     Boolean(selectedCategoryId) ||
     Boolean(searchQuery) ||
@@ -231,155 +492,318 @@ export default function HomePage() {
   return (
     <div className="space-y-10 sm:space-y-12 md:space-y-16 pb-16">
       {/* =========================================================================
-          1. WIDE PROMOTIONAL HERO BANNER (Egyptian Brand Authority)
+          1. WIDE PROMOTIONAL HERO BANNER (Egyptian Brand Authority & Global Polish)
           Max width 1440px container, Charcoal #1F2329, Primary Red #C8102E, Gold #D6A33A
           ========================================================================= */}
-      <section className="relative overflow-hidden rounded-3xl bg-[#1F2329] text-white shadow-2xl border border-[#2D323B]">
-        {/* Subtle Egyptian atmospheric ambient lighting */}
-        <div className="absolute -top-32 -end-32 w-[500px] h-[500px] bg-[#C8102E]/25 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-32 -start-32 w-[500px] h-[500px] bg-[#D6A33A]/15 rounded-full blur-[100px] pointer-events-none" />
+      <section
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={isRTL ? 'حملات سوق مصر الترويجية' : 'Egypt Shop Promotional Campaigns'}
+        onMouseEnter={() => setIsHeroPaused(true)}
+        onMouseLeave={() => setIsHeroPaused(false)}
+        onFocus={() => setIsHeroPaused(true)}
+        onBlur={() => setIsHeroPaused(false)}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#1F2329] via-[#1B1E24] to-[#15181D] text-white shadow-2xl border border-[#2D323B]"
+      >
+        {/* Egyptian atmospheric ambient lighting */}
+        <div className="absolute -top-32 -end-32 w-[550px] h-[550px] bg-[#C8102E]/20 rounded-full blur-[110px] pointer-events-none" />
+        <div className="absolute -bottom-32 -start-32 w-[550px] h-[550px] bg-[#D6A33A]/15 rounded-full blur-[110px] pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
-        <div className="relative px-6 py-10 sm:px-10 sm:py-14 lg:px-14 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* Hero Left/Start Column (7 cols): Typography, CTAs & Value Badges */}
+        <div className="relative px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Start Column (7 cols in RTL: Right side) - Marketing Content */}
           <div className="lg:col-span-7 space-y-5">
-            {/* Egyptian Official Identity Pill */}
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-[#ECE9E6] text-xs font-bold backdrop-blur-md">
+            {/* Egyptian Brand Eyebrow Badge */}
+            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-[#ECE9E6] text-xs font-bold backdrop-blur-md shadow-xs">
               <span className="text-base select-none">🇪🇬</span>
-              <span className="text-[#D6A33A] font-black">سوق مصر</span>
-              <span className="text-white/40">|</span>
-              <span className="text-white/90">
-                {isRTL ? 'المنصة الرسمية للتجار المعتمدين' : 'Official Egyptian Marketplace'}
+              <span className="text-[#D6A33A] font-black">
+                {isRTL ? activeSlide.eyebrowAr : activeSlide.eyebrowEn}
               </span>
               <Sparkles className="w-3.5 h-3.5 text-[#D6A33A]" />
             </div>
 
-            {/* Hero Main Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[44px] font-black tracking-tight leading-[1.2] text-white">
+            {/* Main Arabic Headline with Gold Highlight */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[46px] font-black tracking-tight leading-[1.22] text-white">
               {isRTL ? (
                 <>
-                  تسوق أفضل العروض اليومية مع{' '}
+                  {activeSlide.headlineArPrefix}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D6A33A] via-[#F3CE79] to-[#D6A33A]">
-                    أكبر تجار مصر
-                  </span>{' '}
-                  بأسعار الجنيه الرسمية
+                    {activeSlide.headlineArHighlight}
+                  </span>
                 </>
               ) : (
                 <>
-                  Shop Egypt's Premier Daily Deals with{' '}
+                  {activeSlide.headlineEnPrefix}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D6A33A] via-[#F3CE79] to-[#D6A33A]">
-                    Top Verified Merchants
+                    {activeSlide.headlineEnHighlight}
                   </span>
                 </>
               )}
             </h1>
 
-            {/* Hero Subtitle */}
+            {/* Supporting Headline */}
+            <p className="text-base sm:text-lg font-bold text-[#D6A33A]/90 tracking-wide">
+              {isRTL ? activeSlide.subheadlineAr : activeSlide.subheadlineEn}
+            </p>
+
+            {/* Short Persuasive Description */}
             <p className="text-sm sm:text-base text-[#ECE9E6]/85 max-w-xl leading-relaxed">
-              {isRTL
-                ? 'آلاف المنتجات الأصلية من موردين وتجار محليين مع خدمة الدفع عند الاستلام، إمكانية معاينة الطلب عند الباب، وشحن سريع لكافة المحافظات عبر بوسطة.'
-                : 'Thousands of authentic products from vetted local merchants. Enjoy Cash on Delivery, door-to-door order inspection, and express shipping across all Egyptian governorates.'}
+              {isRTL ? activeSlide.descAr : activeSlide.descEn}
             </p>
 
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3.5">
               <button
-                onClick={() => {
-                  setOnlyDiscounted(true);
-                  document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="bg-[#C8102E] hover:bg-[#A80D26] text-white font-black text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-[#C8102E]/30 transition-all active:scale-[0.98] flex items-center gap-2"
+                type="button"
+                onClick={handleCtaPrimaryClick}
+                className="bg-[#C8102E] hover:bg-[#A80D26] text-white font-black text-sm sm:text-base px-6 sm:px-7 py-3.5 rounded-xl shadow-lg shadow-[#C8102E]/35 hover:shadow-xl hover:shadow-[#C8102E]/45 transition-all active:scale-[0.98] flex items-center gap-2.5"
               >
                 <Flame className="w-4 h-4 text-[#D6A33A]" />
-                <span>{isRTL ? 'تصفح عروض الخصم الحصرية' : 'Explore Exclusive Deals'}</span>
+                <span>{isRTL ? activeSlide.ctaPrimaryAr : activeSlide.ctaPrimaryEn}</span>
                 {isRTL ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>
 
-              <a
-                href="#categories-section"
-                className="bg-white/10 hover:bg-white/15 text-white border border-white/20 font-bold text-sm px-5 py-3.5 rounded-xl backdrop-blur-md transition-all flex items-center gap-2"
+              <button
+                type="button"
+                onClick={handleCtaSecondaryClick}
+                className="bg-white/10 hover:bg-white/15 text-white border border-white/20 font-bold text-sm sm:text-base px-5 sm:px-6 py-3.5 rounded-xl backdrop-blur-md transition-all active:scale-[0.98] flex items-center gap-2"
               >
                 <Grid className="w-4 h-4 text-[#ECE9E6]" />
-                <span>{t('home.popularCategories')}</span>
-              </a>
-            </div>
-
-            {/* Trust Guarantee Badges Row */}
-            <div className="pt-4 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-[#ECE9E6]/90">
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#D6A33A] flex-shrink-0" />
-                <span className="font-medium">{isRTL ? 'شحن لـ 27 محافظة' : '27 Governorates'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span className="font-medium">{isRTL ? 'دفع عند الاستلام' : 'Cash on Delivery'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-sky-400 flex-shrink-0" />
-                <span className="font-medium">{isRTL ? 'إرجاع 14 يوم (قانون 181)' : '14-Day Returns'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#D6A33A] flex-shrink-0" />
-                <span className="font-medium">{isRTL ? 'منتجات أصلية 100%' : '100% Authentic'}</span>
-              </div>
+                <span>{isRTL ? activeSlide.ctaSecondaryAr : activeSlide.ctaSecondaryEn}</span>
+              </button>
             </div>
           </div>
 
-          {/* Hero Right/End Column (5 cols): Dynamic Mega Sale Visual Showcase */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-md rounded-3xl bg-gradient-to-br from-[#2D323B]/85 to-[#1F2329]/95 p-6 sm:p-7 border border-[#3A3F4A] backdrop-blur-xl shadow-2xl space-y-5">
-              {/* Header with live indicator */}
-              <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#C8102E] animate-ping" />
-                  <span className="text-xs font-black uppercase tracking-wider text-[#D6A33A]">
-                    {isRTL ? 'عروض الموسم الكبرى' : 'Mega Season Deals'}
-                  </span>
+          {/* End Column (5 cols in RTL: Left side) - Premium Editorial Product Showcase */}
+          <div className="lg:col-span-5 flex flex-col justify-center">
+            <div className="relative w-full max-w-lg mx-auto">
+              {/* Editorial Showcase Card with Ambient Glow */}
+              <div className="relative rounded-3xl bg-gradient-to-br from-[#2D323B]/85 via-[#242933]/90 to-[#181B20]/95 p-5 sm:p-6 border border-white/10 backdrop-blur-xl shadow-2xl overflow-hidden group">
+                {/* Dynamic Ambient Color Wash */}
+                <div className="absolute -top-16 -end-16 w-48 h-48 bg-[#D6A33A]/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -start-16 w-48 h-48 bg-[#C8102E]/20 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Top Banner Bar: Campaign Badge + Slide Controls */}
+                <div className="relative z-10 flex items-center justify-between pb-3.5 mb-4 border-b border-white/10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-bold text-[#D6A33A]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D6A33A]" />
+                    <span>{isRTL ? activeSlide.tagAr : activeSlide.tagEn}</span>
+                  </div>
+
+                  {/* Manual Prev/Next Buttons */}
+                  <div className="flex items-center gap-1.5" role="toolbar" aria-label="Campaign navigation">
+                    <button
+                      type="button"
+                      onClick={handlePrevSlide}
+                      aria-label={isRTL ? 'الحملة السابقة' : 'Previous campaign'}
+                      className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white flex items-center justify-center transition-all border border-white/10"
+                    >
+                      {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextSlide}
+                      aria-label={isRTL ? 'الحملة التالية' : 'Next campaign'}
+                      className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white flex items-center justify-center transition-all border border-white/10"
+                    >
+                      {isRTL ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-                <span className="bg-[#C8102E] text-white font-black text-xs px-2.5 py-1 rounded-full shadow-md">
-                  {isRTL ? 'خصومات حتى 50%' : 'Up to 50% OFF'}
-                </span>
+
+                {/* Product Showcase Composition: Layered Multi-Category Editorial Arrangement */}
+                <div className="relative z-10 grid grid-cols-12 gap-3 min-h-[250px] sm:min-h-[280px] items-stretch">
+                  {/* Main Focal Hero Product (7 cols) */}
+                  <div
+                    onClick={() => handleShowcaseItemClick(activeSlide.heroProduct.category)}
+                    role="button"
+                    tabIndex={0}
+                    className="col-span-7 relative group/hero cursor-pointer rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/15 p-3.5 backdrop-blur-md hover:border-[#D6A33A]/60 transition-all duration-300 hover:shadow-xl hover:shadow-black/40 flex flex-col justify-between"
+                  >
+                    {/* Badge */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#C8102E] text-white shadow-xs">
+                        {isRTL ? activeSlide.heroProduct.badgeAr : activeSlide.heroProduct.badgeEn}
+                      </span>
+                      <span className="text-[10px] text-[#ECE9E6]/70 font-semibold flex items-center gap-1 group-hover/hero:text-white transition-colors">
+                        <span>{isRTL ? 'عرض' : 'View'}</span>
+                        {isRTL ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </span>
+                    </div>
+
+                    {/* Focal Image Container with realistic drop shadow */}
+                    <div className="relative w-full h-32 sm:h-36 my-1 flex items-center justify-center overflow-hidden rounded-xl bg-[#1F2329]/40">
+                      <img
+                        src={activeSlide.heroProduct.image}
+                        alt={isRTL ? activeSlide.heroProduct.titleAr : activeSlide.heroProduct.titleEn}
+                        loading="lazy"
+                        className="max-h-full max-w-full object-contain filter drop-shadow-[0_10px_16px_rgba(0,0,0,0.5)] group-hover/hero:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = heroFallbackImg;
+                        }}
+                      />
+                    </div>
+
+                    {/* Title */}
+                    <div className="pt-2">
+                      <h4 className="font-extrabold text-xs sm:text-sm text-white group-hover/hero:text-[#D6A33A] transition-colors truncate">
+                        {isRTL ? activeSlide.heroProduct.titleAr : activeSlide.heroProduct.titleEn}
+                      </h4>
+                    </div>
+                  </div>
+
+                  {/* Secondary Stacked Product Cards (5 cols) */}
+                  <div className="col-span-5 flex flex-col gap-2.5 justify-between">
+                    {/* Top Secondary Card */}
+                    <div
+                      onClick={() => handleShowcaseItemClick(activeSlide.sideProductTop.category)}
+                      role="button"
+                      tabIndex={0}
+                      className="group/side cursor-pointer rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D6A33A]/40 p-2.5 backdrop-blur-md transition-all duration-200 flex flex-col justify-between flex-1"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-[#D6A33A]">
+                          {isRTL ? activeSlide.sideProductTop.badgeAr : activeSlide.sideProductTop.badgeEn}
+                        </span>
+                      </div>
+                      <div className="w-full h-14 sm:h-16 my-1 flex items-center justify-center overflow-hidden rounded-lg bg-[#1F2329]/30">
+                        <img
+                          src={activeSlide.sideProductTop.image}
+                          alt={isRTL ? activeSlide.sideProductTop.titleAr : activeSlide.sideProductTop.titleEn}
+                          loading="lazy"
+                          className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover/side:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.src = heroFallbackImg;
+                          }}
+                        />
+                      </div>
+                      <h5 className="font-bold text-[11px] text-white/90 group-hover/side:text-[#D6A33A] transition-colors truncate">
+                        {isRTL ? activeSlide.sideProductTop.titleAr : activeSlide.sideProductTop.titleEn}
+                      </h5>
+                    </div>
+
+                    {/* Bottom Secondary Card */}
+                    <div
+                      onClick={() => handleShowcaseItemClick(activeSlide.sideProductBottom.category)}
+                      role="button"
+                      tabIndex={0}
+                      className="group/side cursor-pointer rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D6A33A]/40 p-2.5 backdrop-blur-md transition-all duration-200 flex flex-col justify-between flex-1"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-emerald-400">
+                          {isRTL ? activeSlide.sideProductBottom.badgeAr : activeSlide.sideProductBottom.badgeEn}
+                        </span>
+                      </div>
+                      <div className="w-full h-14 sm:h-16 my-1 flex items-center justify-center overflow-hidden rounded-lg bg-[#1F2329]/30">
+                        <img
+                          src={activeSlide.sideProductBottom.image}
+                          alt={isRTL ? activeSlide.sideProductBottom.titleAr : activeSlide.sideProductBottom.titleEn}
+                          loading="lazy"
+                          className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover/side:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.src = heroFallbackImg;
+                          }}
+                        />
+                      </div>
+                      <h5 className="font-bold text-[11px] text-white/90 group-hover/side:text-[#D6A33A] transition-colors truncate">
+                        {isRTL ? activeSlide.sideProductBottom.titleAr : activeSlide.sideProductBottom.titleEn}
+                      </h5>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Glassmorphic Trust Footer Tag inside Showcase */}
+                <div className="relative z-10 mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-[#D6A33A] font-semibold text-[11px]">
+                    <Award className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{isRTL ? activeSlide.floatBadge.textAr : activeSlide.floatBadge.textEn}</span>
+                  </div>
+
+                  {/* Carousel Slide Indicators */}
+                  <div className="flex items-center gap-1.5">
+                    {CAMPAIGN_SLIDES.map((slide, idx) => (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => setCurrentSlideIndex(idx)}
+                        aria-label={`Go to slide ${idx + 1}`}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          currentSlideIndex === idx
+                            ? 'w-6 bg-[#D6A33A]'
+                            : 'w-2 bg-white/25 hover:bg-white/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
 
-              {/* Showcase Box */}
-              <div className="bg-[#14171B]/75 rounded-2xl p-5 border border-white/5 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#ECE9E6]/75 font-medium">
-                    {isRTL ? 'الأسعار الرسمية بالجنيه المصري' : 'Authoritative EGP Pricing'}
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded">
-                    {isRTL ? 'شامل الضريبة 100%' : 'VAT Included'}
-                  </span>
-                </div>
-
-                <div className="flex items-baseline gap-2 pt-1">
-                  <span className="text-4xl sm:text-5xl font-black text-white">50%</span>
-                  <span className="text-sm font-bold text-[#D6A33A] leading-tight">
-                    {isRTL ? 'توفير على أفضل السلع والماركات' : 'Savings on top marketplace brands'}
-                  </span>
-                </div>
-
-                <p className="text-xs text-[#ECE9E6]/75 leading-relaxed">
-                  {isRTL
-                    ? 'احصل على أفضل الأسعار المباشرة من التجار المعتمدين مع ضمان استرجاع آمن وحماية كاملة لحقوق المستهلك.'
-                    : 'Direct competitive prices from verified sellers with guaranteed returns and buyer protection.'}
-                </p>
+        {/* =========================================================================
+            Refined Trust & Value Proposition Strip (Strictly 4 Verified Features)
+            1. الشحن داخل مصر  2. الدفع عند الاستلام  3. تتبع الشحنات  4. تجار موثقون
+            ========================================================================= */}
+        <div className="relative border-t border-white/10 bg-black/25 backdrop-blur-md px-6 py-4 sm:px-10 lg:px-14">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-[#ECE9E6]">
+            {/* Benefit 1 */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 text-[#D6A33A]">
+                <Truck className="w-4 h-4" />
               </div>
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm">
+                  {isRTL ? 'الشحن داخل مصر' : 'Egypt Delivery'}
+                </div>
+                <div className="text-[11px] text-[#ECE9E6]/60">
+                  {isRTL ? 'توصيل مباشر لباب منزلك' : 'Door-to-door delivery'}
+                </div>
+              </div>
+            </div>
 
-              {/* Instant Filter Trigger Button */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    setOnlyDiscounted(true);
-                    document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#C8102E] to-[#A80D26] hover:brightness-110 text-white font-black text-xs transition-all shadow-md shadow-[#C8102E]/25 flex items-center justify-center gap-2"
-                >
-                  <Percent className="w-4 h-4" />
-                  <span>{isRTL ? 'تفعيل فلتر العروض والخصومات الآن' : 'Show Discounted Deals Now'}</span>
-                </button>
-                <div className="text-center text-[11px] text-[#ECE9E6]/60">
-                  {isRTL ? 'معاينة مجانية للمنتج قبل الدفع عند الباب' : 'Free inspection before payment at your doorstep'}
+            {/* Benefit 2 */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 text-emerald-400">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm">
+                  {isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery'}
+                </div>
+                <div className="text-[11px] text-[#ECE9E6]/60">
+                  {isRTL ? 'معاينة الطلب عند الباب' : 'Pay after order check'}
+                </div>
+              </div>
+            </div>
+
+            {/* Benefit 3 */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 text-sky-400">
+                <Package className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm">
+                  {isRTL ? 'تتبع الشحنات' : 'Shipment Tracking'}
+                </div>
+                <div className="text-[11px] text-[#ECE9E6]/60">
+                  {isRTL ? 'متابعة مباشرة لحالة الطلب' : 'Live tracking updates'}
+                </div>
+              </div>
+            </div>
+
+            {/* Benefit 4 */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 text-[#D6A33A]">
+                <Award className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm">
+                  {isRTL ? 'تجار موثقون' : 'Verified Merchants'}
+                </div>
+                <div className="text-[11px] text-[#ECE9E6]/60">
+                  {isRTL ? 'بائعون معتمدون رسمياً' : 'Audited local sellers'}
                 </div>
               </div>
             </div>

@@ -79,7 +79,7 @@ function check(cond, msg) { if (cond) console.log(`  [PASS] ${msg}`); else { fai
     }
     await sleep(1500);
 
-    check(logs.includes('******'), 'server log contains masked OTP marker "******" (log lines were emitted)');
+    check(logs.includes('[REDACTED]') || logs.includes('******'), 'server log contains masked OTP marker ("[REDACTED]" or "******") (log lines were emitted)');
     for (const code of codes) check(!logs.includes(code), `raw OTP ${'*'.repeat(6)} (value #${codes.indexOf(code) + 1}) NOT present in logs`);
     check(!logs.includes(email), 'full email NOT present in logs');
     check(!logs.includes(phoneLocal), 'full local phone (01x...) NOT present in logs');

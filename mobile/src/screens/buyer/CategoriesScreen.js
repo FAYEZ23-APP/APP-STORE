@@ -44,7 +44,8 @@ const CATEGORY_ACCENT_COLORS = {
 };
 
 export default function CategoriesScreen({ navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n?.language?.startsWith('ar');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -159,7 +160,7 @@ export default function CategoriesScreen({ navigation }) {
               <Text
                 style={[
                   styles.categoryName,
-                  isAll && { color: colors.accent, fontWeight: '800' },
+                  isAll && { color: colors.primary, fontWeight: '800' },
                 ]}
                 numberOfLines={2}
               >
@@ -167,9 +168,9 @@ export default function CategoriesScreen({ navigation }) {
               </Text>
               <View style={styles.arrowWrap}>
                 <MaterialCommunityIcons
-                  name="chevron-left"
+                  name={isRTL ? "chevron-left" : "chevron-right"}
                   size={18}
-                  color={isAll ? colors.accent : colors.textSecondary}
+                  color={isAll ? colors.primary : colors.textSecondary}
                 />
               </View>
             </TouchableOpacity>

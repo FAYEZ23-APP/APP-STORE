@@ -4,10 +4,11 @@ import { jwtDecode } from 'jwt-decode';
 import {
   getToken,
   setToken,
-  removeToken,
   getRefreshToken,
   setRefreshToken,
-  removeRefreshToken,
+  saveTokens,
+  clearAuthTokens,
+  invalidateSession,
   getDeviceId,
   getLastAuthenticatedUserId,
   setLastAuthenticatedUserId,
@@ -17,6 +18,8 @@ import {
   hasOfferedBiometrics,
   setOfferedBiometrics,
   checkAndHandleFreshInstall,
+  migrateLegacyStorage,
+  isBiometricInvalidatedError,
 } from '../utils/storage';
 import {
   login as loginApi,
@@ -28,11 +31,13 @@ import {
   logout as logoutApi,
   logoutAll as logoutAllApi,
 } from '../api/authApi';
-import { setOnUnauthorized } from '../api/client';
+import { setOnUnauthorized, resetClientSession } from '../api/client';
 import { syncPushToken, getDevicePushToken, unregisterCurrentPushToken } from '../utils/notifications';
 import {
   checkBiometricSupport,
   promptBiometricAuth,
+  verifyHardwareBiometrics,
+  handleBiometricInvalidationAlert,
   DEFAULT_LOCK_TIMEOUT_MS,
 } from '../utils/biometrics';
 import i18n from '../locales/i18n';
@@ -40,18 +45,34 @@ import i18n from '../locales/i18n';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [userRole, setUserRole] = useState(null); // 'Buyer' or 'Seller'
+  const [userRole, setUserRole] = useState(null); // 'Buyer', 'Seller', 'Admin', or null
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
   const backgroundTimestampRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
 
-  // The role claim key in .NET
+  // The role claim key in .NET Identity
   const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
+
+  // ─── Pending Navigation Queue Handlers (MOB-006) ─────────────
+  const queuePendingNavigation = useCallback((request) => {
+    setPendingNavigation(request);
+  }, []);
+
+  const consumePendingNavigation = useCallback(() => {
+    const req = pendingNavigation;
+    setPendingNavigation(null);
+    return req;
+  }, [pendingNavigation]);
+
+  const clearPendingNavigation = useCallback(() => {
+    setPendingNavigation(null);
+  }, []);
 
   // ─── Biometrics Prompt Offer ────────────────────────────────
   const offerBiometricsIfSupported = async (uid) => {
@@ -98,17 +119,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ─── Load User / Token On Startup ───────────────────────────
+  // ─── Load User / Token On Startup (Safe Migration & Gating) ─
   const loadUserFromToken = async () => {
     try {
-      // 1. Check fresh install wipe (Requirement 5)
+      // 1. Fresh install wipe check (Keychain persistence survival prevention)
       await checkAndHandleFreshInstall();
+
+      // 2. Safe legacy storage migration from AsyncStorage to SecureStore
+      await migrateLegacyStorage();
 
       const lastUserId = await getLastAuthenticatedUserId();
       let token = await getToken();
 
-      // Requirement B.2: When biometrics are enabled and refresh token exists,
-      // NEVER call /auth/refresh before a successful unlock on cold start (lock first, refresh after).
+      // When biometrics are enabled and refresh token exists:
+      // Immediately lock and NEVER call /auth/refresh before a successful unlock.
       if (lastUserId) {
         const bioEnabled = await isBiometricsEnabled(lastUserId);
         const hasRt = await getRefreshToken(lastUserId);
@@ -142,7 +166,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const decoded = jwtDecode(token);
           if (decoded.exp && decoded.exp * 1000 <= Date.now()) {
-            token = null; // Token expired, will try refresh below
+            token = null; // Token expired, will refresh below
           }
         } catch {
           token = null;
@@ -165,8 +189,8 @@ export const AuthProvider = ({ children }) => {
               token = newAccessToken;
             }
           } catch {
-            await removeToken();
-            await removeRefreshToken(lastUserId);
+            await clearAuthTokens(lastUserId);
+            await removeLastAuthenticatedUserId();
             token = null;
           }
         }
@@ -189,7 +213,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         setIsLocked(false);
-        syncPushToken();
+        syncPushToken(uidStr);
       } else {
         setUserRole(null);
         setUserId(null);
@@ -203,7 +227,7 @@ export const AuthProvider = ({ children }) => {
       setUserName(null);
       setUserEmail(null);
       setIsLocked(false);
-      await removeToken();
+      await clearAuthTokens();
     } finally {
       setIsLoading(false);
     }
@@ -224,6 +248,7 @@ export const AuthProvider = ({ children }) => {
         setUserName(null);
         setUserEmail(null);
         setIsLocked(false);
+        clearPendingNavigation();
       }
     });
 
@@ -271,7 +296,7 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       subscription.remove();
     };
-  }, []);
+  }, [clearPendingNavigation]);
 
   // ─── Unlock Handlers ────────────────────────────────────────
   const unlockWithBiometrics = async () => {
@@ -282,11 +307,27 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      // Check hardware-backed biometrics with invalidation detection
+      const bioVerify = await verifyHardwareBiometrics(currentUserId, {
+        promptMessage: i18n.t('biometrics.promptMessage', 'فتح تطبيق السوق'),
+      });
+
+      if (!bioVerify.success) {
+        if (bioVerify.invalidated) {
+          // Hardware biometric key was invalidated (fingerprint enrollment changed)
+          handleBiometricInvalidationAlert(async () => {
+            await unlockWithPassword();
+          });
+          return;
+        }
+        // User cancelled, failed, or locked out: stay locked
+        return;
+      }
+
       const refreshToken = await getRefreshToken(currentUserId);
       const deviceId = await getDeviceId();
 
       if (!refreshToken) {
-        // No refresh token, force password login
         await unlockWithPassword();
         return;
       }
@@ -298,7 +339,7 @@ export const AuthProvider = ({ children }) => {
       if (newAccessToken) {
         await setToken(newAccessToken);
         if (newRefreshToken) {
-          await setRefreshToken(currentUserId, newRefreshToken);
+          await setRefreshToken(currentUserId, newRefreshToken, true);
         }
 
         try {
@@ -321,6 +362,12 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Error during biometric unlock refresh', err);
+      if (isBiometricInvalidatedError(err)) {
+        handleBiometricInvalidationAlert(async () => {
+          await unlockWithPassword();
+        });
+        return;
+      }
       Alert.alert(
         i18n.t('biometrics.unlockTitle', 'فتح التطبيق'),
         i18n.t('biometrics.refreshFailed', 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً بكلمة المرور.')
@@ -330,12 +377,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const unlockWithPassword = async () => {
+    resetClientSession();
     const currentUserId = userId || (await getLastAuthenticatedUserId());
     if (currentUserId) {
       try {
         const refreshToken = await getRefreshToken(currentUserId);
         if (refreshToken) {
-          // Requirement B.4: Revoke refresh token on server (best effort)
           await logoutApi({ refreshToken });
         }
       } catch (err) {
@@ -343,10 +390,12 @@ export const AuthProvider = ({ children }) => {
           console.warn('[unlockWithPassword] best-effort server revoke error', err?.message);
         }
       }
-      await removeRefreshToken(currentUserId);
+      await invalidateSession(currentUserId);
+    } else {
+      await clearAuthTokens();
+      await removeLastAuthenticatedUserId();
     }
-    await removeToken();
-    await removeLastAuthenticatedUserId();
+    clearPendingNavigation();
     setUserRole(null);
     setUserId(null);
     setUserName(null);
@@ -362,11 +411,13 @@ export const AuthProvider = ({ children }) => {
     const requiresTwoFactor = Boolean(data.requiresTwoFactor || data.RequiresTwoFactor);
     const twoFactorToken = data.twoFactorToken || data.TwoFactorToken;
 
-    // Check if 2FA verification challenge is required
     if (requiresTwoFactor && twoFactorToken) {
       return {
         requiresTwoFactor: true,
         twoFactorToken,
+        twoFactorSetupRequired: Boolean(data.twoFactorSetupRequired || data.TwoFactorSetupRequired),
+        manualEntryKey: data.manualEntryKey || data.ManualEntryKey || null,
+        qrCodeUri: data.qrCodeUri || data.QrCodeUri || null,
         userId: data.userId,
       };
     }
@@ -374,18 +425,22 @@ export const AuthProvider = ({ children }) => {
     const effectiveToken = data.accessToken || data.token;
 
     if (effectiveToken) {
-      await setToken(effectiveToken);
       const decoded = jwtDecode(effectiveToken);
       const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
 
-      if (data.refreshToken && uid) {
-        await setRefreshToken(uid, data.refreshToken);
+      await saveTokens({
+        accessToken: effectiveToken,
+        refreshToken: data.refreshToken,
+        userId: uid,
+        isBiometricBound: true,
+      });
+
+      if (uid) {
         await setLastAuthenticatedUserId(uid);
       }
 
       await loadUserFromToken();
 
-      // Offer biometrics once if supported
       if (uid) {
         offerBiometricsIfSupported(uid);
       }
@@ -394,23 +449,29 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ─── Two-Factor Verification Flow ───────────────────────────
-  const completeTwoFactorLogin = useCallback(async (twoFactorToken, code) => {
+  const completeTwoFactorLogin = useCallback(async (twoFactorToken, code, secret = null) => {
     const deviceId = await getDeviceId();
     const response = await verifyTwoFactorLoginApi({
       twoFactorToken,
       code: code?.trim(),
+      ...(secret ? { secret } : {}),
       deviceId,
     });
     const data = response.data || {};
     const effectiveToken = data.accessToken || data.token;
 
     if (effectiveToken) {
-      await setToken(effectiveToken);
       const decoded = jwtDecode(effectiveToken);
       const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
 
-      if (data.refreshToken && uid) {
-        await setRefreshToken(uid, data.refreshToken);
+      await saveTokens({
+        accessToken: effectiveToken,
+        refreshToken: data.refreshToken,
+        userId: uid,
+        isBiometricBound: true,
+      });
+
+      if (uid) {
         await setLastAuthenticatedUserId(uid);
       }
 
@@ -431,12 +492,17 @@ export const AuthProvider = ({ children }) => {
     const effectiveToken = accessToken || token;
 
     if (effectiveToken) {
-      await setToken(effectiveToken);
       const decoded = jwtDecode(effectiveToken);
       const uid = String(decoded.sub || decoded.nameid || decoded.id || response.data?.userId);
 
-      if (refreshToken && uid) {
-        await setRefreshToken(uid, refreshToken);
+      await saveTokens({
+        accessToken: effectiveToken,
+        refreshToken,
+        userId: uid,
+        isBiometricBound: true,
+      });
+
+      if (uid) {
         await setLastAuthenticatedUserId(uid);
       }
 
@@ -489,12 +555,17 @@ export const AuthProvider = ({ children }) => {
     const effectiveToken = accessToken || token;
 
     if (effectiveToken) {
-      await setToken(effectiveToken);
       const decoded = jwtDecode(effectiveToken);
       const uid = String(decoded.sub || decoded.nameid || decoded.id || response.data?.userId);
 
-      if (refreshToken && uid) {
-        await setRefreshToken(uid, refreshToken);
+      await saveTokens({
+        accessToken: effectiveToken,
+        refreshToken,
+        userId: uid,
+        isBiometricBound: true,
+      });
+
+      if (uid) {
         await setLastAuthenticatedUserId(uid);
       }
 
@@ -508,52 +579,63 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ─── Logout Flows ───────────────────────────────────────────
+  const isLoggingOutRef = useRef(false);
+
   const logout = useCallback(async () => {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+    resetClientSession();
     try {
-      const deviceToken = await getDevicePushToken().catch(() => null);
-      if (deviceToken) {
-        await unregisterCurrentPushToken().catch(() => {});
-      }
-      if (userId) {
-        const rt = await getRefreshToken(userId);
-        if (rt || deviceToken) {
-          logoutApi({
-            refreshToken: rt || '',
-            ...(deviceToken ? { deviceToken } : {}),
-          }).catch(() => {});
+      const activeToken = await getToken().catch(() => null);
+      if (activeToken) {
+        const deviceToken = await getDevicePushToken().catch(() => null);
+        if (deviceToken) {
+          await unregisterCurrentPushToken().catch(() => {});
         }
-        await removeRefreshToken(userId);
+        if (userId) {
+          const rt = await getRefreshToken(userId);
+          if (rt || deviceToken) {
+            logoutApi({
+              refreshToken: rt || '',
+              ...(deviceToken ? { deviceToken } : {}),
+            }).catch(() => {});
+          }
+        }
       }
-      await removeToken();
-      await removeLastAuthenticatedUserId();
+      await invalidateSession(userId);
+      clearPendingNavigation();
     } finally {
       setUserRole(null);
       setUserId(null);
       setUserName(null);
       setUserEmail(null);
       setIsLocked(false);
+      isLoggingOutRef.current = false;
     }
-  }, [userId]);
+  }, [userId, clearPendingNavigation]);
 
   const logoutAll = useCallback(async () => {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+    resetClientSession();
     try {
-      await unregisterCurrentPushToken().catch(() => {});
-      await logoutAllApi().catch(() => {});
-      if (userId) {
-        await removeRefreshToken(userId);
+      const activeToken = await getToken().catch(() => null);
+      if (activeToken) {
+        await unregisterCurrentPushToken().catch(() => {});
+        await logoutAllApi().catch(() => {});
       }
-      await removeToken();
-      await removeLastAuthenticatedUserId();
+      await invalidateSession(userId);
+      clearPendingNavigation();
     } finally {
       setUserRole(null);
       setUserId(null);
       setUserName(null);
       setUserEmail(null);
       setIsLocked(false);
+      isLoggingOutRef.current = false;
     }
-  }, [userId]);
+  }, [userId, clearPendingNavigation]);
 
-  // Memoized context value to prevent re-render storms (MOB-007)
   const contextValue = useMemo(
     () => ({
       userRole,
@@ -562,6 +644,10 @@ export const AuthProvider = ({ children }) => {
       userEmail,
       isLoading,
       isLocked,
+      pendingNavigation,
+      queuePendingNavigation,
+      consumePendingNavigation,
+      clearPendingNavigation,
       login,
       completeTwoFactorLogin,
       verify,
@@ -580,6 +666,10 @@ export const AuthProvider = ({ children }) => {
       userEmail,
       isLoading,
       isLocked,
+      pendingNavigation,
+      queuePendingNavigation,
+      consumePendingNavigation,
+      clearPendingNavigation,
       login,
       completeTwoFactorLogin,
       verify,

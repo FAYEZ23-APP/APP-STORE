@@ -100,7 +100,7 @@ export default function SellerStoreScreen({ route, navigation }) {
             <View
               style={[
                 tw`w-14 h-14 rounded-2xl items-center justify-center mr-3 shadow-md border`,
-                { backgroundColor: colors.accent, borderColor: 'rgba(255,255,255,0.2)' },
+                { backgroundColor: colors.primary, borderColor: 'rgba(255,255,255,0.2)' },
               ]}
             >
               <MaterialCommunityIcons name="storefront" size={28} color={colors.white} />
@@ -132,8 +132,8 @@ export default function SellerStoreScreen({ route, navigation }) {
               <View style={tw`flex-row items-center flex-wrap`}>
                 {storeData.dispatchCity ? (
                   <View style={tw`flex-row items-center mr-3`}>
-                    <MaterialCommunityIcons name="map-marker-outline" size={13} color="#FED7AA" />
-                    <Text style={[tw`text-[11px] ml-1`, { color: '#FED7AA' }]}>
+                    <MaterialCommunityIcons name="map-marker-outline" size={13} color={colors.gold} />
+                    <Text style={[tw`text-[11px] ml-1`, { color: colors.gold }]}>
                       {t('store.dispatchFrom', { city: storeData.dispatchCity })}
                     </Text>
                   </View>
@@ -262,8 +262,7 @@ export default function SellerStoreScreen({ route, navigation }) {
                   style={[
                     tw`flex-row items-center px-3 py-1.5 rounded-full mr-2 border`,
                     {
-                      backgroundColor: active ? colors.accent : colors.cardBg,
-                      borderColor: active ? colors.accent : colors.border,
+                      backgroundColor: active ? colors.primary : colors.cardBg, borderColor: active ? colors.primary : colors.border,
                     },
                   ]}
                 >
@@ -296,20 +295,19 @@ export default function SellerStoreScreen({ route, navigation }) {
                 style={[
                   tw`flex-row items-center px-2.5 py-1 rounded-lg mr-2 border`,
                   {
-                    backgroundColor: active ? colors.accentSoft : 'transparent',
-                    borderColor: active ? colors.accent : colors.border,
+                    backgroundColor: active ? colors.primarySoft : "transparent", borderColor: active ? colors.primary : colors.border,
                   },
                 ]}
               >
                 <MaterialCommunityIcons
                   name={opt.icon}
                   size={13}
-                  color={active ? colors.accent : colors.textSecondary}
+                  color={active ? colors.primary : colors.textSecondary}
                 />
                 <Text
                   style={[
                     tw`ml-1 text-[11px] font-semibold`,
-                    { color: active ? colors.accent : colors.textSecondary },
+                    { color: active ? colors.primary : colors.textSecondary },
                   ]}
                 >
                   {t(opt.labelKey)}
@@ -325,7 +323,7 @@ export default function SellerStoreScreen({ route, navigation }) {
   if (loading && !storeData) {
     return (
       <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.screenBg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

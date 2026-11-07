@@ -38,6 +38,20 @@ public class AppDbContext : DbContext
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<CodBlacklistEntry> CodBlacklistEntries => Set<CodBlacklistEntry>();
     public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
+    public DbSet<PrivacySubjectRequest> PrivacySubjectRequests => Set<PrivacySubjectRequest>();
+    public DbSet<ProcessorDeletionLog> ProcessorDeletionLogs => Set<ProcessorDeletionLog>();
+    public DbSet<PrivacyIncidentLog> PrivacyIncidentLogs => Set<PrivacyIncidentLog>();
+    public DbSet<ExchangeRequest> ExchangeRequests => Set<ExchangeRequest>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
+    public DbSet<CarrierRemittanceBatch> CarrierRemittanceBatches => Set<CarrierRemittanceBatch>();
+    public DbSet<TaxInvoice> TaxInvoices => Set<TaxInvoice>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -200,6 +214,28 @@ public class AppDbContext : DbContext
 
             entity.Property(sp => sp.ContactPhone)
                 .HasMaxLength(20);
+
+            entity.Property(sp => sp.CommercialRegisterNumber)
+                .HasMaxLength(50);
+
+            entity.Property(sp => sp.TaxCardNumber)
+                .HasMaxLength(50);
+
+            entity.Property(sp => sp.NationalIdNumber)
+                .HasMaxLength(30);
+
+            entity.Property(sp => sp.KybDocumentUrl)
+                .HasMaxLength(500);
+
+            entity.Property(sp => sp.KybStatus)
+                .IsRequired()
+                .HasMaxLength(30)
+                .HasDefaultValue("Unverified");
+
+            entity.Property(sp => sp.KybRejectionReason)
+                .HasMaxLength(500);
+
+            entity.Property(sp => sp.KybVerifiedAt);
 
             entity.HasOne(sp => sp.User)
                 .WithOne(u => u.SellerProfile)
@@ -617,9 +653,23 @@ public class AppDbContext : DbContext
 
             entity.Property(s => s.EscrowReleaseAt);
 
+            entity.Property(s => s.RemittanceBatchReference)
+                .HasMaxLength(100);
+
             entity.Property(s => s.AllowInspection)
                 .IsRequired()
                 .HasDefaultValue(true);
+
+            entity.Property(s => s.CourierName)
+                .HasMaxLength(150);
+
+            entity.Property(s => s.CourierPhone)
+                .HasMaxLength(30);
+
+            entity.Property(s => s.EstimatedDeliveryAt);
+
+            entity.Property(s => s.PickupPointCode)
+                .HasMaxLength(50);
 
             entity.HasOne(s => s.Order)
                 .WithMany(o => o.Shipments)
@@ -1081,6 +1131,33 @@ public class AppDbContext : DbContext
 
             entity.Property(r => r.ReceivedAt);
 
+            entity.Property(r => r.ReverseTrackingNumber)
+                .HasMaxLength(100);
+
+            entity.Property(r => r.IsItemReceivedBySeller)
+                .HasDefaultValue(false);
+
+            entity.Property(r => r.ItemReceivedAt);
+
+            entity.Property(r => r.IsDisputed)
+                .HasDefaultValue(false);
+
+            entity.Property(r => r.DisputeReason)
+                .HasMaxLength(500);
+
+            entity.Property(r => r.DisputeEvidenceUrlsJson)
+                .HasMaxLength(2000);
+
+            entity.Property(r => r.DisputedAt);
+
+            entity.Property(r => r.DisputeResolutionNotes)
+                .HasMaxLength(1000);
+
+            entity.HasOne(r => r.DisputeResolvedByAdmin)
+                .WithMany()
+                .HasForeignKey(r => r.DisputeResolvedByAdminId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasOne(r => r.Order)
                 .WithMany()
                 .HasForeignKey(r => r.OrderId)
@@ -1211,9 +1288,16 @@ public class AppDbContext : DbContext
             entity.Property(r => r.ReplacedByTokenId)
                 .IsRequired(false);
 
+            entity.Property(r => r.FamilyId).IsRequired();
+            entity.Property(r => r.ConsumedAt).IsRequired(false);
+            entity.Property(r => r.RevokeReason).IsRequired(false).HasMaxLength(40);
+
             entity.HasIndex(r => r.UserId);
             entity.HasIndex(r => new { r.UserId, r.DeviceId });
             entity.HasIndex(r => r.ExpiresAt);
+            entity.HasIndex(r => r.FamilyId);
+            entity.HasIndex(r => r.RevokedAt);
+            entity.HasIndex(r => r.ReplacedByTokenId);
 
             entity.HasOne(r => r.User)
                 .WithMany(u => u.RefreshTokens)
@@ -1428,6 +1512,194 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(50);
             entity.HasIndex(e => new { e.Provider, e.EventId }).IsUnique();
         });
+        // --- PrivacySubjectRequest (PDPL 151/2020 & Decree 816/2025) ---
+        modelBuilder.Entity<PrivacySubjectRequest>(entity =>
+        {
+            entity.HasKey(psr => psr.Id);
+            entity.Property(psr => psr.RequestType).IsRequired().HasConversion<string>().HasMaxLength(50);
+            entity.Property(psr => psr.Status).IsRequired().HasConversion<string>().HasMaxLength(50);
+            entity.Property(psr => psr.SubmittedAt).IsRequired();
+            entity.Property(psr => psr.DueDate).IsRequired();
+            entity.Property(psr => psr.RejectionReason).HasMaxLength(500);
+            entity.Property(psr => psr.ReviewerNotes).HasMaxLength(1000);
+            entity.Property(psr => psr.ProcessorSyncStatus).HasMaxLength(100);
+            entity.Property(psr => psr.ExportFormat).HasMaxLength(20);
+            entity.Property(psr => psr.ExportToken).HasMaxLength(128);
+            entity.HasIndex(psr => psr.UserId);
+            entity.HasIndex(psr => psr.Status);
+            entity.HasIndex(psr => psr.DueDate);
+            entity.HasIndex(psr => psr.ExportToken);
+            entity.HasOne(psr => psr.User).WithMany(u => u.PrivacyRequests).HasForeignKey(psr => psr.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // --- ProcessorDeletionLog ---------------------------------
+        modelBuilder.Entity<ProcessorDeletionLog>(entity =>
+        {
+            entity.HasKey(pdl => pdl.Id);
+            entity.Property(pdl => pdl.ProcessorName).IsRequired().HasMaxLength(100);
+            entity.Property(pdl => pdl.ActionRequested).IsRequired().HasMaxLength(100);
+            entity.Property(pdl => pdl.Status).IsRequired().HasMaxLength(50);
+            entity.Property(pdl => pdl.ResponseMessage).HasMaxLength(1000);
+            entity.Property(pdl => pdl.DispatchedAt).IsRequired();
+            entity.HasIndex(pdl => pdl.PrivacySubjectRequestId);
+            entity.HasIndex(pdl => pdl.UserId);
+            entity.HasIndex(pdl => pdl.Status);
+            entity.HasOne(pdl => pdl.PrivacySubjectRequest).WithMany(psr => psr.ProcessorLogs).HasForeignKey(pdl => pdl.PrivacySubjectRequestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- PrivacyIncidentLog (72-hour Center Notification) ------
+        modelBuilder.Entity<PrivacyIncidentLog>(entity =>
+        {
+            entity.HasKey(pil => pil.Id);
+            entity.Property(pil => pil.IncidentRef).IsRequired().HasMaxLength(50);
+            entity.Property(pil => pil.Title).IsRequired().HasMaxLength(200);
+            entity.Property(pil => pil.DiscoveryTimestamp).IsRequired();
+            entity.Property(pil => pil.CenterNotificationDeadline).IsRequired();
+            entity.Property(pil => pil.Severity).IsRequired().HasConversion<string>().HasMaxLength(20);
+            entity.Property(pil => pil.AffectedDataCategories).IsRequired().HasMaxLength(500);
+            entity.Property(pil => pil.NatureOfBreach).IsRequired().HasMaxLength(2000);
+            entity.Property(pil => pil.LikelyConsequences).IsRequired().HasMaxLength(2000);
+            entity.Property(pil => pil.ContainmentActions).IsRequired().HasMaxLength(2000);
+            entity.Property(pil => pil.RemediationActions).IsRequired().HasMaxLength(2000);
+            entity.Property(pil => pil.CenterReferenceNumber).HasMaxLength(100);
+            entity.Property(pil => pil.Status).IsRequired().HasConversion<string>().HasMaxLength(50);
+            entity.HasIndex(pil => pil.IncidentRef).IsUnique();
+            entity.HasIndex(pil => pil.DiscoveryTimestamp);
+            entity.HasIndex(pil => pil.CenterNotificationDeadline);
+            entity.HasIndex(pil => pil.Status);
+            entity.HasOne(pil => pil.ReportedByAdmin).WithMany(u => u.ReportedIncidents).HasForeignKey(pil => pil.ReportedByAdminId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // --- ExchangeRequest ------------------------------------
+        modelBuilder.Entity<ExchangeRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.RequestedSize).HasMaxLength(50);
+            entity.Property(e => e.RequestedColor).HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.HasIndex(e => e.OrderId);
+            entity.HasIndex(e => e.BuyerId);
+            entity.HasIndex(e => e.SellerId);
+            entity.HasIndex(e => e.Status);
+
+            entity.HasOne(e => e.Order).WithMany().HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.OrderItem).WithMany().HasForeignKey(e => e.OrderItemId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Buyer).WithMany().HasForeignKey(e => e.BuyerId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Seller).WithMany().HasForeignKey(e => e.SellerId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ReplacementShipment).WithMany().HasForeignKey(e => e.ReplacementShipmentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // --- SupportTicket ---------------------------------------
+        modelBuilder.Entity<SupportTicket>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Subject).IsRequired().HasMaxLength(200);
+            entity.Property(t => t.Category).IsRequired().HasMaxLength(50);
+            entity.Property(t => t.Priority).IsRequired().HasMaxLength(20);
+            entity.Property(t => t.Status).IsRequired().HasMaxLength(30);
+            entity.HasIndex(t => t.UserId);
+            entity.HasIndex(t => t.Status);
+            entity.HasIndex(t => t.Category);
+            entity.HasIndex(t => t.CreatedAt);
+
+            entity.HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(t => t.Order).WithMany().HasForeignKey(t => t.OrderId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(t => t.Shipment).WithMany().HasForeignKey(t => t.ShipmentId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasMany(t => t.Messages).WithOne(m => m.Ticket).HasForeignKey(m => m.TicketId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- SupportTicketMessage --------------------------------
+        modelBuilder.Entity<SupportTicketMessage>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.SenderRole).IsRequired().HasMaxLength(30);
+            entity.Property(m => m.Message).IsRequired().HasMaxLength(4000);
+            entity.Property(m => m.AttachmentUrl).HasMaxLength(500);
+            entity.HasIndex(m => m.TicketId);
+
+            entity.HasOne(m => m.Sender).WithMany().HasForeignKey(m => m.SenderId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+
+        // --- TaxInvoice ---------------------------------------------
+        modelBuilder.Entity<TaxInvoice>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.ToTable("TaxInvoices");
+
+            entity.Property(t => t.InvoiceNumber)
+                .HasMaxLength(100)
+                .IsRequired();
+            entity.HasIndex(t => t.InvoiceNumber)
+                .IsUnique();
+
+            entity.Property(t => t.EtaUuid)
+                .HasMaxLength(100)
+                .IsRequired();
+            entity.HasIndex(t => t.EtaUuid)
+                .IsUnique();
+
+            entity.Property(t => t.InvoiceType)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(t => t.Status)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(t => t.SubtotalAmount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(t => t.VatRate)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(t => t.VatAmount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(t => t.TotalAmount)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(t => t.QrCodePayload)
+                .HasMaxLength(2000);
+
+            entity.HasOne(t => t.Order)
+                .WithMany()
+                .HasForeignKey(t => t.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(t => t.Shipment)
+                .WithMany()
+                .HasForeignKey(t => t.ShipmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(t => t.Seller)
+                .WithMany()
+                .HasForeignKey(t => t.SellerId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+            // --- CarrierRemittanceBatch -----------------------------
+        modelBuilder.Entity<CarrierRemittanceBatch>(entity =>
+        {
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.BatchReference).IsRequired().HasMaxLength(100);
+            entity.Property(b => b.CarrierName).IsRequired().HasMaxLength(100);
+            entity.Property(b => b.Status).IsRequired().HasMaxLength(50);
+            entity.Property(b => b.ExpectedCodTotal).HasPrecision(18, 2);
+            entity.Property(b => b.ActualRemittedTotal).HasPrecision(18, 2);
+            entity.Property(b => b.CarrierFeesTotal).HasPrecision(18, 2);
+            entity.Property(b => b.NetSettledTotal).HasPrecision(18, 2);
+            entity.HasIndex(b => b.BatchReference).IsUnique();
+            entity.HasIndex(b => b.CreatedAt);
+
+            entity.HasOne(b => b.UploadedByAdmin).WithMany().HasForeignKey(b => b.UploadedByAdminId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     /// <summary>
@@ -1441,5 +1713,8 @@ public class AppDbContext : DbContext
         {
             throw new InvalidOperationException($"Destructive operation blocked: Database '{dbName}' is not a test database (must end with '_test').");
         }
+
+
+
     }
 }

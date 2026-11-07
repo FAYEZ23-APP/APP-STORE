@@ -34,3 +34,6 @@
 10. **Financial & Real-Money Features Governance**:
    - Real-money features (`Features:EnableWallet`, `Features:EnableVendorPayouts`, `Features:EnableCoupons`) stay OFF (`false`) by default across all environments until formal legal and accounting sign-off is completed.
    - All wallet and vendor payout routes return 404 when these flags are disabled.
+
+11. **Ownership & Access Control**:
+   - Ownership or unauthorized resource access failures MUST return 403 (ForbiddenException) or 404 (NotFoundException), NEVER 500.

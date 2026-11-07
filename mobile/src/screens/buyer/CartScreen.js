@@ -17,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { CartContext } from '../../context/CartContext';
+import { AuthContext } from '../../context/AuthContext';
 import { getProductById } from '../../api/productsApi';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -35,6 +36,7 @@ export default function CartScreen({ navigation }) {
     totalPrice,
     totalCount,
   } = useContext(CartContext);
+  const { userId } = useContext(AuthContext);
 
   const [refreshing, setRefreshing] = useState(false);
   const [checkingStock, setCheckingStock] = useState(false);
@@ -196,6 +198,10 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleProceedToCheckout = () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (cartList.length === 0) return;
     navigation.navigate('Checkout', { cartItems: cartList });
   };
@@ -228,6 +234,26 @@ export default function CartScreen({ navigation }) {
               />
               <Text style={styles.browseButtonText}>{t('cart.browseCatalog')}</Text>
             </TouchableOpacity>
+
+            {!userId && (
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Login')}
+                style={[styles.browseButton, { backgroundColor: colors.secondary, marginTop: 10 }]}
+              >
+                <Ionicons
+                  name="log-in-outline"
+                  size={18}
+                  color="#FFFFFF"
+                  style={isRTL ? styles.iconRTL : styles.iconLTR}
+                />
+                <Text style={styles.browseButtonText}>
+                  {isRTL ? 'تسجيل الدخول لحسابك' : 'Sign In to Your Account'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -653,7 +679,9 @@ export default function CartScreen({ navigation }) {
         >
           <Ionicons name="lock-closed-outline" size={17} color="#FFFFFF" />
           <Text style={styles.checkoutCtaText}>
-            {isRTL ? 'متابعة الشراء (COD)' : 'Checkout (COD)'}
+            {!userId
+              ? (isRTL ? 'تسجيل الدخول لإتمام الشراء' : 'Sign In to Checkout')
+              : (isRTL ? 'متابعة الشراء (COD)' : 'Checkout (COD)')}
           </Text>
           <Ionicons
             name={isRTL ? 'arrow-back' : 'arrow-forward'}

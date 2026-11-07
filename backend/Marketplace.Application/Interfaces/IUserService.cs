@@ -8,6 +8,8 @@ public interface IUserService
     Task<UserProfileResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request);
     Task<SellerProfileDto> GetSellerProfileAsync(int userId);
     Task<SellerProfileDto> UpdateSellerProfileAsync(int userId, SellerProfileDto request);
+    Task<SellerProfileDto> SubmitKybAsync(int userId, SubmitKybRequest request);
+    Task<SellerProfileDto> UpdateKybStatusAsync(int sellerId, UpdateKybStatusRequest request, int adminId);
     Task ChangePasswordAsync(int userId, ChangePasswordRequest request);
 
     Task<IEnumerable<UserAddressResponse>> GetAddressesAsync(int userId);
@@ -20,6 +22,7 @@ public interface IUserService
     Task<UserDataExportDto> ExportUserDataAsync(int userId);
     Task DeleteAccountAsync(int userId, string? currentPassword = null, string? googleIdToken = null);
     Task<BuyerStatsResponse> GetBuyerStatsAsync(int userId);
+    Task<SellerPerformanceMetricsDto> GetSellerPerformanceMetricsAsync(int sellerId);
 
     // Dashboard Hub Aggregations
     Task<Marketplace.Application.DTOs.Dashboard.SellerDashboardResponse> GetSellerDashboardAsync(int sellerId);

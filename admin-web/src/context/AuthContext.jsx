@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { jwtDecode } from 'jwt-decode';
 import {
   getToken,
   getRefreshToken,
@@ -17,8 +16,11 @@ import {
   logout as logoutApi,
   logoutAll as logoutAllApi,
   verifyTwoFactorLogin,
+  getMe as getMeApi,
 } from '../api/authApi';
 import { unregisterDeviceToken } from '../api/notificationsApi';
+import { sessionHeartbeat } from '../api/authApi';
+import { useTranslation } from 'react-i18next';
 
 export const AuthContext = createContext({
   userRole: null,
@@ -36,41 +38,58 @@ export const AuthContext = createContext({
   logoutAll: async () => {},
 });
 
-const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
-
 export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null); // 'Buyer' or 'Seller' or 'Admin'
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [token, setStoredToken] = useState(null);
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [inactivityRemaining, setInactivityRemaining] = useState(120);
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n?.language === 'ar';
+
+  const broadcastSync = (action, payload = {}) => {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('marketplace_auth_channel');
+        bc.postMessage({ action, ...payload });
+        bc.close();
+      }
+      try {
+        localStorage.setItem('@marketplace_auth_sync', JSON.stringify({ action, ...payload, t: Date.now() }));
+        localStorage.removeItem('@marketplace_auth_sync');
+      } catch (_) {}
+    } catch (_) {}
+  };
   const [isLoading, setIsLoading] = useState(true);
 
   const loadUserFromToken = async () => {
     try {
-      let activeToken = getToken();
+      let meData = null;
 
-      // Attempt silent refresh via HttpOnly cookie if in-memory token is absent (WEB-003)
-      if (!activeToken) {
-        try {
-          activeToken = await performSingleFlightRefresh();
-        } catch (_) {
-          // No active session cookie
+      // 1. Attempt checking session via HttpOnly cookie (WEB-003)
+      try {
+        const res = await getMeApi();
+        meData = res.data;
+      } catch (err) {
+        if (err.response?.status === 401) {
+          try {
+            await performSingleFlightRefresh();
+            const retryRes = await getMeApi();
+            meData = retryRes.data;
+          } catch (_) {
+            // No active session cookie
+          }
         }
       }
 
-      if (activeToken) {
-        const decoded = jwtDecode(activeToken);
-        const role = decoded[ROLE_CLAIM] || decoded.role;
-        const id = decoded.sub || decoded.nameid || decoded.id;
-        const name = decoded.name || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'];
-        const email = decoded.email || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'];
-
-        setUserRole(role);
-        setUserId(id ? String(id) : null);
-        setUserName(name || null);
-        setUserEmail(email || null);
-        setStoredToken(activeToken);
+      if (meData && meData.isAuthenticated) {
+        setUserRole(meData.role);
+        setUserId(meData.userId ? String(meData.userId) : null);
+        setUserName(meData.name || null);
+        setUserEmail(meData.email || null);
+        setStoredToken('session_active');
       } else {
         setUserRole(null);
         setUserId(null);
@@ -98,42 +117,134 @@ export const AuthProvider = ({ children }) => {
       setUserName(null);
       setUserEmail(null);
       setStoredToken(null);
+      setShowInactivityWarning(false);
+      broadcastSync('logout', { reason: 'unauthorized' });
       window.dispatchEvent(new Event('auth:logout'));
     });
+
+    // Cross-tab session synchronization listener (WEB-007)
+    let bc = null;
+    const handleSync = (data) => {
+      if (data?.action === 'logout') {
+        removeToken();
+        setUserRole(null);
+        setUserId(null);
+        setUserName(null);
+        setUserEmail(null);
+        setStoredToken(null);
+        setShowInactivityWarning(false);
+        window.dispatchEvent(new Event('auth:logout'));
+        if (data.reason === 'inactivity') {
+          window.dispatchEvent(new CustomEvent('auth:inactivity-timeout'));
+        }
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.replace(`/login?reason=${data.reason || 'session_ended'}`);
+        }
+      }
+    };
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('marketplace_auth_channel');
+        bc.onmessage = (evt) => handleSync(evt.data);
+      } catch (_) {}
+    }
+
+    const handleStorage = (evt) => {
+      if (evt.key === '@marketplace_auth_sync' && evt.newValue) {
+        try {
+          handleSync(JSON.parse(evt.newValue));
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     loadUserFromToken();
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // ─── 15-Minute Inactivity Timeout Monitor (WEB-007) ─────────
   const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+  const WARNING_TIME_MS = 13 * 60 * 1000;     // 13 minutes (2 min warning)
+
+  const extendSession = async () => {
+    setShowInactivityWarning(false);
+    try {
+      await sessionHeartbeat();
+    } catch (_) {}
+    window.dispatchEvent(new Event('auth:session-extended'));
+  };
+
   useEffect(() => {
-    if (!userId || !token) return;
+    if (!userId) {
+      setShowInactivityWarning(false);
+      return;
+    }
 
-    let timeoutId = null;
+    let warningTimer = null;
+    let logoutTimer = null;
+    let countdownInterval = null;
 
-    const resetTimer = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        logout();
-        window.dispatchEvent(new CustomEvent('auth:inactivity-timeout'));
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.replace('/login?reason=inactivity');
-        }
-      }, INACTIVITY_LIMIT_MS);
+    const clearAllTimers = () => {
+      if (warningTimer) clearTimeout(warningTimer);
+      if (logoutTimer) clearTimeout(logoutTimer);
+      if (countdownInterval) clearInterval(countdownInterval);
     };
 
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    const handleTimeout = () => {
+      clearAllTimers();
+      setShowInactivityWarning(false);
+      logout('inactivity');
+      window.dispatchEvent(new CustomEvent('auth:inactivity-timeout'));
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.replace('/login?reason=inactivity');
+      }
+    };
+
+    const scheduleTimers = () => {
+      clearAllTimers();
+      setShowInactivityWarning(false);
+
+      warningTimer = setTimeout(() => {
+        setShowInactivityWarning(true);
+        setInactivityRemaining(120);
+        countdownInterval = setInterval(() => {
+          setInactivityRemaining((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdownInterval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }, WARNING_TIME_MS);
+
+      logoutTimer = setTimeout(handleTimeout, INACTIVITY_LIMIT_MS);
+    };
+
+    // Track user DOM events only (background requests DO NOT reset this timer)
+    const onUserActivity = () => {
+      scheduleTimers();
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     activityEvents.forEach((evt) =>
-      window.addEventListener(evt, resetTimer, { passive: true })
+      window.addEventListener(evt, onUserActivity, { passive: true })
     );
-    resetTimer();
+
+    scheduleTimers();
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      clearAllTimers();
       activityEvents.forEach((evt) =>
-        window.removeEventListener(evt, resetTimer)
+        window.removeEventListener(evt, onUserActivity)
       );
     };
-  }, [userId, token]);
+  }, [userId]);
 
   const login = async (identifierOrEmail, password) => {
     const payload = typeof identifierOrEmail === 'object'
@@ -141,16 +252,22 @@ export const AuthProvider = ({ children }) => {
       : { identifier: identifierOrEmail, email: identifierOrEmail, password };
 
     const response = await loginApi(payload);
-    const { token: receivedToken, accessToken, refreshToken } = response.data || {};
-    const effectiveToken = accessToken || receivedToken;
-    if (effectiveToken) {
-      setToken(effectiveToken);
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
-      loadUserFromToken();
+    const data = response.data || {};
+
+    if (data.requiresTwoFactor) {
+      return data;
     }
-    return response.data;
+
+    if (data.userId) {
+      setUserRole(data.role);
+      setUserId(String(data.userId));
+      setUserName(data.name || null);
+      setUserEmail(data.email || null);
+      setStoredToken('session_active');
+    } else {
+      await loadUserFromToken();
+    }
+    return data;
   };
 
   const register = async (nameOrData, email, password, role = 'Buyer', acceptedTermsAndPrivacy = true, marketingConsent = false) => {
@@ -167,30 +284,32 @@ export const AuthProvider = ({ children }) => {
         };
 
     const response = await registerApi(payload);
-    const { token: receivedToken, accessToken, refreshToken } = response.data || {};
-    const effectiveToken = accessToken || receivedToken;
-    if (effectiveToken) {
-      setToken(effectiveToken);
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
-      loadUserFromToken();
+    const data = response.data || {};
+
+    if (data.userId) {
+      setUserRole(data.role);
+      setUserId(String(data.userId));
+      setUserName(data.name || null);
+      setUserEmail(data.email || null);
+      setStoredToken('session_active');
     }
-    return response.data;
+    return data;
   };
 
   const verify = async (target, code) => {
     const response = await verifyApi({ target, code });
-    const { token: receivedToken, accessToken, refreshToken } = response.data || {};
-    const effectiveToken = accessToken || receivedToken;
-    if (effectiveToken) {
-      setToken(effectiveToken);
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
-      loadUserFromToken();
+    const data = response.data || {};
+
+    if (data.userId) {
+      setUserRole(data.role);
+      setUserId(String(data.userId));
+      setUserName(data.name || null);
+      setUserEmail(data.email || null);
+      setStoredToken('session_active');
+    } else {
+      await loadUserFromToken();
     }
-    return response.data;
+    return data;
   };
 
   const loginWithGoogle = async (idToken, role = 'Buyer', acceptedTermsAndPrivacy = true, marketingConsent = false) => {
@@ -201,16 +320,18 @@ export const AuthProvider = ({ children }) => {
       marketingConsent,
       policyVersion: '1.0',
     });
-    const { token: receivedToken, accessToken, refreshToken } = response.data || {};
-    const effectiveToken = accessToken || receivedToken;
-    if (effectiveToken) {
-      setToken(effectiveToken);
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
-      loadUserFromToken();
+    const data = response.data || {};
+
+    if (data.userId) {
+      setUserRole(data.role);
+      setUserId(String(data.userId));
+      setUserName(data.name || null);
+      setUserEmail(data.email || null);
+      setStoredToken('session_active');
+    } else {
+      await loadUserFromToken();
     }
-    return response.data;
+    return data;
   };
 
   const verify2FA = async (twoFactorToken, code, secret = null) => {
@@ -219,21 +340,22 @@ export const AuthProvider = ({ children }) => {
       code,
       secret: secret || undefined,
     });
-    const { token: receivedToken, accessToken, refreshToken } = response.data || {};
-    const effectiveToken = accessToken || receivedToken;
-    if (effectiveToken) {
-      setToken(effectiveToken);
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
-      loadUserFromToken();
+    const data = response.data || {};
+
+    if (data.userId) {
+      setUserRole(data.role);
+      setUserId(String(data.userId));
+      setUserName(data.name || null);
+      setUserEmail(data.email || null);
+      setStoredToken('session_active');
+    } else {
+      await loadUserFromToken();
     }
-    return response.data;
+    return data;
   };
 
-  const logout = async () => {
+  const logout = async (reason = 'user') => {
     try {
-      const rt = getRefreshToken();
       let deviceToken = null;
       try {
         deviceToken = localStorage.getItem('marketplace_device_push_token_v1');
@@ -245,20 +367,18 @@ export const AuthProvider = ({ children }) => {
         // Browser environment without localStorage
       }
 
-      if (rt || deviceToken) {
-        await logoutApi({
-          refreshToken: rt || '',
-          ...(deviceToken ? { deviceToken } : {}),
-        }).catch(() => {});
-      }
+      await logoutApi({
+        ...(deviceToken ? { deviceToken } : {}),
+      }).catch(() => {});
     } finally {
       removeToken();
-      setRefreshToken(null);
       setUserRole(null);
       setUserId(null);
       setUserName(null);
       setUserEmail(null);
       setStoredToken(null);
+      setShowInactivityWarning(false);
+      broadcastSync('logout', { reason });
       window.dispatchEvent(new Event('auth:logout'));
     }
   };
@@ -277,7 +397,6 @@ export const AuthProvider = ({ children }) => {
       await logoutAllApi().catch(() => {});
     } finally {
       removeToken();
-      setRefreshToken(null);
       setUserRole(null);
       setUserId(null);
       setUserName(null);
@@ -296,7 +415,7 @@ export const AuthProvider = ({ children }) => {
         userEmail,
         token,
         isLoading,
-        isAuthenticated: Boolean(userId && token),
+        isAuthenticated: Boolean(userId),
         login,
         register,
         verify,
@@ -304,9 +423,54 @@ export const AuthProvider = ({ children }) => {
         verify2FA,
         logout,
         logoutAll,
+        extendSession,
+        showInactivityWarning,
+        inactivityRemaining,
       }}
     >
       {children}
+      {showInactivityWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in" dir={isRTL ? 'rtl' : 'ltr'}>
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 font-bold text-lg">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-slate-900">
+                  {t('common.inactivityWarningTitle', 'Session Expiring Soon')}
+                </h3>
+                <span className="text-xs text-amber-600 font-bold">
+                  {t('common.inactivitySecondsLeft', { seconds: inactivityRemaining, defaultValue: `Expiring in ${inactivityRemaining}s` })}
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {t('common.inactivityWarningPrompt', 'Your administrative session is about to expire due to inactivity. Would you like to stay signed in?')}
+            </p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => logout('user')}
+                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                {t('common.logout', 'Sign Out')}
+              </button>
+              <button
+                type="button"
+                onClick={extendSession}
+                className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md hover:bg-slate-800 transition-colors"
+              >
+                {t('common.staySignedIn', 'Stay Signed In')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

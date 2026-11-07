@@ -9,6 +9,8 @@ public interface IProductService
     Task<ProductResponse> QuickStockUpdateAsync(int sellerId, int productId, Marketplace.Application.DTOs.Dashboard.QuickStockUpdateRequest request);
     Task DeleteProductAsync(int sellerId, int productId);
     Task<IEnumerable<ProductResponse>> GetSellerProductsAsync(int sellerId);
+    Task<BulkProductUploadReportDto> BulkUploadProductsAsync(int sellerId, System.IO.Stream csvStream);
+    byte[] GenerateBulkUploadTemplate();
     
     // Public Catalog Methods
     Task<IEnumerable<ProductResponse>> GetAllProductsAsync(

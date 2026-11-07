@@ -91,6 +91,20 @@ public class OrdersController : ControllerBase
         return Ok(orders);
     }
 
+    /// <summary>Get details of an order containing seller's items (Seller only). (PDPL Data Minimization)</summary>
+    [HttpGet("seller/{id:int}")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(SellerOrderDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SellerOrderDetailResponse>> GetSellerOrderDetails(int id)
+    {
+        var sellerId = User.GetUserId();
+        var order = await _orderService.GetSellerOrderDetailsAsync(sellerId, id);
+        return Ok(order);
+    }
+
     /// <summary>Update the status of an order. Restricted to Admin. Sellers must update shipments via /api/shipments/{id}/status.</summary>
     [HttpPut("{id:int}/status")]
     [Authorize(Roles = "Admin")]
@@ -112,11 +126,11 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ConfirmOrderResponse>> ConfirmOrder(int id)
+    public async Task<ActionResult<ConfirmOrderResponse>> ConfirmOrder(int id, [FromBody] ConfirmOrderRequest? request = null)
     {
         var userId = User.GetUserId();
         var isAdmin = User.IsInRole("Admin");
-        var result = await _orderService.ConfirmOrderAsync(userId, isAdmin, id);
+        var result = await _orderService.ConfirmOrderAsync(userId, isAdmin, id, request?.Channel);
         return Ok(result);
     }
 }

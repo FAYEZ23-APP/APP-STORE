@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import tw from 'twrnc';
+import tw from '../../theme/tw';
 import { colors } from '../../theme/colors';
 import { promptBiometricAuth } from '../../utils/biometrics';
 import BrandLogo from '../../components/common/BrandLogo';
@@ -45,13 +45,30 @@ export default function UnlockScreen({
           await onUnlockSuccess();
         }
       } else {
-        setErrorMessage(
-          t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.')
-        );
+        if (result.isLockout) {
+          setErrorMessage(
+            t(
+              'biometrics.lockout',
+              'تم قفل الدخول بالبصمة مؤقتاً بسبب تكرار المحاولات الخاطئة. يرجى استخدام كلمة المرور.'
+            )
+          );
+        } else if (result.isCancelled) {
+          setErrorMessage(t('biometrics.userCancelled', 'تم إلغاء التحقق من البصمة.'));
+        } else {
+          setErrorMessage(
+            t(
+              'biometrics.unlockFailed',
+              'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.'
+            )
+          );
+        }
       }
     } catch {
       setErrorMessage(
-        t('biometrics.unlockFailed', 'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.')
+        t(
+          'biometrics.unlockFailed',
+          'فشل التحقق من البصمة. يمكنك المحاولة مجدداً أو استخدام كلمة المرور.'
+        )
       );
     } finally {
       setIsAuthenticating(false);

@@ -144,7 +144,9 @@ public class ReviewsController : ControllerBase
             stream,
             file.FileName,
             file.Length,
-            subFolder: "reviews");
+                subFolder: "reviews",
+                clientContentType: file.ContentType,
+                category: Marketplace.Domain.Enums.FileCategory.ReviewImage);
 
         return Ok(new
         {
@@ -183,7 +185,9 @@ public class ReviewsController : ControllerBase
                 stream,
                 file.FileName,
                 file.Length,
-                subFolder: "reviews");
+                subFolder: "reviews",
+                clientContentType: file.ContentType,
+                category: Marketplace.Domain.Enums.FileCategory.ReviewImage);
 
             urls.Add(result.Url);
             items.Add(new

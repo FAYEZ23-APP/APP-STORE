@@ -369,6 +369,8 @@ export default function CheckoutPage() {
         area: deliveryMethod === 'Courier' ? area.trim() : (isRTL ? 'نقطة استلام بوسطة' : 'Bosta Pickup Point'),
         streetBuilding: deliveryMethod === 'Courier' ? fullStreetBuilding : (isRTL ? 'استلام من الفرع' : 'Branch Pickup'),
         addressLine: deliveryNotes.trim() ? deliveryNotes.trim() : null,
+        landmark: deliveryNotes.trim() ? deliveryNotes.trim() : null,
+        addressId: selectedAddressId || null,
         paymentMethod: 'OnReceipt',
         couponCode: appliedCoupon?.code || null,
         useWalletBalance: useWalletBalance,
@@ -934,6 +936,10 @@ export default function CheckoutPage() {
                     ? 'عاين طلبك وتأكد من سلامة جميع المنتجات، ثم ادفع نقداً لمندوب التوصيل عند باب منزلك بكل أمان وثقة.'
                     : 'Inspect your order and verify items upon arrival, then pay cash to the courier at your door with complete confidence.'}
                 </p>
+                <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-800 text-xs font-bold">
+                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{isRTL ? 'معاينة الطرد عند الاستلام أمام المندوب' : 'Open-box inspection upon delivery'}</span>
+                </div>
               </div>
             </div>
           </div>

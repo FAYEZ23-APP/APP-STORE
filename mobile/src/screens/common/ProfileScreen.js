@@ -198,6 +198,12 @@ export default function ProfileScreen({ navigation }) {
   }, []);
 
   const loadData = useCallback(async (isPull = false) => {
+    if (!userId) {
+      setLoading(false);
+      setRefreshing(false);
+      setProfile(null);
+      return;
+    }
     try {
       if (isPull) setRefreshing(true);
       else setLoading(true);
@@ -565,6 +571,101 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
+  if (!userId) {
+    return (
+      <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
+        <StatusBar barStyle="light-content" />
+        <LinearGradient
+          colors={['#14171B', '#1F2329', '#14171B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={tw`flex-row items-center mb-2`}>
+            <View style={[styles.avatarCircle, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
+              <MaterialCommunityIcons name="account-outline" size={32} color={colors.white} />
+            </View>
+            <View style={tw`ml-3 flex-1`}>
+              <Text style={styles.userNameText}>
+                {isRTL ? 'مرحباً بك في سوق مصر' : 'Welcome to Souq Masr'}
+              </Text>
+              <Text style={styles.userEmailText}>
+                {isRTL ? 'سجل الدخول للوصول لحسابك وطلباتك' : 'Sign in to access your orders & account'}
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <ScrollView contentContainerStyle={tw`p-4`} showsVerticalScrollIndicator={false}>
+          {/* Sign In & Register CTA Card */}
+          <View style={[styles.card, cardShadow, tw`p-6 items-center mb-4`]}>
+            <View style={[tw`w-16 h-16 rounded-full items-center justify-center mb-3`, { backgroundColor: colors.primarySoft }]}>
+              <MaterialCommunityIcons name="shield-account-outline" size={32} color={colors.primary} />
+            </View>
+            <Text style={[tw`text-lg font-bold text-center mb-1`, { color: colors.textPrimary }]}>
+              {isRTL ? 'تسجيل الدخول إلى حسابك' : 'Sign in to your account'}
+            </Text>
+            <Text style={[tw`text-xs text-center mb-5`, { color: colors.textSecondary }]}>
+              {isRTL
+                ? 'تابع شحناتك، احفظ عناوين التوصيل، وتمتع بمزايا الدفع عند الاستلام وضمان الاسترجاع 14 يوماً.'
+                : 'Track shipments, save delivery addresses, and enjoy Cash on Delivery with 14-day returns.'}
+            </Text>
+
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              style={[tw`w-full py-3.5 rounded-xl items-center justify-center mb-3`, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={tw`text-white font-bold text-base`}>
+                {isRTL ? 'تسجيل الدخول' : 'Sign In'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              style={[tw`w-full py-3.5 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
+              onPress={() => navigation.navigate('Register')}
+            >
+              <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
+                {isRTL ? 'إنشاء حساب جديد' : 'Create New Account'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Benefits Card */}
+          <View style={[styles.card, cardShadow, tw`p-4 mb-4`]}>
+            <Text style={[tw`font-bold text-sm mb-3`, { color: colors.textPrimary }]}>
+              {isRTL ? 'مميزات التسوق مع سوق مصر' : 'Benefits of Shopping with Souq Masr'}
+            </Text>
+            
+            <View style={tw`flex-row items-center mb-2.5`}>
+              <MaterialCommunityIcons name="truck-fast-outline" size={20} color={colors.primary} style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
+              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
+                {isRTL ? 'شحن سريع وموثوق في جميع محافظات مصر' : 'Fast and reliable shipping across Egypt'}
+              </Text>
+            </View>
+
+            <View style={tw`flex-row items-center mb-2.5`}>
+              <MaterialCommunityIcons name="cash-multiple" size={20} color={colors.gold || '#D6A33A'} style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
+              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
+                {isRTL ? 'الدفع الآمن عند الاستلام (COD)' : 'Safe Cash on Delivery (COD)'}
+              </Text>
+            </View>
+
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="shield-check-outline" size={20} color="#16A34A" style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
+              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
+                {isRTL ? 'حماية بياناتك الشخصية (قانون 151 لسنة 2020)' : 'Personal data protection under Law 151/2020'}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   if (loading && !profile) {
     return (
       <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
@@ -718,7 +819,7 @@ export default function ProfileScreen({ navigation }) {
                 {t('profile.buyerHubTitle')}
               </Text>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}>
-                <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('profile.viewAllOrders')}</Text>
+                <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>{t('profile.viewAllOrders')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -820,8 +921,8 @@ export default function ProfileScreen({ navigation }) {
             >
               <View style={tw`flex-row items-center justify-between mb-2`}>
                 <View style={tw`flex-row items-center`}>
-                  <View style={[tw`w-10 h-10 rounded-xl items-center justify-center`, { backgroundColor: '#FFF7ED' }]}>
-                    <MaterialCommunityIcons name="wallet" size={24} color={colors.accent} />
+                  <View style={[tw`w-10 h-10 rounded-xl items-center justify-center`, { backgroundColor: colors.goldSoft }]}>
+                    <MaterialCommunityIcons name="wallet" size={24} color={colors.gold} />
                   </View>
                   <View style={isRTL ? tw`mr-3` : tw`ml-3`}>
                     <Text style={[tw`text-xs font-semibold`, { color: colors.textSecondary }]}>
@@ -836,9 +937,9 @@ export default function ProfileScreen({ navigation }) {
                 <TouchableOpacity accessible={true} accessibilityRole="button"
                   activeOpacity={0.8}
                   onPress={() => setShowWalletModal(true)}
-                  style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.accent, backgroundColor: '#FFF7ED' }]}
+                  style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.accent, backgroundColor: colors.goldSoft }]}
                 >
-                  <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+                  <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
                     {t('profile.txHistory')}
                   </Text>
                 </TouchableOpacity>
@@ -871,7 +972,7 @@ export default function ProfileScreen({ navigation }) {
                   <Text style={[tw`text-xs font-mono`, { color: colors.textSecondary }]}>
                     {t('profile.trackingAirway', { number: activeShipment.trackingNumber || activeShipment.shipmentId })}
                   </Text>
-                  <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
+                  <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
                     {t('profile.etaDeliveryDays', { min: activeShipment.etaMinDays, max: activeShipment.etaMaxDays })}
                   </Text>
                 </View>
@@ -975,7 +1076,7 @@ export default function ProfileScreen({ navigation }) {
                   activeOpacity={0.8}
                 >
                   <Text style={styles.trackDetailsBtnText}>{t('profile.trackDetails')}</Text>
-                  <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.accent} />
+                  <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.gold} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1052,14 +1153,14 @@ export default function ProfileScreen({ navigation }) {
         {isSeller && (
           <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
             <View style={tw`flex-row items-center mb-3`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: '#FFF7ED' }]}>
-                <MaterialCommunityIcons name="store-outline" size={22} color={colors.accent} />
+              <View style={[styles.serviceIconWrap, { backgroundColor: colors.goldSoft }]}>
+                <MaterialCommunityIcons name="store-outline" size={22} color={colors.gold} />
               </View>
               <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`]}>{t('profile.sellerDispatchSettings')}</Text>
             </View>
 
             {loadingSellerProfile ? (
-              <ActivityIndicator size="small" color={colors.accent} />
+              <ActivityIndicator size="small" color={colors.gold} />
             ) : (
               <View>
                 <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.mainDispatchCity')}</Text>
@@ -1538,7 +1639,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
             <View style={tw`flex-row justify-between items-center mb-4 pb-3 border-b border-gray-100`}>
               <View style={tw`flex-row items-center`}>
-                <MaterialCommunityIcons name="wallet" size={24} color={colors.accent} />
+                <MaterialCommunityIcons name="wallet" size={24} color={colors.gold} />
                 <Text style={[styles.modalTitle, isRTL ? tw`mr-2` : tw`ml-2`]}>
                   {t('profile.walletTxModalTitle')}
                 </Text>
@@ -1552,11 +1653,11 @@ export default function ProfileScreen({ navigation }) {
             <View
               style={[
                 tw`p-4 rounded-2xl mb-4 border flex-row items-center justify-between`,
-                { backgroundColor: '#FFF7ED', borderColor: colors.accent },
+                { backgroundColor: colors.goldSoft, borderColor: colors.accent },
               ]}
             >
               <Text style={[tw`font-bold text-sm`, { color: colors.textPrimary }]}>{t('profile.availableBalanceLabel')}</Text>
-              <Text style={[tw`font-black text-2xl`, { color: colors.accent }]}>
+              <Text style={[tw`font-black text-2xl`, { color: colors.gold }]}>
                 {formatCurrency(walletData?.balance || 0)}
               </Text>
             </View>
@@ -1830,7 +1931,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EA580C',
   },
   carrierTag: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.goldSoft,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1899,7 +2000,7 @@ const styles = StyleSheet.create({
   codAlertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.goldSoft,
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,

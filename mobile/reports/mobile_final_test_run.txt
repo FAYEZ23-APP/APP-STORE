@@ -1,0 +1,274 @@
+﻿
+> marketplacemobile@1.0.0 test
+> npm run test:security && npm run test:biometrics && npm run test:auth && npm run test:search
+
+
+> marketplacemobile@1.0.0 test:security
+> node tests/test_secure_auth_storage.js && node tests/test_hardware_biometrics_and_lock.js && node tests/test_navigation_lock_and_deep_links.js && node tests/test_android_security_and_permissions.js && node tests/test_mobile_network_security.js && node tests/test_token_lifecycle_and_logout.js && node tests/test_mobile_two_factor_auth.js
+
+================================================================
+🧪 TEST SUITE: SECURE AUTH STORAGE & TOKEN MIGRATION (MOB-006)
+================================================================
+
+✅ [PASS] 1. SecureStore token persistence saves access and refresh tokens exclusively in SecureStore
+✅ [PASS] 2. Verification that saveTokens NEVER writes authentication tokens to AsyncStorage
+✅ [PASS] 3. Migration correctly transfers valid AsyncStorage tokens to SecureStore and purges AsyncStorage
+✅ [PASS] 4. Expired and corrupt tokens are discarded during migration and purged without saving to SecureStore
+✅ [PASS] 5. Fail-closed policy on migration error purges unverified credentials and requires re-login
+✅ [PASS] 6. validateUserId rejects email addresses, directory traversal, and special symbols
+✅ [PASS] 7. rotateRefreshToken updates SecureStore and invalidateSession cleanly wipes all credentials
+✅ [PASS] 8. SecureStore read failures are caught gracefully and return safe null fallbacks
+
+================================================================
+TOTAL: 8 | PASSED: 8 | FAILED: 0
+================================================================
+================================================================
+🧪 TEST SUITE: HARDWARE BIOMETRICS & LOCK ENFORCEMENT (MOB-006)
+================================================================
+
+✅ [PASS] 1. Successful biometric auth returns success and resumes app
+✅ [PASS] 2. User cancelled biometric auth returns isCancelled=true and keeps app in LOCKED state
+✅ [PASS] 3. Biometric lockout returns isLockout=true and directs to password fallback
+✅ [PASS] 4. No hardware or not enrolled transitions cleanly without unhandled rejection
+✅ [PASS] 5. Detects Android KeyPermanentlyInvalidatedException when OS fingerprints change
+✅ [PASS] 6. Detects iOS Keychain errSecAuthFailed when biometric authorization is invalidated
+✅ [PASS] 7. evaluateUnlockResult transitions to LOGGED_OUT and INVALIDATE_AND_LOGOUT when key is invalidated
+✅ [PASS] 8. Cold start with biometrics enabled enters LOCKED state immediately with ZERO network calls
+
+================================================================
+TOTAL: 8 | PASSED: 8 | FAILED: 0
+================================================================
+================================================================
+🧪 TEST SUITE: NAVIGATION LOCK GATE & DEEP LINK SECURITY (MOB-006)
+================================================================
+
+✅ [PASS] 1. Deep links received while locked are queued and NEVER mounted or navigated while locked
+✅ [PASS] 2. Parameter sanitization strips <script>, javascript: schemes, and path traversals
+✅ [PASS] 3. parseAndValidateDeepLink correctly parses valid product URL and rejects tampered params
+✅ [PASS] 4. Queued navigation to Buyer screen is executed after unlocking with Buyer role
+✅ [PASS] 5. Queued navigation to Admin screen is BLOCKED if unlocked as Buyer
+✅ [PASS] 6. Pending navigation request is wiped completely when user logs out or uses password
+✅ [PASS] 7. Account switching from Buyer to Seller resets state and restricts previous role screens
+
+================================================================
+TOTAL: 7 | PASSED: 7 | FAILED: 0
+================================================================
+================================================================
+🧪 TEST SUITE: ANDROID NATIVE SECURITY & PERMISSIONS (MOB-012)
+================================================================
+
+✅ [PASS] 1. Generated AndroidManifest.xml exists and is parseable
+✅ [PASS] 2. Manifest enforces android:allowBackup="false" under <application>
+✅ [PASS] 3. Manifest references dataExtractionRules and fullBackupContent XML resources
+✅ [PASS] 4. secure_data_extraction_rules.xml excludes both cloud-backup and device-transfer
+✅ [PASS] 5. secure_full_backup_content.xml excludes sharedpref, database, root, and file storage
+✅ [PASS] 6. All unneeded permissions are stripped via tools:node="remove" in manifest
+✅ [PASS] 7. Legitimate permissions required for business features are retained
+✅ [PASS] 8. Manifest has zero duplicate uses-permission tags
+✅ [PASS] 9. iOS Info.plist configuration has Face ID and no microphone or background location permissions
+
+================================================================
+TOTAL: 9 | PASSED: 9 | FAILED: 0
+================================================================
+================================================================
+🧪 TEST SUITE: MOBILE NETWORK SECURITY & API HARDENING (MOB-013)
+================================================================
+
+✅ [PASS] 1. HTTPS production API configuration is accepted and sanitized
+✅ [PASS] 2. HTTP development endpoint is allowed only with explicit opt-in or loopback
+✅ [PASS] 3. Insecure HTTP is strictly rejected for production builds
+✅ [PASS] 4. Production build guard fails closed when ALLOW_CLEARTEXT=1 is enabled in production
+✅ [PASS] 5. Missing production API URL safely defaults to approved HTTPS domain, never localhost
+✅ [PASS] 6. Hostnames outside the approved production allowlist are rejected
+✅ [PASS] 7. Rejects pseudo-protocols (javascript:, file:, data:) from any request destination
+✅ [PASS] 8. AndroidManifest.xml enforces android:usesCleartextTraffic="false"
+✅ [PASS] 9. network_security_config.xml denies cleartext HTTP and is linked in manifest
+✅ [PASS] 10. iOS ATS configuration denies arbitrary loads (NSAllowsArbitraryLoads: false)
+✅ [PASS] 11. EXPO_PUBLIC_* variables in .env and .env.example contain zero private secrets
+✅ [PASS] 12. Compiled JS bundle contains zero leaked private keys, database URLs, or secret tokens
+✅ [PASS] 13. Request destination validation blocks dangerous protocols and unapproved external hosts
+✅ [PASS] 14. Flexible HTTPS allowlist permits *.marketplace.eg and build-configured cloud Pilot endpoints
+
+================================================================
+TOTAL: 14 | PASSED: 14 | FAILED: 0
+================================================================
+🧪 Starting MOB-005 & MOB-010 Token Lifecycle, Refresh & Logout Tests...
+
+✅ Test 1 Passed: Multiple concurrent 401s shared one refresh Promise
+✅ Test 2 Passed: Exactly one refresh request was sent to the server
+✅ Test 3 Passed: Successful token rotation into SecureStore with zero AsyncStorage leak
+✅ Test 4 Passed: Failed refresh cleans up single-flight state and propagates error
+✅ Test 5 Passed: Invalid refresh token rejected properly
+✅ Test 6 Passed: Expired refresh token rejected without loops
+✅ Test 7 Passed: Refresh network timeout handled cleanly
+✅ Test 8 Passed: Session Epoch guard prevented session resurrection on in-flight refresh
+✅ Test 9 Passed: Account switching safely isolates push tokens and revokes prior binding
+✅ Test 10 Passed: Centralized logout invoked server session revocation
+✅ Test 11 Passed: Push token unregistration executed and local storage keys removed
+✅ Test 12 Passed: Guest cart legacy migration, login merge, and logout preservation verified
+✅ Test 13 Passed: User private cache (@marketplace_cart_user_*) cleared on logout
+✅ Test 14 Passed: Zero authentication credentials or JWTs found in AsyncStorage
+✅ Test 15 Passed: Production ErrorBoundary sanitizes JWTs, emails, phones, and paths
+✅ Test 16 Passed: Development ErrorBoundary provides detailed diagnostics for debugging
+
+🎉 All 16/16 Phase 4 Token Lifecycle & Logout tests PASSED successfully!
+
+================================================================
+🧪 TEST SUITE: MOBILE TWO-FACTOR AUTHENTICATION (MOB-005)
+================================================================
+
+✅ Test 1 Passed: Initial login requiring 2FA returned challenge token without granting session
+✅ Test 2 Passed: TwoFactorToken kept strictly in-memory; zero persistent storage writes
+✅ Test 3 Passed: User role and session remain unauthenticated during challenge
+✅ Test 4 & 5 Passed: Valid TOTP verification established session and persisted in SecureStore
+✅ Test 6 Passed: TwoFactorToken purged from memory immediately upon completion
+✅ Test 7 Passed: Invalid TOTP code rejected; unauthorized access blocked
+✅ Test 8 Passed: Expired challenge token handled and safely reset
+✅ Test 9 Passed: First-time 2FA activation safely forwarded setup key
+✅ Test 10 Passed: Zero 2FA challenge tokens or credentials leaked to AsyncStorage
+✅ Test 11 Passed: Alphanumeric backup recovery code verified and session established
+
+================================================================
+TOTAL: 11 | PASSED: 11 | FAILED: 0
+================================================================
+
+
+> marketplacemobile@1.0.0 test:biometrics
+> node tests/test_biometric_lock_state_machine_mock.js && node tests/test_biometric_cold_start_and_use_password_mock.js
+
+================================================================
+🧪 BIOMETRIC LOCK / UNLOCK STATE MACHINE UNIT TESTS
+================================================================
+
+✅ PASS: Cold start: biometrics enabled + refresh token -> transitions to LOCKED
+✅ PASS: Cold start: biometrics disabled -> transitions to UNLOCKED
+✅ PASS: Cold start: no refresh token -> transitions to LOGGED_OUT
+✅ PASS: Resume < 2 minutes (e.g. 45s): remains UNLOCKED
+✅ PASS: Resume < 2 minutes (boundary 119,999ms): remains UNLOCKED
+✅ PASS: Resume exactly 2 minutes (120,000ms): transitions to LOCKED
+✅ PASS: Resume > 2 minutes (e.g. 5m): transitions to LOCKED
+✅ PASS: Resume > 2 minutes but biometrics disabled: remains UNLOCKED
+✅ PASS: Resume > 2 minutes but no refresh token: transitions to LOGGED_OUT
+✅ PASS: Custom configurable timeout (e.g. 30s): locks after 31s
+✅ PASS: Unlock prompt: biometric success + refresh success -> transitions to UNLOCKED and resumes app
+✅ PASS: Unlock prompt: biometric cancelled/failed -> remains LOCKED with retry
+✅ PASS: Unlock prompt: biometric succeeded but backend refresh failed (401/expired) -> transitions to LOGGED_OUT
+✅ PASS: Fresh install detection: first run wipes credentials and marks initialized
+
+================================================================
+TOTAL: 14 | PASSED: 14 | FAILED: 0
+================================================================
+================================================================
+🧪 RUNNING B.2 & B.4 BIOMETRIC COLD START & LOGOUT UNIT TESTS
+================================================================
+
+--- TEST 1: Cold start with biometrics enabled makes ZERO network calls ---
+✅ TEST 1 PASSED: App locked immediately with 0 network calls.
+
+--- TEST 2: Successful biometric unlock performs refresh and unlocks ---
+✅ TEST 2 PASSED: Refresh executed only after unlock, tokens updated, app unlocked.
+
+--- TEST 3: "Use Password" revokes refresh token on server and wipes local credentials ---
+✅ TEST 3 PASSED: Server revocation called best-effort and local storage wiped.
+
+================================================================
+🎉 ALL B.2 AND B.4 UNIT TESTS PASSED SUCCESSFULLY! (3/3)
+================================================================
+
+
+> marketplacemobile@1.0.0 test:auth
+> node tests/test_auth_flows_mock.js && node tests/test_feature_gating_mock.js && node tests/test_single_flight_refresh_mock.js
+
+🧪 Starting Mobile Authentication Unit & Flow Tests...
+
+--- Test 1: i18n Locales Exact Parity ---
+✅ [PASS] i18n locale files in 100% sync (1108 keys, all auth keys present)
+
+--- Test 2: Egyptian Phone Validation & Normalization ---
+✅ [PASS] Egyptian phone validator, normalizer, and formatter all accurate
+
+--- Test 3: OTP 6-Box Logic Simulation ---
+✅ [PASS] OTP 6-digit input and paste handling verified
+
+--- Test 4: Cooldown 60s Resend State Machine ---
+✅ [PASS] 60-second cooldown timer state machine verified
+
+--- Test 5: AppNavigator Stack Screens Verification ---
+✅ [PASS] All 5 auth screens verified in AppNavigator (Login, Register, Verify, ForgotPassword, ResetPassword)
+
+🎉 ALL MOBILE AUTH COMPLETION TESTS PASSED SUCCESSFULLY!
+--- STARTING MOBILE FEATURE GATING UNIT TESTS ---
+[PASS] DEFAULT_CONFIG defaults every optional feature to OFF (false)
+[PASS] DEFAULT_CONFIG is immutable (frozen)
+[PASS] Returns all features OFF when API rejects (network down / 500)
+[PASS] Returns all features OFF when API response data is null or empty
+[PASS] Correctly parses and types boolean flags when API responds with true
+[PASS] Hides Google sign-in button when googleEnabled is false
+[PASS] Hides Wallet card and Coupon input in Checkout when flags are false
+[PASS] Hides Buyer Wallet section in Profile when walletEnabled is false
+[PASS] Hides Admin Payouts tab when vendorPayoutsEnabled and walletEnabled are false
+
+Results: 9 passed, 0 failed.
+--- Running Mobile Single-Flight Refresh Unit Tests ---
+[Test 1] 5 parallel requests with expired access token...
+✅ Test 1 Passed: Exactly ONE /auth/refresh call made, rotated tokens saved before resolving, all 5 requests succeeded.
+[Test 2] Sequential request with already refreshed token...
+✅ Test 2 Passed: No redundant refresh call when access token is already fresh.
+[Test 3] Refresh failure rejects all waiting callers and clears storage...
+✅ Test 3 Passed: In-flight refresh failure propagates cleanly to all 5 parallel callers.
+
+All Single-Flight Refresh Tests Passed Successfully!
+
+> marketplacemobile@1.0.0 test:search
+> node tests/test_mobile_smart_search.js
+
+
+[36m=======================================================
+   Mobile Smart Search (React Native) Test Suite       
+=======================================================[0m
+
+[35m[1/5] Mobile Search API Service (src/api/searchApi.js)[0m
+  [32m✔ PASS[0m: searchApi.js exists
+  [32m✔ PASS[0m: getSearchSuggestions targets /search/suggestions
+  [32m✔ PASS[0m: searchProducts targets /search/products
+  [32m✔ PASS[0m: searchApi supports AbortSignal cancellation
+
+[35m[2/5] Custom Hook (src/hooks/useSmartSearch.js)[0m
+  [32m✔ PASS[0m: useSmartSearch.js exists
+  [32m✔ PASS[0m: AsyncStorage imported
+  [32m✔ PASS[0m: 250ms debounce configured
+  [32m✔ PASS[0m: AbortController used for cancellation
+  [32m✔ PASS[0m: AsyncStorage key @marketplace_recent_searches used
+  [32m✔ PASS[0m: addRecentSearch helper defined
+  [32m✔ PASS[0m: removeRecentSearch helper defined
+  [32m✔ PASS[0m: clearRecentSearches helper defined
+  [32m✔ PASS[0m: clearSuggestions helper defined
+
+[35m[3/5] MobileSearchScreen Component (src/screens/buyer/MobileSearchScreen.js)[0m
+  [32m✔ PASS[0m: MobileSearchScreen.js exists
+  [32m✔ PASS[0m: keyboardShouldPersistTaps="handled" enabled on scroll views
+  [32m✔ PASS[0m: Section 1: DidYouMean chip supported
+  [32m✔ PASS[0m: Section 2: Suggested Close Keywords with auto-fill arrow supported
+  [32m✔ PASS[0m: Section 3: Matching Categories chips supported
+  [32m✔ PASS[0m: Section 4: Instant Product preview cards supported
+  [32m✔ PASS[0m: Section 5: Recent Searches supported when query is empty
+  [32m✔ PASS[0m: 2-column FlatList grid implemented for search results
+  [32m✔ PASS[0m: Infinite scroll pagination (onEndReached) supported
+  [32m✔ PASS[0m: Pull-to-refresh supported
+  [32m✔ PASS[0m: Filter and Sort Modal implemented
+  [32m✔ PASS[0m: Active filters count badge implemented
+  [32m✔ PASS[0m: Empty state displays popular search keyword chips
+
+[35m[4/5] Navigation Wiring[0m
+  [32m✔ PASS[0m: Search route pointing to MobileSearchScreen registered in AppNavigator
+  [32m✔ PASS[0m: CatalogScreen search bar navigates to Search screen
+
+[35m[5/5] i18n Translation Key Parity[0m
+  [32m✔ PASS[0m: ar.json contains search namespace
+  [32m✔ PASS[0m: en.json contains search namespace
+  [32m✔ PASS[0m: Exact key parity in mobile search namespace: AR=39, EN=39
+
+[36m=======================================================
+   Verification Complete: 31 Passed, 0 Failed
+=======================================================[0m
+

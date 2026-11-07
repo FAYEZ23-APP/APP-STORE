@@ -69,7 +69,7 @@ public class VerifyRequestValidator : AbstractValidator<VerifyRequest>
         RuleFor(x => x.Code)
             .NotEmpty()
             .Length(6)
-            .Matches(@"^\d{6}$")
+            .Length(6).Must(c => c != null && c.All(char.IsDigit))
             .WithMessage("Verification code must be exactly 6 digits.");
     }
 }
@@ -105,7 +105,7 @@ public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequ
         RuleFor(x => x.Code)
             .NotEmpty()
             .Length(6)
-            .Matches(@"^\d{6}$")
+            .Length(6).Must(c => c != null && c.All(char.IsDigit))
             .WithMessage("Verification code must be exactly 6 digits.");
 
         RuleFor(x => x.NewPassword)
@@ -134,14 +134,103 @@ public class GoogleAuthRequestValidator : AbstractValidator<GoogleAuthRequest>
 
 public class RefreshTokenRequestValidator : AbstractValidator<RefreshTokenRequest>
 {
-    public RefreshTokenRequestValidator()
+    public RefreshTokenRequestValidator(Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
     {
         RuleFor(x => x.RefreshToken)
             .NotEmpty()
+            .When(_ =>
+            {
+                var httpContext = httpContextAccessor?.HttpContext;
+                if (httpContext == null) return true;
+                var hasCookie = httpContext.Request.Cookies.ContainsKey("__Host-refresh_token") ||
+                                httpContext.Request.Cookies.ContainsKey("refresh_token");
+                return !hasCookie;
+            })
             .WithMessage("Refresh token is required.");
 
         RuleFor(x => x.DeviceId)
             .NotEmpty()
             .WithMessage("Device ID is required.");
     }
+
+public class LogoutRequestValidator : AbstractValidator<LogoutRequest>
+{
+    public LogoutRequestValidator()
+    {
+        RuleFor(x => x.RefreshToken)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.RefreshToken));
+
+        RuleFor(x => x.DeviceToken)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.DeviceToken));
+    }
+}
+
+public class TwoFactorVerifyRequestValidator : AbstractValidator<TwoFactorVerifyRequest>
+{
+    public TwoFactorVerifyRequestValidator()
+    {
+        RuleFor(x => x.TwoFactorToken)
+            .NotEmpty()
+            .MaximumLength(500)
+            .WithMessage("Two-factor authentication token is required.");
+
+        RuleFor(x => x.Code)
+            .NotEmpty()
+            .Matches("^[0-9]{6}$")
+            .WithMessage("Two-factor code must be a 6-digit numeric code.");
+    }
+}
+
+public class TwoFactorEnableRequestValidator : AbstractValidator<TwoFactorEnableRequest>
+{
+    public TwoFactorEnableRequestValidator()
+    {
+        RuleFor(x => x.Secret)
+            .NotEmpty()
+            .Length(16, 64)
+            .WithMessage("Two-factor secret is required.");
+
+        RuleFor(x => x.Code)
+            .NotEmpty()
+            .Matches("^[0-9]{6}$")
+            .WithMessage("Two-factor code must be a 6-digit numeric code.");
+    }
+}
+
+public class TwoFactorDisableRequestValidator : AbstractValidator<TwoFactorDisableRequest>
+{
+    public TwoFactorDisableRequestValidator()
+    {
+        RuleFor(x => x.Password)
+            .NotEmpty()
+            .MaximumLength(100)
+            .WithMessage("Current password is required to disable two-factor authentication.");
+    }
+}
+
+public class StepUpChallengeRequestValidator : AbstractValidator<StepUpChallengeRequest>
+{
+    public StepUpChallengeRequestValidator()
+    {
+        RuleFor(x => x.Password)
+            .NotEmpty()
+            .WithMessage("Admin step-up password is required.");
+
+        RuleFor(x => x.Scope)
+            .NotEmpty()
+            .MaximumLength(100)
+            .WithMessage("Operation scope is required.");
+
+        RuleFor(x => x.TotpCode)
+            .Matches("^[0-9]{6}$")
+            .When(x => !string.IsNullOrEmpty(x.TotpCode))
+            .WithMessage("TOTP code must be a 6-digit numeric string.");
+
+        RuleFor(x => x.TargetEntity)
+            .MaximumLength(100);
+    }
+}
+
 }

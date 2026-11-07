@@ -4,14 +4,15 @@ export const TOKEN_KEY = '@marketplace_token';
 export const REFRESH_TOKEN_KEY = '@marketplace_refresh_token';
 export const DEVICE_ID_KEY = '@marketplace_device_id';
 
-// In-Memory Token management with HttpOnly Cookie backing (WEB-003)
+// In-Memory Token management (deprecated - HttpOnly cookie session active per WEB-003)
 let inMemoryToken = null;
 
 export const getToken = () => inMemoryToken;
 export const setToken = (token) => {
-  inMemoryToken = token || null;
+  inMemoryToken = null; // Do not store token in memory for web requests
   try {
     localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
   } catch (_) {}
 };
 
@@ -19,6 +20,7 @@ export const getRefreshToken = () => null; // Refresh token stored securely in H
 export const setRefreshToken = () => {
   try {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   } catch (_) {}
 };
 
@@ -27,7 +29,25 @@ export const removeToken = () => {
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   } catch (_) {}
+};
+
+// ─── CSRF Token Management ──────────────────────────────────
+let currentCsrfToken = null;
+
+export const getCsrfToken = () => {
+  if (currentCsrfToken) return currentCsrfToken;
+  if (typeof document !== 'undefined' && document.cookie) {
+    const match = document.cookie.match(/(?:^|;\s*)(?:__Host-XSRF-TOKEN|XSRF-TOKEN)=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+};
+
+export const setCsrfToken = (token) => {
+  currentCsrfToken = token || null;
 };
 
 export const getDeviceId = () => {
@@ -60,8 +80,11 @@ export const setOnUnauthorized = (callback) => {
 const client = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-CSRF-TOKEN',
   headers: {
     'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
   },
 });
 
@@ -78,6 +101,12 @@ export const performSingleFlightRefresh = async () => {
   refreshPromise = (async () => {
     try {
       const deviceId = getDeviceId();
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+      const csrf = getCsrfToken();
+      if (csrf) headers['X-CSRF-TOKEN'] = csrf;
 
       // Send refresh request with credentials to transmit HttpOnly refresh_token cookie
       const refreshResponse = await axios.post(
@@ -88,19 +117,15 @@ export const performSingleFlightRefresh = async () => {
         },
         {
           withCredentials: true,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         }
       );
 
-      const newAccessToken =
-        refreshResponse.data?.accessToken || refreshResponse.data?.token;
-
-      if (!newAccessToken) {
-        throw new Error('No access token in refresh response');
+      if (refreshResponse.data?.csrfToken) {
+        setCsrfToken(refreshResponse.data.csrfToken);
       }
 
-      setToken(newAccessToken);
-      return newAccessToken;
+      return refreshResponse.data;
     } finally {
       isRefreshing = false;
       refreshPromise = null;
@@ -157,17 +182,29 @@ client.interceptors.request.use(
         payloadStr
       );
     }
-    const token = getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+
+    // Attach CSRF token on state-changing requests or when available
+    const csrf = getCsrfToken();
+    if (csrf) {
+      config.headers = config.headers || {};
+      config.headers['X-CSRF-TOKEN'] = csrf;
     }
+
+    // Never attach Bearer tokens from cookies or storage in browser environment
+    // Browser sends HttpOnly cookies automatically via withCredentials: true
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Capture CSRF token if returned in response
+    if (response.data?.csrfToken) {
+      setCsrfToken(response.data.csrfToken);
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
@@ -176,7 +213,8 @@ client.interceptors.response.use(
       url.includes('/auth/login') ||
       url.includes('/auth/register') ||
       url.includes('/auth/google') ||
-      url.includes('/auth/refresh');
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/csrf');
 
     if (status === 401 && !isAuthEndpoint && originalRequest) {
       if (originalRequest._retry) {
@@ -197,9 +235,13 @@ client.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const newAccessToken = await performSingleFlightRefresh();
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        await performSingleFlightRefresh();
+        // Cookie refreshed automatically; re-send request with updated CSRF header if available
+        const csrf = getCsrfToken();
+        if (csrf) {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers['X-CSRF-TOKEN'] = csrf;
+        }
         return client(originalRequest);
       } catch (refreshErr) {
         removeToken();

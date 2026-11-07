@@ -42,8 +42,11 @@ const LoginScreen = ({ navigation }) => {
 
   // Two-Factor Authentication state
   const [twoFactorToken, setTwoFactorToken] = useState(null);
+  const [twoFactorSecret, setTwoFactorSecret] = useState(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
 
   // Animations
   const [fadeAnim] = useState(() => new Animated.Value(0));
@@ -98,6 +101,7 @@ const LoginScreen = ({ navigation }) => {
       const res = await login(cleanIdentifier, password);
       if (res?.requiresTwoFactor) {
         setTwoFactorToken(res.twoFactorToken);
+        setTwoFactorSecret(res.manualEntryKey || null);
         setTwoFactorCode('');
         return;
       }
@@ -121,16 +125,38 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleVerifyTwoFactor = async (codeOverride) => {
-    const code = (codeOverride || twoFactorCode).trim();
-    if (!code || code.length < 6) {
-      Alert.alert(t('common.error'), t('auth.twoFactorInvalidCode'));
-      return;
+    let code;
+    if (useRecoveryCode) {
+      code = recoveryCode.trim();
+      if (!code || code.length < 6) {
+        Alert.alert(t('common.error'), t('auth.twoFactorInvalidRecovery'));
+        return;
+      }
+    } else {
+      code = (codeOverride || twoFactorCode).trim();
+      if (!code || code.length < 6) {
+        Alert.alert(t('common.error'), t('auth.twoFactorInvalidCode'));
+        return;
+      }
     }
 
     setTwoFactorLoading(true);
     try {
-      await completeTwoFactorLogin(twoFactorToken, code);
+      await completeTwoFactorLogin(twoFactorToken, code, twoFactorSecret);
     } catch (err) {
+      const isExpired =
+        err.response?.status === 401 ||
+        err.response?.data?.error?.includes('expired') ||
+        err.response?.data?.message?.includes('expired');
+      if (isExpired) {
+        setTwoFactorToken(null);
+        setTwoFactorSecret(null);
+        setTwoFactorCode('');
+        setRecoveryCode('');
+        setUseRecoveryCode(false);
+        Alert.alert(t('common.error'), t('auth.twoFactorExpired'));
+        return;
+      }
       Alert.alert(
         t('common.error'),
         err.response?.data?.error || err.response?.data?.message || t('auth.twoFactorFailed')
@@ -190,27 +216,76 @@ const LoginScreen = ({ navigation }) => {
                   </View>
                   <Text style={styles.title}>{t('auth.twoFactorTitle')}</Text>
                   <Text style={[styles.subtitle, { textAlign: 'center' }]}>
-                    {t('auth.twoFactorPrompt')}
+                    {useRecoveryCode ? t('auth.twoFactorRecoveryPrompt') : t('auth.twoFactorPrompt')}
                   </Text>
                 </View>
 
-                <View style={{ marginVertical: 12, alignItems: 'center' }}>
-                  <OtpInput
-                    length={6}
-                    value={twoFactorCode}
-                    onChange={setTwoFactorCode}
-                    onComplete={(code) => handleVerifyTwoFactor(code)}
-                    disabled={twoFactorLoading}
-                  />
-                </View>
+                {twoFactorSecret ? (
+                  <View style={styles.twoFactorSetupBox}>
+                    <Text style={styles.twoFactorSetupLabel}>
+                      {t('auth.twoFactorSetupPrompt')}
+                    </Text>
+                    <Text style={styles.twoFactorSetupKey} selectable={true}>
+                      {twoFactorSecret}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {useRecoveryCode ? (
+                  <View style={{ marginVertical: 12, width: '100%' }}>
+                    <View style={styles.recoveryInputContainer}>
+                      <TextInput
+                        style={styles.recoveryInput}
+                        value={recoveryCode}
+                        onChangeText={(text) => setRecoveryCode(text.toUpperCase())}
+                        placeholder={t('auth.twoFactorRecoveryPlaceholder')}
+                        placeholderTextColor={colors.textSecondary}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        editable={!twoFactorLoading}
+                        maxLength={19}
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ marginVertical: 12, alignItems: 'center' }}>
+                    <OtpInput
+                      length={6}
+                      value={twoFactorCode}
+                      onChange={setTwoFactorCode}
+                      onComplete={(code) => handleVerifyTwoFactor(code)}
+                      disabled={twoFactorLoading}
+                    />
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setUseRecoveryCode((prev) => !prev);
+                    setTwoFactorCode('');
+                    setRecoveryCode('');
+                  }}
+                  style={{ marginBottom: 16, alignItems: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={useRecoveryCode ? t('auth.twoFactorUseOtp') : t('auth.twoFactorUseRecovery')}
+                >
+                  <Text style={styles.toggleRecoveryText}>
+                    {useRecoveryCode ? t('auth.twoFactorUseOtp') : t('auth.twoFactorUseRecovery')}
+                  </Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => handleVerifyTwoFactor()}
-                  disabled={twoFactorLoading || twoFactorCode.trim().length < 6}
+                  disabled={
+                    twoFactorLoading ||
+                    (useRecoveryCode ? recoveryCode.trim().length < 6 : twoFactorCode.trim().length < 6)
+                  }
                   activeOpacity={0.85}
                   style={[
                     styles.primaryButton,
-                    (twoFactorLoading || twoFactorCode.trim().length < 6) && styles.disabledButton,
+                    (twoFactorLoading ||
+                      (useRecoveryCode ? recoveryCode.trim().length < 6 : twoFactorCode.trim().length < 6)) &&
+                      styles.disabledButton,
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel={t('auth.confirm2FA')}
@@ -227,7 +302,10 @@ const LoginScreen = ({ navigation }) => {
                 <TouchableOpacity
                   onPress={() => {
                     setTwoFactorToken(null);
+                    setTwoFactorSecret(null);
                     setTwoFactorCode('');
+                    setRecoveryCode('');
+                    setUseRecoveryCode(false);
                   }}
                   style={[styles.bottomLink, { marginTop: 20 }]}
                   accessibilityRole="button"
@@ -426,6 +504,54 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
+  },
+  twoFactorSetupBox: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  twoFactorSetupLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  twoFactorSetupKey: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1.5,
+  },
+  recoveryInputContainer: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recoveryInput: {
+    fontSize: 20,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: 2,
+    textAlign: 'center',
+    width: '100%',
+  },
+  toggleRecoveryText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   twoFactorIconBox: {
     width: 58,

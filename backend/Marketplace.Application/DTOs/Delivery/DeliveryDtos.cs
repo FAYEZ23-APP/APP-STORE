@@ -9,6 +9,22 @@ public class DeliveryCityDto
     public string Region { get; set; } = string.Empty;
 }
 
+
+public class PudoPointDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string Governorate { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string WorkHours { get; set; } = string.Empty;
+    public string Type { get; set; } = "SmartLocker";
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public double? DistanceKm { get; set; }
+    public decimal DiscountAmount { get; set; } = 15.00m;
+}
+
 public class PickupPointDto
 {
     public string Id { get; set; } = string.Empty;

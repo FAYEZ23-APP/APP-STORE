@@ -234,11 +234,15 @@ async function main() {
 
     const totpSetup = await api(baseUrl, 'POST', '/api/auth/2fa/setup', { token: adminToken });
     assert.strictEqual(totpSetup.status, 200, `Admin 2FA setup failed: ${totpSetup.status}`);
-    const adminTotpSecret = totpSetup.body.secret;
+    console.log('TOTP_SETUP_BODY:', totpSetup.body); const adminTotpSecret = totpSetup.body.secret;
+    const totpCode = generateTotp(adminTotpSecret); console.log('GENERATED_CODE:', JSON.stringify(totpCode));
     const totpEnable = await api(baseUrl, 'POST', '/api/auth/2fa/enable', {
       token: adminToken,
-      body: { secret: adminTotpSecret, code: generateTotp(adminTotpSecret) },
+      body: { secret: adminTotpSecret, code: totpCode },
     });
+    if (totpEnable.status !== 200) {
+      console.error('TOTP ENABLE FAILED:', totpEnable.status, totpEnable.body);
+    }
     assert.strictEqual(totpEnable.status, 200, `Admin 2FA enable failed: ${totpEnable.status}`);
 
     // Actors: Buyer A, Buyer B, Inactive Buyer, Seller A, Seller B
@@ -628,18 +632,22 @@ async function main() {
     recordCheck('R08', 'PUT /api/categories/{id:int} enforces Admin role', putCatSeller.status === 403 && putCatAdmin.status === 200, `Seller=${putCatSeller.status}, Admin=${putCatAdmin.status}`);
 
     // 9 & 10. DevCarrierController: POST settle-cod & PUT status
+    const devSettleNoSecret = await api(baseUrl, 'POST', `/api/dev/carrier/shipments/${ship3.id}/settle-cod`);
     const devSettleBadSecret = await api(baseUrl, 'POST', `/api/dev/carrier/shipments/${ship3.id}/settle-cod`, {
       headers: { 'X-Carrier-Dev-Secret': 'wrong-secret' },
     });
     const devSettleGoodSecret = await api(baseUrl, 'POST', `/api/dev/carrier/shipments/${ship3.id}/settle-cod`, {
       headers: { 'X-Carrier-Dev-Secret': 'dev-carrier-secret' },
     });
+    const devStatusNoSecret = await api(baseUrl, 'PUT', `/api/dev/carrier/shipments/${ship3.id}/status`, {
+      body: { status: 'Delivered' },
+    });
     const devStatusBadSecret = await api(baseUrl, 'PUT', `/api/dev/carrier/shipments/${ship3.id}/status`, {
       headers: { 'X-Carrier-Dev-Secret': 'wrong-secret' },
       body: { status: 'Delivered' },
     });
-    recordCheck('R09', 'POST /api/dev/carrier/shipments/{id:int}/settle-cod rejects invalid secret (401) & accepts valid secret in Dev', devSettleBadSecret.status === 401 && devSettleGoodSecret.status === 200, `BadSecret=${devSettleBadSecret.status}, ValidSecret=${devSettleGoodSecret.status}`);
-    recordCheck('R10', 'PUT /api/dev/carrier/shipments/{id:int}/status rejects invalid secret (401) & accepts valid secret in Dev', devStatusBadSecret.status === 401, `BadSecret=${devStatusBadSecret.status}`);
+    recordCheck('R09', 'POST /api/dev/carrier/shipments/{id:int}/settle-cod requires X-Carrier-Dev-Secret header (missing/wrong=401) & accepts valid secret in Dev', devSettleNoSecret.status === 401 && devSettleBadSecret.status === 401 && devSettleGoodSecret.status === 200, `NoSecret=${devSettleNoSecret.status}, BadSecret=${devSettleBadSecret.status}, ValidSecret=${devSettleGoodSecret.status}`);
+    recordCheck('R10', 'PUT /api/dev/carrier/shipments/{id:int}/status requires X-Carrier-Dev-Secret header (missing/wrong=401) & accepts valid secret in Dev', devStatusNoSecret.status === 401 && devStatusBadSecret.status === 401, `NoSecret=${devStatusNoSecret.status}, BadSecret=${devStatusBadSecret.status}`);
 
     // 11 & 24. Private Return Evidence File (GET /api/files/private/{fileName}) & Return Resolve (PUT /api/returns/{id:int}/resolve)
     const privUpload = await uploadImage('/api/files/private/return-evidence', buyerA.token, 'defect.jpg');
@@ -797,7 +805,7 @@ async function main() {
       'R36',
       'POST /api/orders/{id:int}/confirm enforces Buyer/Admin role & order.BuyerId == userId',
       confirmOrdBySeller.status === 403 &&
-        (confirmOrdByBuyerB.status === 403 || confirmOrdByBuyerB.status === 500) &&
+        confirmOrdByBuyerB.status === 403 &&
         ord1BeforeOwnerConfirm.body?.isBuyerConfirmed === false &&
         confirmOrdByBuyerA.status === 200 &&
         confirmOrdByBuyerA.body?.isBuyerConfirmed === true,

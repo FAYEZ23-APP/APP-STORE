@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddSingleton<ITwoFactorSecretProtector, AesGcmSecretProtector>();
         services.AddSingleton<ICsrfTokenService, CsrfTokenService>();
         services.AddSingleton<IStepUpAuthService, StepUpAuthService>();
+        services.AddSingleton<Marketplace.Application.Common.ISecurityEventLogger, Marketplace.Infrastructure.Logging.SecurityEventLogger>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         // Email and SMS Senders
@@ -98,15 +99,22 @@ public static class DependencyInjection
             }
         }
 
-        // Delivery Provider (selected by configuration, defaults to "Fake")
+        // Delivery Provider
+        services.AddSingleton<FakeDeliveryProvider>();
         var deliveryProviderName = configuration["Delivery:Provider"] ?? "Fake";
-        switch (deliveryProviderName.ToLowerInvariant())
+        if (string.Equals(deliveryProviderName, "Bosta", StringComparison.OrdinalIgnoreCase))
         {
-            case "fake":
-            default:
-                services.AddSingleton<IDeliveryProvider, FakeDeliveryProvider>();
-                break;
+            services.AddHttpClient<IDeliveryProvider, BostaDeliveryProvider>();
         }
+        else
+        {
+            services.AddSingleton<IDeliveryProvider>(sp => sp.GetRequiredService<FakeDeliveryProvider>());
+        }
+
+        // WhatsApp Cloud API
+        services.Configure<Marketplace.Application.Common.WhatsAppSettings>(
+            configuration.GetSection(Marketplace.Application.Common.WhatsAppSettings.SectionName));
+        services.AddHttpClient<IWhatsAppNotificationSender, Marketplace.Infrastructure.Notifications.CloudApiWhatsAppNotificationSender>();
 
         // Push Notifications (Expo / FCM) & Bounded In-Memory Queue
         services.AddHttpClient<IPushNotificationProvider, Marketplace.Infrastructure.Notifications.ExpoPushNotificationProvider>();
@@ -120,6 +128,10 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(8);
         });
 
+        // Payment Gateway (Paymob / Meeza) & ETA e-Invoicing
+        services.AddHttpClient<IPaymentGatewayProvider, Marketplace.Infrastructure.Payments.PaymobPaymentGatewayProvider>();
+        services.AddScoped<IEtaInvoiceService, Marketplace.Infrastructure.Services.EtaInvoiceService>();
+
         // Background Services
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.VerificationCodeCleanupService>();
         services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.NotificationCleanupService>();
@@ -127,6 +139,7 @@ public static class DependencyInjection
         services.AddSingleton<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>();
         services.AddSingleton<IRefreshTokenCleanupService>(sp => sp.GetRequiredService<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>());
         services.AddHostedService(sp => sp.GetRequiredService<Marketplace.Infrastructure.BackgroundServices.RefreshTokenCleanupService>());
+        services.AddHostedService<Marketplace.Infrastructure.BackgroundServices.FulfillmentSlaBackgroundService>();
 
         return services;
     }

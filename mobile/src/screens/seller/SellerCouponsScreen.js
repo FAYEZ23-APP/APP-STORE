@@ -164,7 +164,7 @@ export default function SellerCouponsScreen({ navigation }) {
   if (loading) {
     return (
       <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -173,7 +173,7 @@ export default function SellerCouponsScreen({ navigation }) {
     return (
       <View style={[tw`flex-1 justify-center items-center px-6`, { backgroundColor: colors.screenBg }]}>
         <MaterialCommunityIcons name="ticket-percent-outline" size={64} color="#94A3B8" />
-        <Text style={[tw`text-base font-bold text-slate-700 mt-4 text-center`]}>
+        <Text style={[tw`text-base font-bold text-[#1F2329] mt-4 text-center`]}>
           {t('coupons.disabledNotice')}
         </Text>
       </View>
@@ -184,7 +184,7 @@ export default function SellerCouponsScreen({ navigation }) {
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       <ScrollView
         contentContainerStyle={tw`pb-12`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         {/* Top Header */}
         <LinearGradient
@@ -260,7 +260,7 @@ export default function SellerCouponsScreen({ navigation }) {
                     <View style={tw`flex-row justify-between items-start mb-2`}>
                       <View style={tw`flex-row items-center`}>
                         <View style={tw`px-3 py-1 bg-orange-50 border border-orange-200 rounded-lg flex-row items-center`}>
-                          <MaterialCommunityIcons name="ticket-percent" size={16} color={colors.accent} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
+                          <MaterialCommunityIcons name="ticket-percent" size={16} color={colors.primary} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
                           <Text style={[tw`font-mono font-black text-sm`, { color: colors.accent }]}>
                             {coupon.code}
                           </Text>
@@ -299,11 +299,11 @@ export default function SellerCouponsScreen({ navigation }) {
                       </Text>
                       <View style={tw`flex-row flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-slate-500`}>
                         <Text style={tw`text-[11px] text-slate-500`}>
-                          {isRTL ? 'الحد الأدنى:' : 'Min Order:'} <Text style={tw`font-bold text-slate-700`}>{formatCurrency(coupon.minOrderSubtotal)}</Text>
+                          {isRTL ? 'الحد الأدنى:' : 'Min Order:'} <Text style={tw`font-bold text-[#1F2329]`}>{formatCurrency(coupon.minOrderSubtotal)}</Text>
                         </Text>
                         {coupon.maxDiscountAmount ? (
                           <Text style={tw`text-[11px] text-slate-500`}>
-                            {isRTL ? 'أقصى خصم:' : 'Max Discount:'} <Text style={tw`font-bold text-slate-700`}>{formatCurrency(coupon.maxDiscountAmount)}</Text>
+                            {isRTL ? 'أقصى خصم:' : 'Max Discount:'} <Text style={tw`font-bold text-[#1F2329]`}>{formatCurrency(coupon.maxDiscountAmount)}</Text>
                           </Text>
                         ) : null}
                       </View>
@@ -342,7 +342,7 @@ export default function SellerCouponsScreen({ navigation }) {
           <View style={tw`bg-white rounded-t-3xl p-6 max-h-[85%]`}>
             <View style={tw`flex-row justify-between items-center border-b border-slate-100 pb-3 mb-4`}>
               <View style={tw`flex-row items-center`}>
-                <MaterialCommunityIcons name="ticket-percent" size={22} color={colors.accent} style={isRTL ? tw`ml-2` : tw`mr-2`} />
+                <MaterialCommunityIcons name="ticket-percent" size={22} color={colors.primary} style={isRTL ? tw`ml-2` : tw`mr-2`} />
                 <Text style={tw`text-base font-black text-slate-900`}>{t('coupons.createCoupon')}</Text>
               </View>
               <TouchableOpacity accessible={true} accessibilityRole="button"
@@ -364,7 +364,7 @@ export default function SellerCouponsScreen({ navigation }) {
 
               {/* Code */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>{t('coupons.code')} *</Text>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>{t('coupons.code')} *</Text>
                 <TextInput accessibilityLabel="Input" accessible={true}
                   value={code}
                   onChangeText={(val) => setCode(val.toUpperCase())}
@@ -380,7 +380,7 @@ export default function SellerCouponsScreen({ navigation }) {
 
               {/* Discount Type */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-2`}>{t('coupons.discountType')} *</Text>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-2`}>{t('coupons.discountType')} *</Text>
                 <View style={tw`flex-row gap-2`}>
                   {[
                     { key: 'Percentage', label: t('coupons.percentage'), icon: 'percent' },
@@ -407,7 +407,7 @@ export default function SellerCouponsScreen({ navigation }) {
                         <Text
                           style={[
                             tw`text-xs font-bold`,
-                            isSelected ? tw`text-white` : tw`text-slate-700`,
+                            isSelected ? tw`text-white` : tw`text-[#1F2329]`,
                           ]}
                         >
                           {m.label}
@@ -420,7 +420,7 @@ export default function SellerCouponsScreen({ navigation }) {
 
               {/* Discount Value */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                   {t('coupons.discountValue')} ({discountType === 'Percentage' ? '%' : 'EGP'}) *
                 </Text>
                 <TextInput
@@ -438,7 +438,7 @@ export default function SellerCouponsScreen({ navigation }) {
 
               {/* Min Order Subtotal */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                   {t('coupons.minOrderSubtotal')}
                 </Text>
                 <TextInput
@@ -457,7 +457,7 @@ export default function SellerCouponsScreen({ navigation }) {
               {/* Max Discount (if Percentage) */}
               {discountType === 'Percentage' ? (
                 <View style={tw`mb-4`}>
-                  <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                  <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                     {t('coupons.maxDiscountAmount')}
                   </Text>
                   <TextInput
@@ -477,7 +477,7 @@ export default function SellerCouponsScreen({ navigation }) {
               {/* Limits and Validity Row */}
               <View style={tw`flex-row gap-3 mb-6`}>
                 <View style={tw`flex-1`}>
-                  <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                  <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                     {t('coupons.maxUsage')}
                   </Text>
                   <TextInput
@@ -494,7 +494,7 @@ export default function SellerCouponsScreen({ navigation }) {
                 </View>
 
                 <View style={tw`flex-1`}>
-                  <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                  <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                     {t('coupons.daysValid')}
                   </Text>
                   <TextInput

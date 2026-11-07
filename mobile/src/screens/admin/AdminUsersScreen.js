@@ -296,7 +296,7 @@ export default function AdminUsersScreen() {
 
       {loading && !refreshing ? (
         <View style={tw`flex-1 justify-center items-center`}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error && users.length === 0 ? (
         <ErrorState text={error} retryLabel={t('common.retry')} onRetry={fetchUsers} />
@@ -315,8 +315,8 @@ export default function AdminUsersScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[colors.accent]}
-              tintColor={colors.accent}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={

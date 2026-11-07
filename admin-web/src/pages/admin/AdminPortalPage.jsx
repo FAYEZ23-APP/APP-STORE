@@ -19,6 +19,8 @@ import {
   DollarSign,
   ArrowUpRight,
   ShieldAlert,
+  Truck,
+  PhoneOff,
   Star,
   MessageSquare,
   Eye,
@@ -47,12 +49,16 @@ import {
   hideReview,
   unhideReview,
   getAdminAuditLogs,
+  getCodBlacklist,
+  addToCodBlacklist,
+  removeFromCodBlacklist,
 } from '../../api/adminApi';
 import {
   getTwoFactorStatus,
   setupTwoFactor,
   enableTwoFactor,
   disableTwoFactor,
+  stepUpChallenge,
 } from '../../api/authApi';
 import {
   getCategories,
@@ -100,6 +106,7 @@ export default function AdminPortalPage() {
   const [processLoading, setProcessLoading] = useState(false);
   const [appConfig, setAppConfig] = useState(null);
   const [stepUpPassword, setStepUpPassword] = useState('');
+  const [stepUpTotp, setStepUpTotp] = useState('');
   const [stepUpError, setStepUpError] = useState(null);
   const [stepUpRequired, setStepUpRequired] = useState(true);
 
@@ -130,6 +137,112 @@ export default function AdminPortalPage() {
   const [auditTotalCount, setAuditTotalCount] = useState(0);
   const [auditEntityTypeFilter, setAuditEntityTypeFilter] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState('');
+
+  // Returns & Disputes State (GAP-SEL-03 & GAP-ORD-03)
+  const [adminReturns, setAdminReturns] = useState([]);
+  const [adminReturnsLoading, setAdminReturnsLoading] = useState(false);
+  const [returnDisputeFilter, setReturnDisputeFilter] = useState(false);
+  const [selectedDispute, setSelectedDispute] = useState(null);
+  const [disputeDecision, setDisputeDecision] = useState('FavorBuyer');
+  const [disputeNotes, setDisputeNotes] = useState('');
+  const [submittingDisputeResolution, setSubmittingDisputeResolution] = useState(false);
+
+  const fetchAdminReturns = async (isDisputedOnly = returnDisputeFilter) => {
+    setAdminReturnsLoading(true);
+    try {
+      const res = await getAdminReturns(isDisputedOnly ? { isDisputed: true } : {});
+      setAdminReturns(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Failed to load admin returns:', err);
+      setBannerMsg({ type: 'error', text: err?.response?.data?.message || (isRTL ? 'فشل تحميل قائمة المرتجعات' : 'Failed to load returns') });
+    } finally {
+      setAdminReturnsLoading(false);
+    }
+  };
+
+  const handleResolveDisputeSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedDispute || submittingDisputeResolution) return;
+    try {
+      setSubmittingDisputeResolution(true);
+      await resolveReturnDispute(selectedDispute.id, {
+        decision: disputeDecision,
+        resolutionNotes: disputeNotes.trim() || undefined,
+      });
+      setBannerMsg({
+        type: 'success',
+        text: isRTL ? 'تم الفصل في النزاع بنجاح' : 'Dispute resolved successfully',
+      });
+      setSelectedDispute(null);
+      setDisputeNotes('');
+      await fetchAdminReturns();
+    } catch (err) {
+      console.error('Failed to resolve dispute:', err);
+      setBannerMsg({
+        type: 'error',
+        text: err?.response?.data?.error || err?.response?.data?.message || (isRTL ? 'فشل الفصل في النزاع' : 'Failed to resolve dispute'),
+      });
+    } finally {
+      setSubmittingDisputeResolution(false);
+    }
+  };
+
+  // COD Blacklist State (GAP-ADM-02 & GAP-ORD-05)
+  const [codBlacklist, setCodBlacklist] = useState([]);
+  const [codBlacklistLoading, setCodBlacklistLoading] = useState(false);
+  const [showAddBlacklistModal, setShowAddBlacklistModal] = useState(false);
+  const [blacklistPhone, setBlacklistPhone] = useState('');
+  const [blacklistReason, setBlacklistReason] = useState('');
+  const [blacklistRiskScore, setBlacklistRiskScore] = useState(100);
+  const [blacklistSubmitting, setBlacklistSubmitting] = useState(false);
+
+  const fetchCodBlacklist = async () => {
+    setCodBlacklistLoading(true);
+    try {
+      const res = await getCodBlacklist();
+      setCodBlacklist(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Failed to load COD blacklist:', err);
+      setBannerMsg({ type: 'error', text: err?.response?.data?.message || (isRTL ? 'فشل تحميل قائمة حظر COD' : 'Failed to load COD blacklist') });
+    } finally {
+      setCodBlacklistLoading(false);
+    }
+  };
+
+  const handleAddToBlacklist = async (e) => {
+    e.preventDefault();
+    if (!blacklistPhone.trim() || !blacklistReason.trim()) return;
+    setBlacklistSubmitting(true);
+    try {
+      await addToCodBlacklist({
+        phone: blacklistPhone.trim(),
+        reason: blacklistReason.trim(),
+        riskScore: Number(blacklistRiskScore) || 100,
+        isBlocked: true,
+      });
+      setShowAddBlacklistModal(false);
+      setBlacklistPhone('');
+      setBlacklistReason('');
+      setBlacklistRiskScore(100);
+      setBannerMsg({ type: 'success', text: isRTL ? 'تمت إضافة الرقم لقائمة حظر COD بنجاح' : 'Phone added to COD blacklist successfully' });
+      await fetchCodBlacklist();
+    } catch (err) {
+      setBannerMsg({ type: 'error', text: err?.response?.data?.message || (isRTL ? 'فشل إضافة الرقم' : 'Failed to add phone') });
+    } finally {
+      setBlacklistSubmitting(false);
+    }
+  };
+
+  const handleRemoveFromBlacklist = async (id) => {
+    if (!window.confirm(isRTL ? 'هل أنت متأكد من فك الحظر وحذف هذا الرقم؟' : 'Are you sure you want to unblock this number?')) return;
+    try {
+      await removeFromCodBlacklist(id);
+      setBannerMsg({ type: 'success', text: isRTL ? 'تم فك الحظر بنجاح' : 'Unblocked successfully' });
+      await fetchCodBlacklist();
+    } catch (err) {
+      setBannerMsg({ type: 'error', text: err?.response?.data?.message || (isRTL ? 'فشل فك الحظر' : 'Failed to unblock') });
+    }
+  };
 
   // Shipments & Delivery Operations State (GAP-REL-03 & GAP-ADM-01)
   const [shipments, setShipments] = useState([]);
@@ -263,6 +376,8 @@ export default function AdminPortalPage() {
       fetchAuditLogs(1);
     } else if (activeTab === 'security') {
       fetchTwoFactorStatus();
+    } else if (activeTab === 'cod-blacklist') {
+      fetchCodBlacklist();
     }
   }, [activeTab, reviewFilter, auditEntityTypeFilter, auditActionFilter]);
 
@@ -471,6 +586,7 @@ export default function AdminPortalPage() {
       setSelectedUser(null);
       setStatusReason('');
       setStepUpPassword('');
+      setStepUpTotp('');
       setStepUpError(null);
 
       // Refresh users
@@ -516,6 +632,7 @@ export default function AdminPortalPage() {
       setSelectedPayout(null);
       setAdminNotes('');
       setStepUpPassword('');
+      setStepUpTotp('');
       setStepUpError(null);
 
       // Refresh payouts & stats
@@ -659,6 +776,30 @@ export default function AdminPortalPage() {
           >
             <ClipboardList className="w-4 h-4" />
             <span>{t('adminPortal.tabs.auditLogs')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('shipments')}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'shipments'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-black'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>{t('adminPortal.tabs.shipments', isRTL ? 'الشحنات والعمليات' : 'Shipments')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('cod-blacklist')}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'cod-blacklist'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-black'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>{t('adminPortal.tabs.codBlacklist', isRTL ? 'حظر الدفع عند الاستلام' : 'COD Blacklist')}</span>
           </button>
 
           <button
@@ -1789,6 +1930,213 @@ export default function AdminPortalPage() {
         </div>
       )}
 
+      {/* TAB 9: COD REFUSAL BLACKLIST (GAP-ADM-02 & GAP-ORD-05) */}
+      {activeTab === 'cod-blacklist' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-black text-base text-slate-900">
+                    {t('adminPortal.codBlacklist.title', isRTL ? 'قائمة حظر الدفع عند الاستلام (COD Blacklist)' : 'COD Refusal Blacklist')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t('adminPortal.codBlacklist.subtitle', isRTL ? 'إدارة العملاء وأرقام الهواتف المحظورة من خيار الدفع عند الاستلام بسبب تكرار رفض الاستلام أو الاحتيال' : 'Manage phone numbers and buyers blocked from Cash on Delivery due to serial doorstep refusals')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBlacklistModal(true)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md shadow-rose-600/20 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isRTL ? 'إضافة رقم للقائمة' : 'Block Phone'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchCodBlacklist}
+                  disabled={codBlacklistLoading}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${codBlacklistLoading ? 'animate-spin' : ''}`} />
+                  <span>{t('common.refresh')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Blacklist Table */}
+            {codBlacklistLoading ? (
+              <div className="py-12 flex justify-center items-center text-slate-400 gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-red-600" />
+                <span className="text-xs font-bold">{t('common.loading')}</span>
+              </div>
+            ) : codBlacklist.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <ShieldCheck className="w-10 h-10 mx-auto text-emerald-400" />
+                <p className="text-xs font-bold">{isRTL ? 'قائمة الحظر فارغة حالياً' : 'No blacklisted entries found'}</p>
+                <p className="text-[11px] text-slate-400">{isRTL ? 'يتم إدراج الأرقام تلقائياً عند 3 مرات رفض متتالية، أو يدوياً عبر الزر أعلاه.' : 'Entries are added automatically after 3 refusals or manually.'}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                <table className="w-full text-xs text-start">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold">
+                      <th className="p-3.5 text-start">{isRTL ? 'رقم الهاتف' : 'Phone'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'المستخدم' : 'Buyer'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'سبب الإدراج' : 'Reason'}</th>
+                      <th className="p-3.5 text-center">{isRTL ? 'مرات الرفض' : 'Refusals'}</th>
+                      <th className="p-3.5 text-center">{isRTL ? 'مؤشر المخاطر' : 'Risk Score'}</th>
+                      <th className="p-3.5 text-center">{isRTL ? 'الحالة' : 'Status'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'التاريخ' : 'Date'}</th>
+                      <th className="p-3.5 text-center">{isRTL ? 'الإجراءات' : 'Actions'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {codBlacklist.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-slate-900" dir="ltr">
+                          {entry.phoneNormalized}
+                        </td>
+                        <td className="p-3.5 text-slate-700">
+                          {entry.userName || (entry.userId ? `ID: #${entry.userId}` : (isRTL ? 'غير مسجل' : 'Guest/External'))}
+                        </td>
+                        <td className="p-3.5 text-slate-600 max-w-xs truncate" title={entry.reason}>
+                          {entry.reason}
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold text-rose-600">
+                          {entry.refusalCount}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full font-mono font-bold text-[10px] ${
+                            entry.riskScore >= 90 ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {entry.riskScore}/100
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
+                            entry.isBlocked ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {entry.isBlocked ? (isRTL ? 'محظور COD' : 'COD Blocked') : (isRTL ? 'مفعل' : 'Active')}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-400 text-[11px]">
+                          {new Date(entry.createdAt).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US')}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromBlacklist(entry.id)}
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 text-rose-600 hover:text-rose-700 border border-slate-200 rounded-lg text-[11px] font-bold shadow-sm transition-all"
+                          >
+                            {isRTL ? 'فك الحظر / حذف' : 'Unblock / Delete'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD PHONE TO COD BLACKLIST */}
+      {showAddBlacklistModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true" aria-label="حظر رقم من الدفع عند الاستلام">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-black text-sm text-slate-900">
+                  {isRTL ? 'إدراج رقم في قائمة حظر COD' : 'Add Phone to COD Blacklist'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {isRTL ? 'سيتم منع أي طلب دفع عند الاستلام مرتبط بهذا الرقم فوراً' : 'Any COD order associated with this phone will be blocked immediately'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddBlacklistModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddToBlacklist} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {isRTL ? 'رقم الهاتف المصري' : 'Egyptian Phone Number'} *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={blacklistPhone}
+                  onChange={(e) => setBlacklistPhone(e.target.value)}
+                  placeholder="01012345678"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {isRTL ? 'سبب الحظر أو الإدراج' : 'Reason for Blocking'} *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={blacklistReason}
+                  onChange={(e) => setBlacklistReason(e.target.value)}
+                  placeholder={isRTL ? 'رفض استلام متكرر عند الباب، عنوان وهمي، أو بلاغ احتيال...' : 'Serial doorstep refusal, fake address, or fraud report...'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {isRTL ? 'مؤشر المخاطر (0-100)' : 'Risk Score (0-100)'}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={blacklistRiskScore}
+                  onChange={(e) => setBlacklistRiskScore(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBlacklistModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={blacklistSubmitting || !blacklistPhone || !blacklistReason}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-600/20 disabled:opacity-50"
+                >
+                  {blacklistSubmitting ? t('common.loading') : (isRTL ? 'حفظ الحظر' : 'Save Block')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* TAB 8: SHIPMENTS & OPERATIONS (GAP-REL-03 & GAP-ADM-01) */}
       {activeTab === 'shipments' && (
         <div className="space-y-6 animate-in fade-in">
@@ -2067,6 +2415,258 @@ export default function AdminPortalPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 10: RETURNS & DISPUTES ARBITRATION (GAP-SEL-03 & GAP-ORD-03) */}
+      {activeTab === 'returns' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <RotateCcw className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-black text-base text-slate-900">
+                    {t('adminPortal.returns.title', isRTL ? 'إدارة المرتجعات وفصل النزاعات التجارية' : 'Returns & Dispute Arbitration')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t('adminPortal.returns.subtitle', isRTL ? 'متابعة طلبات الإرجاع وقانون حماية المستهلك 181/2018 والفصل الإداري في نزاعات التجار للطّرود التالفة' : 'Audit return requests, enforce Law 181/2018 compliance, and arbitrate damaged/swapped parcel disputes')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !returnDisputeFilter;
+                    setReturnDisputeFilter(next);
+                    fetchAdminReturns(next);
+                  }}
+                  className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all ${
+                    returnDisputeFilter
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{isRTL ? 'النزاعات المعلقة فقط' : 'Disputed Only'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchAdminReturns(returnDisputeFilter)}
+                  disabled={adminReturnsLoading}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${adminReturnsLoading ? 'animate-spin' : ''}`} />
+                  <span>{t('common.refresh')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Returns Table */}
+            {adminReturnsLoading ? (
+              <div className="py-12 flex justify-center items-center text-slate-400 gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-orange-600" />
+                <span className="text-xs font-bold">{t('common.loading')}</span>
+              </div>
+            ) : adminReturns.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <ShieldCheck className="w-10 h-10 mx-auto text-emerald-400" />
+                <p className="text-xs font-bold">{isRTL ? 'لا توجد طلبات إرجاع مطابقة' : 'No return requests found'}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-start text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                      <th className="p-3.5 text-start">ID / Order</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'المشتري والمنتج' : 'Buyer & Product'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'المبلغ والكمية' : 'Amount & Qty'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'قانون 181 / الفئة' : 'Law 181 Category'}</th>
+                      <th className="p-3.5 text-start">{isRTL ? 'الحالة والشحن العكسي' : 'Status & Reverse Tracking'}</th>
+                      <th className="p-3.5 text-end">{isRTL ? 'الإجراءات' : 'Actions'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {adminReturns.map((ret) => (
+                      <tr key={ret.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5">
+                          <span className="font-bold text-slate-900 block">#{ret.id}</span>
+                          <span className="text-slate-400 text-[11px]">Order #{ret.orderId}</span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="font-bold text-slate-800 block">{ret.productName}</span>
+                          <span className="text-slate-500 text-[11px]">{ret.buyerName}</span>
+                        </td>
+                        <td className="p-3.5 font-mono">
+                          <span className="font-bold text-emerald-600 block">{formatCurrency(ret.refundAmount)}</span>
+                          <span className="text-slate-500 text-[11px]">{ret.quantity} pcs</span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                            {ret.category === 'ManufacturingDefect30Day'
+                              ? (isRTL ? 'عيب صناعة (30 يوماً)' : 'Defect (30d)')
+                              : (isRTL ? 'عدول (14 يوماً)' : 'Standard (14d)')}
+                          </span>
+                        </td>
+                        <td className="p-3.5 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            {ret.isDisputed && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                                {isRTL ? 'قيد النزاع' : 'Disputed'}
+                              </span>
+                            )}
+                            <span className="font-semibold text-slate-700 text-[11px]">{ret.status}</span>
+                          </div>
+                          {ret.reverseTrackingNumber && (
+                            <span className="font-mono text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 block w-max">
+                              {ret.reverseTrackingNumber}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-end">
+                          {ret.isDisputed ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDispute(ret);
+                                setDisputeDecision('FavorBuyer');
+                                setDisputeNotes('');
+                              }}
+                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
+                            >
+                              {isRTL ? 'البت في النزاع' : 'Arbitrate'}
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ARBITRATE RETURN DISPUTE */}
+      {selectedDispute && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4" role="dialog" aria-modal="true">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                <Scale className="w-5 h-5 text-purple-600" />
+                <span>{isRTL ? `فصل في نزاع المرتجع #${selectedDispute.id}` : `Arbitrate Return Dispute #${selectedDispute.id}`}</span>
+              </h3>
+              <button
+                onClick={() => setSelectedDispute(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Dispute Context */}
+            <div className="p-3.5 bg-purple-50/70 rounded-2xl border border-purple-200 text-xs text-purple-950 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-purple-900">{isRTL ? 'المنتج والمبلغ:' : 'Product & Refund:'}</span>
+                <span className="font-black font-mono text-emerald-700">{formatCurrency(selectedDispute.refundAmount)}</span>
+              </div>
+              <div>
+                <span className="font-bold block text-purple-900 mb-0.5">{isRTL ? 'سبب النزاع المرفوع من التاجر:' : 'Seller Dispute Reason:'}</span>
+                <p className="bg-white p-2.5 rounded-xl border border-purple-200 leading-relaxed text-slate-800">
+                  {selectedDispute.disputeReason}
+                </p>
+              </div>
+              {selectedDispute.disputeEvidenceUrls && selectedDispute.disputeEvidenceUrls.length > 0 && (
+                <div>
+                  <span className="font-bold block text-purple-900 mb-1">{isRTL ? 'روابط صور الإثبات:' : 'Evidence URLs:'}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDispute.disputeEvidenceUrls.map((url, i) => (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-purple-700 underline font-mono text-[11px] bg-white px-2 py-0.5 rounded border border-purple-200"
+                      >
+                        Evidence #{i + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleResolveDisputeSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  {isRTL ? 'قرار الإدارة والفصل في النزاع *:' : 'Administrative Ruling *:'}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDisputeDecision('FavorBuyer')}
+                    className={`p-3.5 rounded-2xl border text-start transition-all ${
+                      disputeDecision === 'FavorBuyer'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-sm font-black'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    <p className="text-xs">{isRTL ? 'لصالح المشتري' : 'Favor Buyer'}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">{isRTL ? 'إتمام الإرجاع وإيداع المبلغ بالمحفظة واستعادة المخزون' : 'Approve return & refund buyer wallet'}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisputeDecision('FavorSeller')}
+                    className={`p-3.5 rounded-2xl border text-start transition-all ${
+                      disputeDecision === 'FavorSeller'
+                        ? 'border-red-600 bg-red-50 text-red-950 shadow-sm font-black'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    <p className="text-xs">{isRTL ? 'لصالح التاجر' : 'Favor Seller'}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">{isRTL ? 'رفض الإرجاع لحماية التاجر من الاحتيال دون رد أموال' : 'Reject return, no refund or seller deduction'}</p>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isRTL ? 'ملاحظات وتبرير القرار (سجل المنصة) *:' : 'Resolution Notes & Rationale *:'}
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={disputeNotes}
+                  onChange={(e) => setDisputeNotes(e.target.value)}
+                  placeholder={isRTL ? 'وثّق أسباب هذا القرار الإداري وسند التحقيق...' : 'Document the reasons and rationale for this ruling...'}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-purple-600 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDispute(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDisputeResolution}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submittingDisputeResolution ? t('common.loading') : (isRTL ? 'اعتماد القرار الإداري' : 'Issue Ruling')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

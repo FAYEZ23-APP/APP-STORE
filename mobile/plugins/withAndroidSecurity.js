@@ -1,13 +1,5 @@
-const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
-
 /**
- * Expo Config Plugin to enforce Android security hardening:
- * - android:allowBackup="false" (prevent unauthorized data extraction via ADB)
+ * Unified Mobile Security Plugin (MOB-012, MOB-013)
+ * Re-exports withMobileSecurity as the canonical single source of truth.
  */
-module.exports = function withAndroidSecurity(config) {
-  return withAndroidManifest(config, (modConfig) => {
-    const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(modConfig.modResults);
-    mainApplication.$['android:allowBackup'] = 'false';
-    return modConfig;
-  });
-};
+module.exports = require('./withMobileSecurity');

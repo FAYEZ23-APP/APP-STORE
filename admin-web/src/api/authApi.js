@@ -11,11 +11,15 @@ export const resetPassword = (data) => client.post('/auth/reset-password', data)
 export const refresh = (data) => client.post('/auth/refresh', data);
 export const logout = (data) => client.post('/auth/logout', data);
 export const logoutAll = () => client.post('/auth/logout-all');
+export const getMe = () => client.get('/auth/me');
+export const getCsrfToken = () => client.get('/auth/csrf');
 export const verifyTwoFactorLogin = (data) => client.post('/auth/2fa/verify-login', data);
 export const getTwoFactorStatus = () => client.get('/auth/2fa/status');
 export const setupTwoFactor = () => client.post('/auth/2fa/setup');
 export const enableTwoFactor = (data) => client.post('/auth/2fa/enable', data);
 export const disableTwoFactor = (data) => client.post('/auth/2fa/disable', data);
+export const stepUpChallenge = (data) => client.post('/auth/step-up', data);
+export const sessionHeartbeat = () => client.post('/auth/session/heartbeat');
 
 export default {
   login,
@@ -29,6 +33,8 @@ export default {
   refresh,
   logout,
   logoutAll,
+  getMe,
+  getCsrfToken,
   verifyTwoFactorLogin,
   getTwoFactorStatus,
   setupTwoFactor,

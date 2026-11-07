@@ -23,6 +23,18 @@ public class ConfirmReturnReceivedRequest
     public bool AdminOverride { get; set; } = false;
 }
 
+public class DisputeReturnRequest
+{
+    public string Reason { get; set; } = string.Empty;
+    public List<string>? EvidenceUrls { get; set; }
+}
+
+public class ResolveReturnDisputeRequest
+{
+    public string Decision { get; set; } = string.Empty; // FavorSeller, FavorBuyer
+    public string? ResolutionNotes { get; set; }
+}
+
 public class ReturnResponse
 {
     public int Id { get; set; }
@@ -46,4 +58,17 @@ public class ReturnResponse
     public DateTime CreatedAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
+
+    // Reverse Logistics (GAP-LOG-06)
+    public string? ReverseTrackingNumber { get; set; }
+    public bool IsItemReceivedBySeller { get; set; }
+    public DateTime? ItemReceivedAt { get; set; }
+
+    // Dispute Management (GAP-SEL-03)
+    public bool IsDisputed { get; set; }
+    public string? DisputeReason { get; set; }
+    public List<string>? DisputeEvidenceUrls { get; set; }
+    public DateTime? DisputedAt { get; set; }
+    public string? DisputeResolutionNotes { get; set; }
+    public int? DisputeResolvedByAdminId { get; set; }
 }

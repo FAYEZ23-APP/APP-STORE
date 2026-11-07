@@ -1,0 +1,170 @@
+================================================================================
+PHASE 4 SECURITY VERIFICATION REPORT: SECURE TOKEN LIFECYCLE & LOGOUT
+Egypt Shop Mobile (React Native + Expo SDK 58)
+Security References: MOB-005, MOB-010
+Timestamp: 2026-11-03T06:01:00+02:00
+================================================================================
+
+1. OBJECTIVES IMPLEMENTED & VERIFIED
+--------------------------------------------------------------------------------
+- Single-Flight Token Refresh (performSingleFlightRefresh, resetClientSession):
+  * Only one refresh operation executes at any given time.
+  * Concurrent 401 requests share the identical single-flight refresh Promise.
+  * Exactly 1 refresh request is dispatched to the backend /auth/refresh endpoint.
+  * Rotated access and refresh tokens are persisted in SecureStore before resolution.
+  * Session Epoch Guard (currentSessionEpoch): If user logs out or switches accounts
+    while a network refresh request is in flight, the epoch guard intercepts the
+    response, invalidates the save operation, and prevents resurrection of the old session.
+- Centralized Secure Logout (AuthContext.logout / logoutAll / unlockWithPassword):
+  * Calls resetClientSession() immediately to cancel pending in-flight refresh saves.
+  * Server session revocation: dispatches /auth/logout with active refresh token and push token.
+  * Push token lifecycle: unregisters push token from backend before local storage wipe.
+  * SecureStore credentials purge: deletes jwt_token, refresh_token_${userId}, bio_token_${userId}.
+  * In-memory authentication state reset: userRole=null, userId=null, isLocked=false.
+  * Private cache cleanup: user-specific cart (@marketplace_cart_user_${userId}) wiped;
+    Wishlist in-memory set reset to empty.
+  * Guest cart preservation: guest shopping cart stored under @marketplace_cart_guest
+    is strictly preserved across login, logout, and account switches.
+- Push Notification Lifecycle & Account Isolation (notifications.js):
+  * Associates active device push token with current userId via marketplace_device_push_user_id.
+  * Account switching detection: when a different user logs in on a shared device,
+    previous push token registration is revoked from the server before new binding.
+  * Unregister on logout: /notifications/unregister-token invoked with active push token;
+    marketplace_device_push_token_v1 and marketplace_device_push_user_id purged.
+- Production ErrorBoundary Protection (ErrorBoundary.js & errorSanitizer.js):
+  * Production mode (!__DEV__): never renders component stack, exception message, or paths.
+    Displays localized friendly UI with retry action.
+  * Zero-PII sanitization (sanitizeErrorDetails): redacts JWT tokens, authorization headers,
+    email addresses, phone numbers, and local filesystem paths (Windows/Unix).
+  * Development mode (__DEV__): preserves detailed error string and componentStack for debugging.
+
+2. COMPREHENSIVE AUTOMATED TEST RESULTS (RUN JUST NOW)
+--------------------------------------------------------------------------------
+Command: npm --prefix mobile test
+
+Suite 1: test_secure_auth_storage.js (MOB-006)
+  [PASS] 1. SecureStore token persistence saves access/refresh tokens exclusively in SecureStore
+  [PASS] 2. Verification that saveTokens NEVER writes auth tokens to AsyncStorage
+  [PASS] 3. Migration correctly transfers valid AsyncStorage tokens to SecureStore & purges legacy
+  [PASS] 4. Expired/corrupt tokens discarded during migration and purged without saving
+  [PASS] 5. Fail-closed policy on migration error purges unverified credentials and requires re-login
+  [PASS] 6. validateUserId rejects email addresses, directory traversal, and special symbols
+  [PASS] 7. rotateRefreshToken updates SecureStore and invalidateSession cleanly wipes all credentials
+  [PASS] 8. SecureStore read failures are caught gracefully and return safe null fallbacks
+  Result: 8/8 Passed (0 Failed)
+
+Suite 2: test_hardware_biometrics_and_lock.js (MOB-006)
+  [PASS] 1. Successful biometric auth returns success and resumes app
+  [PASS] 2. User cancelled biometric auth returns isCancelled=true and keeps app in LOCKED state
+  [PASS] 3. Biometric lockout returns isLockout=true and directs to password fallback
+  [PASS] 4. No hardware or not enrolled transitions cleanly without unhandled rejection
+  [PASS] 5. Detects Android KeyPermanentlyInvalidatedException when OS fingerprints change
+  [PASS] 6. Detects iOS Keychain errSecAuthFailed when biometric authorization is invalidated
+  [PASS] 7. evaluateUnlockResult transitions to LOGGED_OUT and INVALIDATE_AND_LOGOUT when key invalidated
+  [PASS] 8. Cold start with biometrics enabled enters LOCKED state immediately with ZERO network calls
+  Result: 8/8 Passed (0 Failed)
+
+Suite 3: test_navigation_lock_and_deep_links.js (MOB-006)
+  [PASS] 1. Deep links received while locked are queued and NEVER mounted or navigated while locked
+  [PASS] 2. Parameter sanitization strips <script>, javascript: schemes, and path traversals
+  [PASS] 3. parseAndValidateDeepLink correctly parses valid product URL and rejects tampered params
+  [PASS] 4. Queued navigation to Buyer screen is executed after unlocking with Buyer role
+  [PASS] 5. Queued navigation to Admin screen is BLOCKED if unlocked as Buyer
+  [PASS] 6. Pending navigation request is wiped completely when user logs out or uses password
+  [PASS] 7. Account switching from Buyer to Seller resets state and restricts previous role screens
+  Result: 7/7 Passed (0 Failed)
+
+Suite 4: test_android_security_and_permissions.js (MOB-012)
+  [PASS] 1. Generated AndroidManifest.xml exists and is parseable
+  [PASS] 2. Manifest enforces android:allowBackup="false" under <application>
+  [PASS] 3. Manifest references dataExtractionRules and fullBackupContent XML resources
+  [PASS] 4. secure_data_extraction_rules.xml excludes both cloud-backup and device-transfer
+  [PASS] 5. secure_full_backup_content.xml excludes sharedpref, database, root, and file storage
+  [PASS] 6. All unneeded permissions are stripped via tools:node="remove" in manifest
+  [PASS] 7. Legitimate permissions required for business features are retained
+  [PASS] 8. Manifest has zero duplicate uses-permission tags
+  [PASS] 9. iOS Info.plist configuration has Face ID and no microphone or background location
+  Result: 9/9 Passed (0 Failed)
+
+Suite 5: test_mobile_network_security.js (MOB-013)
+  [PASS] 1. HTTPS production API configuration is accepted and sanitized
+  [PASS] 2. Insecure HTTP production API configuration is rejected
+  [PASS] 3. Unapproved production domain is rejected
+  [PASS] 4. Pseudo-protocols (javascript:, file:, data:, blob:) are rejected
+  [PASS] 5. Localhost and LAN endpoints are rejected in production builds
+  [PASS] 6. Development mode allows localhost/emulator endpoints
+  [PASS] 7. Development mode rejects HTTP when cleartext is not opted into
+  [PASS] 8. Development mode permits HTTP when ALLOW_CLEARTEXT opt-in is active
+  [PASS] 9. Production build guard prevents ALLOW_CLEARTEXT in production
+  [PASS] 10. AndroidManifest.xml enforces android:usesCleartextTraffic="false"
+  [PASS] 11. network_security_config.xml disables cleartextTrafficPermitted
+  [PASS] 12. No exposed secrets in .env or .env.example
+  [PASS] 13. Compiled Android bundle contains zero API URL overrides or secrets
+  Result: 13/13 Passed (0 Failed)
+
+Suite 6: test_token_lifecycle_and_logout.js (MOB-005, MOB-010)
+  [PASS] 1. Multiple concurrent 401s shared one refresh Promise
+  [PASS] 2. Exactly one refresh request was sent to the server
+  [PASS] 3. Successful token rotation into SecureStore with zero AsyncStorage leak
+  [PASS] 4. Failed refresh cleans up single-flight state and propagates error
+  [PASS] 5. Invalid refresh token rejected properly
+  [PASS] 6. Expired refresh token rejected without loops
+  [PASS] 7. Refresh network timeout handled cleanly
+  [PASS] 8. Session Epoch guard prevented session resurrection on in-flight refresh
+  [PASS] 9. Account switching safely isolates push tokens and revokes prior binding
+  [PASS] 10. Centralized logout invoked server session revocation
+  [PASS] 11. Push token unregistration executed and local storage keys removed
+  [PASS] 12. Guest cart (@marketplace_cart_guest) preserved across login/logout
+  [PASS] 13. User private cache (@marketplace_cart_user_*) cleared on logout
+  [PASS] 14. Zero authentication credentials or JWTs found in AsyncStorage
+  [PASS] 15. Production ErrorBoundary sanitizes JWTs, emails, phones, and paths
+  [PASS] 16. Development ErrorBoundary provides detailed diagnostics for debugging
+  Result: 16/16 Passed (0 Failed)
+
+Suite 7: test_biometric_lock_state_machine_mock.js
+  Result: 14/14 Passed (0 Failed)
+
+Suite 8: test_mobile_smart_search.js
+  Result: 31/31 Passed (0 Failed)
+
+TOTAL TESTS: 106 | PASSED: 106 | FAILED: 0 | SKIPPED: 0
+
+3. I18N LOCALIZATION AUDIT
+--------------------------------------------------------------------------------
+Command: npm --prefix mobile run i18n:check
+- Result: 100% sync across 1100 locale keys.
+- Static keys verified: 686.
+- Dynamic enum namespaces verified: 11 (53 values).
+- Both ar.json and en.json complete and in sync.
+
+4. FILES MODIFIED / CREATED IN PHASE 4
+--------------------------------------------------------------------------------
+- mobile/src/api/client.js:
+  Added performSingleFlightRefresh, resetClientSession, currentSessionEpoch guard.
+- mobile/src/context/CartContext.js:
+  Preserved guest cart under @marketplace_cart_guest and user cart under @marketplace_cart_user_${userId}.
+- mobile/src/utils/notifications.js:
+  Enhanced syncPushToken(userId) with account isolation, unregisterCurrentPushToken(), and PUSH_USER_ID_KEY.
+- mobile/src/context/AuthContext.js:
+  Wired resetClientSession() into logout, logoutAll, unlockWithPassword; passed uidStr to syncPushToken.
+- mobile/src/utils/errorSanitizer.js (Created):
+  Zero-PII error detail masking for JWTs, authorization tokens, emails, phone numbers, and filesystem paths.
+- mobile/src/components/ErrorBoundary.js:
+  Production error masking using sanitizeErrorDetails; production render strictly isolated from stack traces.
+- mobile/src/services/authStorageService.js:
+  Enhanced invalidateSession to wipe user-specific private cart while preserving guest cart.
+- mobile/tests/test_token_lifecycle_and_logout.js (Created):
+  16 comprehensive test cases covering refresh coordination, logout, session epochs, and error boundaries.
+- mobile/package.json:
+  Wired test_token_lifecycle_and_logout.js into npm run test:security.
+- mobile/reports/mobile_phase4_security_report.txt (Created):
+  Audit report documenting implementation and verification.
+
+5. WHAT COULD NOT BE VERIFIED LOCALLY
+--------------------------------------------------------------------------------
+- Real Apple Push Notification Service (APNs) and Firebase Cloud Messaging (FCM)
+  gateway delivery, because APNs and FCM require physical device hardware provisioning
+  profiles and remote push certificates.
+  (All client registration, unregistration, payload mapping, and local session isolation
+  logic are fully verified via automated tests).
+================================================================================

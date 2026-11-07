@@ -15,6 +15,7 @@ public interface IAuthService
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default);
     Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken = default);
     Task LogoutAllAsync(int userId, CancellationToken cancellationToken = default);
+    Task HeartbeatAsync(int userId, CancellationToken cancellationToken = default);
 
     // Two-Factor Authentication (TOTP)
     Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync(int userId, CancellationToken cancellationToken = default);

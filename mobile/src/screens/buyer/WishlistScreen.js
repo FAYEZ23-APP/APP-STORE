@@ -16,6 +16,7 @@ import tw from 'twrnc';
 import { getWishlist } from '../../api/wishlistApi';
 import { useWishlist } from '../../context/WishlistContext';
 import { CartContext } from '../../context/CartContext';
+import { AuthContext } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
 import { colors } from '../../theme/colors';
@@ -38,6 +39,7 @@ export default function WishlistScreen({ navigation }) {
   const isRTL = i18n.language === 'ar';
   const { toggleWishlist } = useWishlist();
   const { add } = useContext(CartContext);
+  const { userId } = useContext(AuthContext);
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,12 @@ export default function WishlistScreen({ navigation }) {
   const [movingId, setMovingId] = useState(null);
 
   const fetchItems = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      setRefreshing(false);
+      setItems([]);
+      return;
+    }
     try {
       const res = await getWishlist();
       if (res && Array.isArray(res.data)) {
@@ -111,18 +119,18 @@ export default function WishlistScreen({ navigation }) {
     const imageUrl = item.imageUrl ? getImageUrl(item.imageUrl) : null;
 
     return (
-      <View style={[tw`bg-white rounded-2xl p-4 mb-3 mx-4 border border-slate-100 flex-row`, cardShadow]}>
+      <View style={[tw`bg-white rounded-2xl p-4 mb-3 mx-4 border border-[#ECE9E6] flex-row`, cardShadow]}>
         {/* Product Image */}
         <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.navigate('ProductDetails', { id: item.productId })}
           activeOpacity={0.8}
-          style={tw`w-24 h-24 rounded-xl bg-slate-100 overflow-hidden relative mr-3`}
+          style={tw`w-24 h-24 rounded-xl bg-[#FAF8F5] border border-[#ECE9E6] overflow-hidden relative mr-3 p-1`}
         >
           {imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
               style={tw`w-full h-full`}
-              contentFit="cover"
+              contentFit="contain"
               transition={200}
             />
           ) : (
@@ -211,7 +219,7 @@ export default function WishlistScreen({ navigation }) {
   return (
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       {/* Header */}
-      <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-slate-100 flex-row items-center justify-between`}>
+      <View style={tw`bg-white px-5 pt-12 pb-4 border-b border-[#ECE9E6] flex-row items-center justify-between`}>
         <View style={tw`flex-row items-center gap-2`}>
           <View style={tw`w-9 h-9 rounded-xl bg-[#FDF2F4] border border-[#F8CAD1] items-center justify-center`}>
             <MaterialCommunityIcons name="heart" size={20} color={colors.primary} />
@@ -228,7 +236,41 @@ export default function WishlistScreen({ navigation }) {
       </View>
 
       {/* Content */}
-      {loading ? (
+      {!userId ? (
+        <View style={tw`flex-1 items-center justify-center px-6`}>
+          <View style={[tw`w-20 h-20 rounded-full items-center justify-center mb-4`, { backgroundColor: colors.primarySoft }]}>
+            <MaterialCommunityIcons name="heart-outline" size={40} color={colors.primary} />
+          </View>
+          <Text style={[tw`text-lg font-bold text-center mb-2`, { color: colors.textPrimary }]}>
+            {isRTL ? 'تسجيل الدخول لعرض المفضلة' : 'Sign In to View Your Wishlist'}
+          </Text>
+          <Text style={[tw`text-xs text-center mb-6 leading-5`, { color: colors.textSecondary }]}>
+            {isRTL
+              ? 'سجل الدخول لحفظ منتجاتك المفضلة والرجوع إليها وتتبع تخفيضات الأسعار في أي وقت.'
+              : 'Sign in to save your favorite products, track price drops, and buy them anytime.'}
+          </Text>
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            style={[tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center mb-3`, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={tw`text-white font-bold text-base`}>
+              {isRTL ? 'تسجيل الدخول' : 'Sign In'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
+            style={[tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
+              {isRTL ? 'إنشاء حساب جديد' : 'Create New Account'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -244,11 +286,11 @@ export default function WishlistScreen({ navigation }) {
             {t('wishlist.emptySubtitle')}
           </Text>
           <TouchableOpacity accessible={true} accessibilityRole="button"
-            onPress={() => navigation.navigate('HomeTab')}
+            onPress={() => navigation.navigate('Catalog')}
             style={[tw`px-6 py-3 rounded-xl shadow-sm`, { backgroundColor: colors.primary }]}
           >
             <Text style={tw`text-white font-bold text-xs`}>
-              {isRTL ? 'استكشف المنتجات' : 'Explore Products'}
+              {t('cart.browseCatalog')}
             </Text>
           </TouchableOpacity>
         </View>

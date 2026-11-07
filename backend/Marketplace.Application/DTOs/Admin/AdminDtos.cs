@@ -10,6 +10,9 @@ public class AdminUserResponse
     public DateTime CreatedAt { get; set; }
     public string? DispatchCity { get; set; }
     public string? ContactPhone { get; set; }
+    public string? KybStatus { get; set; }
+    public string? CommercialRegisterNumber { get; set; }
+    public string? TaxCardNumber { get; set; }
 }
 
 public class UpdateUserStatusRequest

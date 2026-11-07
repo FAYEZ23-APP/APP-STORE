@@ -1,3 +1,4 @@
+using Marketplace.Application.DTOs.Privacy;
 using Marketplace.API.Extensions;
 using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Dashboard;
@@ -15,11 +16,13 @@ public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IWalletService _walletService;
+    private readonly IPrivacyService _privacyService;
 
-    public UsersController(IUserService userService, IWalletService walletService)
+    public UsersController(IUserService userService, IWalletService walletService, IPrivacyService privacyService)
     {
         _userService = userService;
         _walletService = walletService;
+        _privacyService = privacyService;
     }
 
     /// <summary>Get buyer in-app store credit wallet and transaction history.</summary>
@@ -203,7 +206,7 @@ public class UsersController : ControllerBase
         return Ok(dashboard);
     }
 
-    /// <summary>Export all user data under Egyptian PDPL 151/2020 (Right to Data Portability).</summary>
+    /// <summary>Export all user data under Egyptian PDPL 151/2020 (Right of Access &amp; Data Portability).</summary>
     [HttpGet("me/export-data")]
     [ProducesResponseType(typeof(UserDataExportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -211,8 +214,45 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDataExportDto>> ExportMyData()
     {
         var userId = User.GetUserId();
-        var export = await _userService.ExportUserDataAsync(userId);
-        return Ok(export);
+        var export = await _privacyService.RequestDataExportAsync(userId, "json");
+        return Ok(export.Data);
+    }
+
+    /// <summary>Initiate formal personal data export request (JSON or CSV) under Egyptian PDPL 151/2020.</summary>
+    [HttpPost("me/privacy/export")]
+    [ProducesResponseType(typeof(PrivacyExportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PrivacyExportResponse>> RequestPrivacyExport([FromBody] PrivacyExportRequest? request)
+    {
+        var userId = User.GetUserId();
+        var result = await _privacyService.RequestDataExportAsync(userId, request?.Format ?? "json");
+        return Ok(result);
+    }
+
+    /// <summary>Download time-limited personal data export archive (JSON or CSV).</summary>
+    [HttpGet("me/privacy/export/{token}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DownloadPrivacyExport(string token)
+    {
+        var userId = User.GetUserId();
+        var (bytes, contentType, fileName) = await _privacyService.DownloadExportAsync(userId, token);
+        return File(bytes, contentType, fileName);
+    }
+
+    /// <summary>List personal data rights requests and statutory SLA tracking under Law 151/2020.</summary>
+    [HttpGet("me/privacy/requests")]
+    [ProducesResponseType(typeof(IEnumerable<PrivacySubjectRequestResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IEnumerable<PrivacySubjectRequestResponse>>> GetMyPrivacyRequests()
+    {
+        var userId = User.GetUserId();
+        var requests = await _privacyService.GetMyPrivacyRequestsAsync(userId);
+        return Ok(requests);
     }
 
     /// <summary>Anonymize and delete account under Egyptian PDPL 151/2020 (Right to Erasure).</summary>
@@ -221,10 +261,37 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteMyAccount([FromBody] DeleteAccountRequest request)
     {
         var userId = User.GetUserId();
-        await _userService.DeleteAccountAsync(userId, request.CurrentPassword, request.GoogleIdToken);
+        await _privacyService.InitiateAccountDeletionAsync(userId, request);
         return NoContent();
     }
+
+
+    /// <summary>Submit business KYB documents and identification for seller verification.</summary>
+    [HttpPut("me/seller-profile/kyb")]
+    [HttpPut("/api/sellers/kyb")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(SellerProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SellerProfileDto>> SubmitKyb([FromBody] SubmitKybRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _userService.SubmitKybAsync(userId, request);
+        return Ok(result);
+    }
+
+    /// <summary>Get seller performance metrics for current authenticated seller.</summary>
+    [HttpGet("/api/sellers/performance")]
+    [Authorize(Roles = "Seller")]
+    [ProducesResponseType(typeof(SellerPerformanceMetricsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SellerPerformanceMetricsDto>> GetMyPerformance()
+    {
+        var sellerId = User.GetUserId();
+        var metrics = await _userService.GetSellerPerformanceMetricsAsync(sellerId);
+        return Ok(metrics);
+    }
+
 }

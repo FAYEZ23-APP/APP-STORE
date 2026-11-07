@@ -282,7 +282,7 @@ export default function MyProductsScreen({ navigation }) {
               key={`sr-${rev.id}-${s}`}
               name={s <= rev.rating ? 'star' : 'star-outline'}
               size={14}
-              color="#F59E0B"
+              color={colors.star}
             />
           ))}
         </View>
@@ -324,11 +324,11 @@ export default function MyProductsScreen({ navigation }) {
           onPress={() => openReplyModal(rev)}
           style={[
             tw`self-start px-3 py-1.5 rounded-lg border flex-row items-center mt-1`,
-            { borderColor: colors.accent, backgroundColor: '#FFF7ED' },
+            { borderColor: colors.primaryBorder, backgroundColor: colors.primarySoft },
           ]}
         >
-          <MaterialCommunityIcons name="reply-outline" size={15} color={colors.accent} />
-          <Text style={[tw`text-xs font-bold ml-1`, { color: colors.accent }]}>
+          <MaterialCommunityIcons name="reply-outline" size={15} color={colors.primary} />
+          <Text style={[tw`text-xs font-bold ml-1`, { color: colors.primary }]}>
             {t('seller.replyToReviewBtn')}
           </Text>
         </TouchableOpacity>
@@ -355,7 +355,7 @@ export default function MyProductsScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[colors.accent]}
+              colors={[colors.primary]}
             />
           }
           renderItem={({ item }) => (
@@ -410,7 +410,7 @@ export default function MyProductsScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[colors.accent]}
+              colors={[colors.primary]}
             />
           }
           renderItem={renderReviewItem}
@@ -489,7 +489,7 @@ export default function MyProductsScreen({ navigation }) {
               style={[
                 tw`py-3.5 rounded-xl items-center justify-center flex-row`,
                 {
-                  backgroundColor: colors.accent,
+                  backgroundColor: colors.primary,
                   opacity: submittingReply || !replyText.trim() ? 0.6 : 1,
                 },
               ]}
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.accentBorder,
   },
   emptyButtonWrap: {
     borderRadius: 14,

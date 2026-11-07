@@ -1,0 +1,23 @@
+Verification Report: Mobile Logout, Stale Guest Session & Categories Crash Fix
+Date: 2026-11-02
+Environment: Local Mobile (React Native / Expo Go SDK 58 / Android)
+
+1. CategoriesScreen isRTL Crash:
+   - File: mobile/src/screens/buyer/CategoriesScreen.js
+   - Issue: ReferenceError: Property 'isRTL' doesn't exist at line 170
+   - Fix: Extracted { i18n } from useTranslation() and defined isRTL = i18n?.language?.startsWith('ar')
+   - Verification: AST check across all 84 mobile files found 0 undeclared isRTL identifiers.
+
+2. Stale Guest Auto-Login & Push Unregister Loop:
+   - Files:
+     * mobile/src/screens/common/ProfileScreen.js: Added guest view when !userId; avoided sending unauthenticated getMyProfile / getMyAddresses API calls; removed bogus logout button for guests and replaced with Sign In / Register CTAs.
+     * mobile/src/api/client.js: Exempted teardown endpoints (/auth/refresh, /auth/login, /auth/logout, /notifications/unregister-token) from single-flight token refresh retry loops on 401. Cleaned up lastUserId on wipe.
+     * mobile/src/utils/notifications.js: Checked for active auth token before unregisterDeviceToken call and guaranteed AsyncStorage removal of push token in finally block.
+     * mobile/src/context/AuthContext.js: Added isLoggingOutRef re-entrancy guard, gated unregister calls on token existence.
+     * mobile/src/theme/colors.js: Added gold, goldHover, goldSoft, goldBorder, goldText aliases.
+
+3. Automated Checks:
+   - i18n Parity: 1096 keys in sync (100% parity)
+   - Biometric Lock State Machine: 14/14 tests passed
+   - Mobile Smart Search: 31/31 tests passed
+   - Babel AST Syntax Scan: 84 files parsed, 0 errors

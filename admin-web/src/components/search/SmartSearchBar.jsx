@@ -18,30 +18,40 @@ import { formatCurrency } from '../../utils/currency';
 import { getImageUrl, FALLBACK_IMAGE_URL } from '../../utils/imageUrl';
 
 /**
- * Safely highlights matching substring using pure React elements.
+ * Safely highlights matching substring(s) using pure React elements and safe text segments.
+ * Never generates or injects HTML strings.
+ * Preserves exact original text, casing, and RTL/LTR formatting.
  */
 function HighlightedText({ text, query }) {
   if (!text) return null;
   if (!query || !query.trim()) return <span>{text}</span>;
 
   const cleanQuery = query.trim();
-  const lowerText = text.toLowerCase();
-  const lowerQuery = cleanQuery.toLowerCase();
-  const index = lowerText.indexOf(lowerQuery);
+  // Escape regex special characters to prevent regex injection or syntax errors
+  const escapedQuery = cleanQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp('(' + escapedQuery + ')', 'gi');
 
-  if (index === -1) {
+  const parts = text.split(regex);
+  if (parts.length === 1) {
     return <span>{text}</span>;
   }
 
-  const before = text.slice(0, index);
-  const match = text.slice(index, index + cleanQuery.length);
-  const after = text.slice(index + cleanQuery.length);
-
   return (
     <span>
-      {before}
-      <span className="font-bold text-[#C8102E] bg-[#FDF2F4] rounded px-0.5">{match}</span>
-      {after}
+      {parts.map((part, index) => {
+        const isMatch = part.toLowerCase() === cleanQuery.toLowerCase();
+        return isMatch ? (
+          <span
+            key={index}
+            className="font-bold text-[#C8102E] bg-[#FDF2F4] rounded px-0.5"
+            dir="auto"
+          >
+            {part}
+          </span>
+        ) : (
+          <React.Fragment key={index}>{part}</React.Fragment>
+        );
+      })}
     </span>
   );
 }

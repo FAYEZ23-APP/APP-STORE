@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, StatusBar } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import i18n from '../locales/i18n';
 import { colors } from '../theme/colors';
+import { sanitizeErrorDetails } from '../utils/errorSanitizer';
+
+export { sanitizeErrorDetails };
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,7 +18,13 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    } else {
+      // In production: sanitized logging only, zero PII, tokens, or absolute paths
+      const sanitized = sanitizeErrorDetails(error, errorInfo);
+      console.error('[PROD_ERROR_BOUNDARY]', sanitized.message);
+    }
     this.setState({ error, errorInfo });
   }
 

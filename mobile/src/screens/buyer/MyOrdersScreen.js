@@ -1,5 +1,6 @@
 import tw from 'twrnc';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import {
   View,
   Text,
@@ -65,6 +66,7 @@ const isWithin14Days = (deliveredAt, orderCreatedAt) => {
 export default function MyOrdersScreen({ route, navigation }) {
   const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
+  const { userId } = useContext(AuthContext);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -137,6 +139,12 @@ export default function MyOrdersScreen({ route, navigation }) {
   });
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
+    if (!userId) {
+      setLoading(false);
+      setRefreshing(false);
+      setOrders([]);
+      return;
+    }
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -233,6 +241,74 @@ export default function MyOrdersScreen({ route, navigation }) {
     }
   };
 
+
+  if (!userId) {
+    return (
+      <View
+        style={[
+          tw`flex-1 justify-center items-center px-6`,
+          { backgroundColor: colors.screenBg },
+        ]}
+      >
+        <View
+          style={[
+            tw`w-20 h-20 rounded-full items-center justify-center mb-4`,
+            { backgroundColor: colors.primarySoft },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="clipboard-text-clock-outline"
+            size={40}
+            color={colors.primary}
+          />
+        </View>
+        <Text
+          style={[
+            tw`text-lg font-bold text-center mb-2`,
+            { color: colors.textPrimary },
+          ]}
+        >
+          {isRTL ? 'تسجيل الدخول لمتابعة طلباتك' : 'Sign In to View Your Orders'}
+        </Text>
+        <Text
+          style={[
+            tw`text-xs text-center mb-6 leading-5`,
+            { color: colors.textSecondary },
+          ]}
+        >
+          {isRTL
+            ? 'سجل الدخول بحسابك لمتابعة شحناتك، معرفة مواعيد التوصيل، وإدارة مرتجعاتك بكل سهولة.'
+            : 'Sign in to track your shipments, view delivery updates, and manage your returns.'}
+        </Text>
+        <TouchableOpacity
+          accessible={true}
+          accessibilityRole="button"
+          style={[
+            tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center mb-3`,
+            { backgroundColor: colors.primary },
+          ]}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={tw`text-white font-bold text-base`}>
+            {isRTL ? 'تسجيل الدخول' : 'Sign In'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessible={true}
+          accessibilityRole="button"
+          style={[
+            tw`w-full max-w-xs py-3.5 rounded-xl items-center justify-center border`,
+            { borderColor: colors.border, backgroundColor: colors.cardBg },
+          ]}
+          onPress={() => navigation.navigate('Register')}
+        >
+          <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
+            {isRTL ? 'إنشاء حساب جديد' : 'Create New Account'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (loading && !refreshing) {
     return (
@@ -351,7 +427,7 @@ export default function MyOrdersScreen({ route, navigation }) {
           <Text style={[tw`text-xs font-bold`, mainTab === 'returns' ? tw`text-white` : tw`text-slate-700`]}>
             {isRTL ? 'المرتجعات' : 'My Returns'}
           </Text>
-          <View style={[tw`px-1.5 py-0.2 rounded-full ml-1.5`, mainTab === 'returns' ? tw`bg-orange-600` : tw`bg-slate-200`]}>
+          <View style={[tw`px-1.5 py-0.2 rounded-full ml-1.5`, mainTab === 'returns' ? { backgroundColor: colors.primary } : tw`bg-slate-200`]}>
             <Text style={[tw`text-[10px] font-black`, mainTab === 'returns' ? tw`text-white` : tw`text-slate-600`]}>
               {buyerReturns.length}
             </Text>
@@ -378,13 +454,13 @@ export default function MyOrdersScreen({ route, navigation }) {
             />
           }
           ListHeaderComponent={
-            <View style={[tw`p-3.5 rounded-2xl mb-3 flex-row items-start border`, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
-              <MaterialCommunityIcons name="shield-check" size={20} color="#EA580C" style={isRTL ? tw`ml-2 mt-0.5` : tw`mr-2 mt-0.5`} />
+            <View style={[tw`p-3.5 rounded-2xl mb-3 flex-row items-start border`, { backgroundColor: colors.goldSoft, borderColor: colors.goldBorder }]}>
+              <MaterialCommunityIcons name="shield-check" size={20} color={colors.gold} style={isRTL ? tw`ml-2 mt-0.5` : tw`mr-2 mt-0.5`} />
               <View style={tw`flex-1`}>
-                <Text style={tw`text-xs font-bold text-orange-900`}>
+                <Text style={tw`text-xs font-bold text-slate-900`}>
                   {isRTL ? 'حماية المستهلك المصري (القانون 181/2018)' : 'Egyptian Consumer Protection Law 181/2018'}
                 </Text>
-                <Text style={tw`text-[11px] text-orange-800 mt-0.5 leading-relaxed`}>
+                <Text style={tw`text-[11px] text-slate-700 mt-0.5 leading-relaxed`}>
                   {isRTL
                     ? 'يحق لك استرجاع المنتجات خلال 14 يوماً من الاستلام في حال وجود عيب. يتم قيد المبلغ في محفظتك الإلكترونية تلقائياً فور موافقة التاجر.'
                     : 'You have a 14-day return window. Refunds are credited to your store wallet upon seller approval.'}
@@ -445,7 +521,7 @@ export default function MyOrdersScreen({ route, navigation }) {
                     {ret.reason}
                   </Text>
                   {ret.sellerNote ? (
-                    <Text style={tw`text-xs text-orange-700 mt-1 pt-1 border-t border-slate-200`}>
+                    <Text style={tw`text-xs text-[#C8102E] mt-1 pt-1 border-t border-slate-200`}>
                       <Text style={tw`font-bold`}>{isRTL ? 'رد التاجر: ' : 'Seller Note: '}</Text>
                       {ret.sellerNote}
                     </Text>

@@ -34,6 +34,14 @@ public interface IUnitOfWork : IDisposable
     IRepository<AdminAuditLog> AdminAuditLogs { get; }
     IRepository<CodBlacklistEntry> CodBlacklistEntries { get; }
     IRepository<ProcessedWebhookEvent> ProcessedWebhookEvents { get; }
+    IRepository<PrivacySubjectRequest> PrivacySubjectRequests { get; }
+    IRepository<ProcessorDeletionLog> ProcessorDeletionLogs { get; }
+    IRepository<PrivacyIncidentLog> PrivacyIncidentLogs { get; }
+    IRepository<ExchangeRequest> ExchangeRequests { get; }
+    IRepository<SupportTicket> SupportTickets { get; }
+    IRepository<SupportTicketMessage> SupportTicketMessages { get; }
+    IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches { get; }
+    IRepository<TaxInvoice> TaxInvoices { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();

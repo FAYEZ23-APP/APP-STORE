@@ -1,12 +1,17 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from './AuthContext';
+import {
+  getCartItemKey,
+  sanitizeCartItems,
+  mergeCarts,
+  GUEST_CART_KEY,
+  LEGACY_GUEST_CART_KEY,
+} from '../utils/cartHelpers';
 
-export const getCartItemKey = (productOrId, variantOrId = null) => {
-  const pId = typeof productOrId === 'object' && productOrId !== null ? productOrId.id : productOrId;
-  const vId = typeof variantOrId === 'object' && variantOrId !== null ? variantOrId.id : variantOrId;
-  return `${pId}_${vId || 'base'}`;
-};
+export { getCartItemKey, sanitizeCartItems, mergeCarts, GUEST_CART_KEY, LEGACY_GUEST_CART_KEY };
+
+
 
 export const CartContext = createContext({
   items: {},
@@ -70,13 +75,15 @@ const sanitizeCartItems = (rawObj) => {
   return clean;
 };
 
+
+
 export const CartProvider = ({ children }) => {
   const { userId } = useContext(AuthContext);
   // items keyed by compound key `${productId}_${variantId || 'base'}`
   const [items, setItems] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const storageKey = userId ? `@marketplace_cart_user_${userId}` : null;
+  const storageKey = userId ? `@marketplace_cart_user_${userId}` : '@marketplace_cart_guest';
 
   useEffect(() => {
     let isMounted = true;
@@ -84,25 +91,61 @@ export const CartProvider = ({ children }) => {
 
     const loadSavedCart = async () => {
       try {
-        if (!storageKey) {
-          if (isMounted) {
-            setItems({});
-            setIsLoaded(true);
+        // 1. Migrate legacy guest cart key if found
+        let guestRaw = await AsyncStorage.getItem(GUEST_CART_KEY);
+        if (!guestRaw) {
+          const legacyRaw = await AsyncStorage.getItem(LEGACY_GUEST_CART_KEY);
+          if (legacyRaw) {
+            await AsyncStorage.setItem(GUEST_CART_KEY, legacyRaw);
+            await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => {});
+            guestRaw = legacyRaw;
           }
-          return;
         }
 
-        const raw = await AsyncStorage.getItem(storageKey);
-        if (raw && isMounted) {
-          try {
-            const parsed = JSON.parse(raw);
-            const sanitized = sanitizeCartItems(parsed);
-            setItems(sanitized);
-          } catch {
-            setItems({});
+        // 2. Authenticated user flow: load user cart and merge any pending guest cart
+        if (userId) {
+          const userStorageKey = `@marketplace_cart_user_${userId}`;
+          const userRaw = await AsyncStorage.getItem(userStorageKey);
+          let userItems = {};
+          if (userRaw) {
+            try {
+              userItems = sanitizeCartItems(JSON.parse(userRaw));
+            } catch {
+              userItems = {};
+            }
           }
-        } else if (isMounted) {
-          setItems({});
+
+          // If guest cart items exist from prior guest session, merge upon login
+          if (guestRaw) {
+            try {
+              const guestItems = sanitizeCartItems(JSON.parse(guestRaw));
+              if (Object.keys(guestItems).length > 0) {
+                userItems = mergeCarts(userItems, guestItems);
+                await AsyncStorage.setItem(userStorageKey, JSON.stringify(userItems));
+                await AsyncStorage.removeItem(GUEST_CART_KEY).catch(() => {});
+                await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => {});
+              }
+            } catch (mergeErr) {
+              console.warn('[CartContext] Failed merging guest cart on login:', mergeErr?.message);
+            }
+          }
+
+          if (isMounted) {
+            setItems(userItems);
+          }
+        } else {
+          // 3. Guest flow: load sanitized guest cart
+          let guestItems = {};
+          if (guestRaw) {
+            try {
+              guestItems = sanitizeCartItems(JSON.parse(guestRaw));
+            } catch {
+              guestItems = {};
+            }
+          }
+          if (isMounted) {
+            setItems(guestItems);
+          }
         }
       } catch (err) {
         console.error('Failed to load cart from AsyncStorage', err);

@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-11-07T09:41:40.840Z",
+  "total": 17,
+  "passedCount": 17,
+  "failedCount": 0,
+  "passed": [
+    {
+      "id": 1,
+      "name": "Dedicated least-privilege role script defines marketplace_backup with pg_read_all_data & read-only constraints",
+      "notes": "backup_least_privilege_role.sql verified"
+    },
+    {
+      "id": 2,
+      "name": "Automated AES-256-GCM encrypted backup artifact generated from PostgreSQL",
+      "notes": "EncFile=marketplace_backup_MarketplaceMVP_test_20261107094132_ff3d000c.dump.enc (718828 bytes)"
+    },
+    {
+      "id": 3,
+      "name": "Database credentials/passwords protected in process environment, never in CLI args",
+      "notes": "spawnSync env.PGPASSWORD used; no password flags passed in pg_dump args"
+    },
+    {
+      "id": 4,
+      "name": "Cryptographic separation: backup artifact is pure ciphertext without readable SQL or PGDMP header",
+      "notes": "StartsWithPGDMP=false, ContainsSQLKeywords=false"
+    },
+    {
+      "id": 5,
+      "name": "Companion metadata manifest (.meta.json) generated with complete cryptographic properties and timestamps",
+      "notes": "BackupId=ff3d000c-d3e2-4808-913b-0e5f327ddc00, Algorithm=aes-256-gcm"
+    },
+    {
+      "id": 6,
+      "name": "Key fingerprint in manifest matches SHA-256 fingerprint of the encryption key",
+      "notes": "KeyFingerprint=ad5b18e1448fdac9"
+    },
+    {
+      "id": 7,
+      "name": "Tampered ciphertext artifact (bit flip) detected and rejected prior to decryption by SHA-256 check",
+      "notes": "Checksum verification failed! Manifest: 1c8d889a0045a8af848e362d8229294e39f515d4761c58800d6a3fbd7df7cc58, Actual: fe3ebc7afbd5fc56883d141b083e58af9973a4dcc8ad593a2abe726d8bae324c. Artifact is corrupted or tampered."
+    },
+    {
+      "id": 8,
+      "name": "AES-256-GCM authentication tag verification rejects forged/modified ciphertext",
+      "notes": "Unsupported state or unable to authenticate data"
+    },
+    {
+      "id": 9,
+      "name": "Decryption with invalid encryption key fails cleanly and is rejected",
+      "notes": "Encryption key fingerprint mismatch! Expected: ad5b18e1448fdac9, Provided: 5e3f4aa3c0002cee"
+    },
+    {
+      "id": 10,
+      "name": "Clean decryption with valid key succeeds and restores valid PostgreSQL custom archive (PGDMP)",
+      "notes": "DecryptedBytes=718828, Header=PGDMP"
+    },
+    {
+      "id": 11,
+      "name": "Disaster recovery safety guard strictly blocks drills targeting databases not ending in _test",
+      "notes": "CRITICAL SAFETY ABORT: DrillDbName 'MarketplaceMVP_Production' does not end with '_test'."
+    },
+    {
+      "id": 12,
+      "name": "Automated disaster recovery drill decrypts and executes pg_restore into scratch database",
+      "notes": "DrillDb=marketplacemvp_restore_test, BackupId=ff3d000c-d3e2-4808-913b-0e5f327ddc00"
+    },
+    {
+      "id": 13,
+      "name": "Restored schema completeness: all 34 public base tables and 31 EF Core migrations restored perfectly",
+      "notes": "RestoredTables=39 (Source=39), Migrations=36 (Source=36)"
+    },
+    {
+      "id": 14,
+      "name": "Core marketplace entities and transaction records verified in restored database",
+      "notes": "Users=1971, Products=749, RefreshTokens=1863"
+    },
+    {
+      "id": 15,
+      "name": "Scratch drill database safely and completely dropped after verification",
+      "notes": "Database marketplacemvp_restore_test dropped"
+    },
+    {
+      "id": 16,
+      "name": "Automated retention policy safely purges expired backups while preserving active/protected tiers",
+      "notes": "PrunedCount=1, ExpiredRemoved=true, ValidPreserved=true"
+    },
+    {
+      "id": 17,
+      "name": "Failure safety: failed backup operations clean up temporary files and never corrupt existing backups",
+      "notes": "FailureHandled=true, StrayTmpFiles=0, KnownGoodIntact=true"
+    }
+  ],
+  "failed": []
+}

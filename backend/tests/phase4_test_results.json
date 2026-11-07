@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-11-07T09:40:43.558Z",
+  "total": 16,
+  "passedCount": 16,
+  "failedCount": 0,
+  "passed": [
+    {
+      "id": 1,
+      "name": "New BCrypt password hash creation & zero hash/plaintext exposure in API responses",
+      "notes": "UserId=1992, NoLeak=true"
+    },
+    {
+      "id": 2,
+      "name": "Successful password verification on login returns JWT & RefreshToken",
+      "notes": "AccessTokenLen=409, RefreshTokenLen=43"
+    },
+    {
+      "id": 3,
+      "name": "Incorrect password rejection returns generic 401 Unauthorized",
+      "notes": "HTTP 401"
+    },
+    {
+      "id": 4,
+      "name": "Existing BCrypt password hash compatibility verified across logins and PostgreSQL cost-10/11/12 hashes",
+      "notes": "HTTP 200 (+ Phase4AuthAndRefreshTokenPgTests.Test04_05)"
+    },
+    {
+      "id": 5,
+      "name": "Automatic BCrypt rehash on login when work factor is outdated (cost 10 -> 12)",
+      "notes": "Verified in PostgreSQL Phase4AuthAndRefreshTokenPgTests.Test04_05_LegacyWorkFactorHash_AuthenticatesAndTransparentlyRehashesOnLogin"
+    },
+    {
+      "id": 7,
+      "name": "Token rotation issues new RefreshToken & AccessToken and consumes predecessor",
+      "notes": "HTTP 200, Rotated=true"
+    },
+    {
+      "id": 9,
+      "name": "Grace-window replay attempt (<1s after rotation with same DeviceId) rejected immediately with 401",
+      "notes": "Replay HTTP=401 (20-second server grace window eliminated)"
+    },
+    {
+      "id": 8,
+      "name": "Reuse of consumed refresh token revokes entire token family (successor T2 invalidated)",
+      "notes": "T1 Replay=401, Successor T2=401"
+    },
+    {
+      "id": 6,
+      "name": "Concurrent refresh operations: atomic single consumption & family revocation on collision",
+      "notes": "ParallelStatuses=[200,401], WinnerFollowUp=401"
+    },
+    {
+      "id": 10,
+      "name": "Refresh after logout is rejected with 401 Unauthorized",
+      "notes": "Logout=200, RefreshAfterLogout=401"
+    },
+    {
+      "id": 11,
+      "name": "Refresh and old JWT after password change are rejected with 401; new password authenticates",
+      "notes": "ChangePw=204, RefreshAfter=401, OldJwt=401, NewLogin=200"
+    },
+    {
+      "id": 12,
+      "name": "Multi-device session isolation: replay on Device A revokes Device A family only; Device B rotates normally",
+      "notes": "DeviceA_Replay=401, DeviceA_Successor=401, DeviceB_Rotate=200"
+    },
+    {
+      "id": 13,
+      "name": "Expired token cleanup in bounded batches & self-FK unlinking on PostgreSQL",
+      "notes": "Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 15 s - Marketplace.Tests.dll (net10.0)"
+    },
+    {
+      "id": 14,
+      "name": "Revoked-token security retention window (30 days) & live-family preservation on PostgreSQL",
+      "notes": "Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 15 s - Marketplace.Tests.dll (net10.0)"
+    },
+    {
+      "id": 15,
+      "name": "Background cleanup database failure recovery, metrics & PostgreSQL advisory lock concurrency guard",
+      "notes": "Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 15 s - Marketplace.Tests.dll (net10.0)"
+    },
+    {
+      "id": 16,
+      "name": "Absence of plaintext passwords, raw refresh tokens, and BCrypt hashes in server logs",
+      "notes": "CheckedCanaries=18, Leaked=0, BcryptInLogs=false"
+    }
+  ],
+  "failed": []
+}

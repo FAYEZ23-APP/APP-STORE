@@ -1,43 +1,59 @@
-import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import * as authStorageService from '../services/authStorageService';
 
-const ACCESS_TOKEN_KEY = 'jwt_token';
-const REFRESH_TOKEN_PREFIX = 'refresh_token_';
+export const ACCESS_TOKEN_KEY = authStorageService.ACCESS_TOKEN_KEY;
+export const REFRESH_TOKEN_PREFIX = authStorageService.REFRESH_TOKEN_PREFIX;
+export const BIOMETRIC_BOUND_PREFIX = authStorageService.BIOMETRIC_BOUND_PREFIX;
+export const LAST_USER_ID_KEY = authStorageService.LAST_USER_ID_KEY;
+
 const DEVICE_ID_KEY = 'app_device_id';
-const LAST_USER_ID_KEY = 'last_auth_user_id';
 const BIOMETRICS_ENABLED_PREFIX = 'biometrics_enabled_';
 const BIOMETRICS_OFFERED_PREFIX = 'biometrics_offered_';
 const FRESH_INSTALL_FLAG_KEY = 'app_installed_initialized';
 
-// ─── Access Token (SecureStore) ─────────────────────────────
+// ─── Centralized Auth Service Re-Exports ─────────────────────
+export {
+  validateUserId,
+  getRefreshTokenKey,
+  getBiometricBoundKey,
+  isBiometricInvalidatedError,
+  saveTokens,
+  getAccessToken,
+  updateAccessToken,
+  rotateRefreshToken,
+  clearAuthTokens,
+  invalidateSession,
+  saveBiometricBoundToken,
+  getBiometricBoundToken,
+  removeBiometricBoundToken,
+  migrateLegacyStorage,
+} from '../services/authStorageService';
+
+// ─── Access Token (Backward-Compatible Proxies) ──────────────
 export const setToken = async (token) => {
-  try {
-    if (!token) {
-      await removeToken();
-      return;
-    }
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
-  } catch (error) {
-    console.error('Error saving access token to SecureStore', error);
-  }
+  return await authStorageService.updateAccessToken(token);
 };
 
 export const getToken = async () => {
-  try {
-    return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  } catch (error) {
-    console.error('Error reading access token from SecureStore', error);
-    return null;
-  }
+  return await authStorageService.getAccessToken();
 };
 
 export const removeToken = async () => {
-  try {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-  } catch (error) {
-    console.error('Error deleting access token from SecureStore', error);
-  }
+  return await authStorageService.updateAccessToken(null);
+};
+
+// ─── Refresh Token (Backward-Compatible Proxies) ─────────────
+export const setRefreshToken = async (userId, refreshToken, isBiometricBound = false) => {
+  return await authStorageService.rotateRefreshToken(userId, refreshToken, isBiometricBound);
+};
+
+export const getRefreshToken = async (userId) => {
+  return await authStorageService.getRefreshToken(userId);
+};
+
+export const removeRefreshToken = async (userId) => {
+  return await authStorageService.clearAuthTokens(userId);
 };
 
 // ─── Device ID (Persistent GUID) ────────────────────────────
@@ -63,37 +79,6 @@ export const getDeviceId = async () => {
   }
 };
 
-// ─── Refresh Token (Key per User ID in SecureStore) ──────────
-const getRefreshTokenKey = (userId) => `${REFRESH_TOKEN_PREFIX}${userId}`;
-
-export const setRefreshToken = async (userId, refreshToken) => {
-  if (!userId || !refreshToken) return;
-  try {
-    await SecureStore.setItemAsync(getRefreshTokenKey(userId), refreshToken);
-  } catch (error) {
-    console.error('Error saving refresh token to SecureStore', error);
-  }
-};
-
-export const getRefreshToken = async (userId) => {
-  if (!userId) return null;
-  try {
-    return await SecureStore.getItemAsync(getRefreshTokenKey(userId));
-  } catch (error) {
-    console.error('Error reading refresh token from SecureStore', error);
-    return null;
-  }
-};
-
-export const removeRefreshToken = async (userId) => {
-  if (!userId) return;
-  try {
-    await SecureStore.deleteItemAsync(getRefreshTokenKey(userId));
-  } catch (error) {
-    console.error('Error removing refresh token from SecureStore', error);
-  }
-};
-
 // ─── Last Authenticated User ID ─────────────────────────────
 export const getLastAuthenticatedUserId = async () => {
   try {
@@ -106,7 +91,10 @@ export const getLastAuthenticatedUserId = async () => {
 export const setLastAuthenticatedUserId = async (userId) => {
   try {
     if (userId) {
-      await AsyncStorage.setItem(LAST_USER_ID_KEY, String(userId));
+      const cleanId = authStorageService.validateUserId(userId);
+      if (cleanId) {
+        await AsyncStorage.setItem(LAST_USER_ID_KEY, cleanId);
+      }
     } else {
       await AsyncStorage.removeItem(LAST_USER_ID_KEY);
     }
@@ -125,9 +113,10 @@ export const removeLastAuthenticatedUserId = async () => {
 
 // ─── Biometric Preferences (AsyncStorage) ────────────────────
 export const isBiometricsEnabled = async (userId) => {
-  if (!userId) return false;
+  const cleanId = authStorageService.validateUserId(userId);
+  if (!cleanId) return false;
   try {
-    const val = await AsyncStorage.getItem(`${BIOMETRICS_ENABLED_PREFIX}${userId}`);
+    const val = await AsyncStorage.getItem(`${BIOMETRICS_ENABLED_PREFIX}${cleanId}`);
     return val === 'true';
   } catch {
     return false;
@@ -135,18 +124,20 @@ export const isBiometricsEnabled = async (userId) => {
 };
 
 export const setBiometricsEnabled = async (userId, enabled) => {
-  if (!userId) return;
+  const cleanId = authStorageService.validateUserId(userId);
+  if (!cleanId) return;
   try {
-    await AsyncStorage.setItem(`${BIOMETRICS_ENABLED_PREFIX}${userId}`, enabled ? 'true' : 'false');
+    await AsyncStorage.setItem(`${BIOMETRICS_ENABLED_PREFIX}${cleanId}`, enabled ? 'true' : 'false');
   } catch (error) {
     console.error('Error updating biometrics preference', error);
   }
 };
 
 export const hasOfferedBiometrics = async (userId) => {
-  if (!userId) return false;
+  const cleanId = authStorageService.validateUserId(userId);
+  if (!cleanId) return false;
   try {
-    const val = await AsyncStorage.getItem(`${BIOMETRICS_OFFERED_PREFIX}${userId}`);
+    const val = await AsyncStorage.getItem(`${BIOMETRICS_OFFERED_PREFIX}${cleanId}`);
     return val === 'true';
   } catch {
     return false;
@@ -154,9 +145,10 @@ export const hasOfferedBiometrics = async (userId) => {
 };
 
 export const setOfferedBiometrics = async (userId) => {
-  if (!userId) return;
+  const cleanId = authStorageService.validateUserId(userId);
+  if (!cleanId) return;
   try {
-    await AsyncStorage.setItem(`${BIOMETRICS_OFFERED_PREFIX}${userId}`, 'true');
+    await AsyncStorage.setItem(`${BIOMETRICS_OFFERED_PREFIX}${cleanId}`, 'true');
   } catch {
     // ignore
   }
@@ -172,11 +164,8 @@ export const checkAndHandleFreshInstall = async () => {
     const isInitialized = await AsyncStorage.getItem(FRESH_INSTALL_FLAG_KEY);
     if (!isInitialized) {
       console.log('[Storage] Fresh install detected. Purging leftover SecureStore credentials...');
-      await removeToken();
       const lastUser = await getLastAuthenticatedUserId();
-      if (lastUser) {
-        await removeRefreshToken(lastUser);
-      }
+      await authStorageService.clearAuthTokens(lastUser);
       await AsyncStorage.setItem(FRESH_INSTALL_FLAG_KEY, 'true');
       return true;
     }

@@ -15,11 +15,63 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IConfiguration _configuration;
+    private readonly ICsrfTokenService _csrfTokenService;
+    private readonly IStepUpAuthService _stepUpAuthService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(IAuthService authService, IConfiguration configuration)
+    public AuthController(
+        IAuthService authService,
+        IConfiguration configuration,
+        ICsrfTokenService csrfTokenService,
+        IStepUpAuthService stepUpAuthService,
+        IWebHostEnvironment env)
     {
         _authService = authService;
         _configuration = configuration;
+        _csrfTokenService = csrfTokenService;
+        _stepUpAuthService = stepUpAuthService;
+        _env = env;
+    }
+
+    /// <summary>
+    /// Get current session details from authenticated session cookie or Bearer token.
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public IActionResult GetCurrentSession()
+    {
+        var userId = User.GetUserId();
+        var name = User.Identity?.Name ?? User.FindFirst("name")?.Value ?? string.Empty;
+        var email = User.FindFirst("email")?.Value ?? string.Empty;
+        var role = User.FindFirst("role")?.Value ?? string.Empty;
+
+        var csrfToken = _csrfTokenService.GenerateToken();
+        SetCsrfCookie(csrfToken);
+
+        return Ok(new
+        {
+            userId,
+            name,
+            email,
+            role,
+            isAuthenticated = true,
+            csrfToken
+        });
+    }
+
+    /// <summary>
+    /// Get a fresh CSRF token and set XSRF-TOKEN cookie.
+    /// </summary>
+    [HttpGet("csrf")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetCsrfToken()
+    {
+        var csrfToken = _csrfTokenService.GenerateToken();
+        SetCsrfCookie(csrfToken);
+        return Ok(new { csrfToken });
     }
 
     /// <summary>
@@ -170,7 +222,10 @@ public class AuthController : ControllerBase
     {
         request ??= new RefreshTokenRequest();
         // Support reading refresh token from HttpOnly cookie if body is empty (WEB-003)
-        if (string.IsNullOrWhiteSpace(request.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieRt) && !string.IsNullOrWhiteSpace(cookieRt))
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) &&
+            (Request.Cookies.TryGetValue("__Host-refresh_token", out var cookieRt) ||
+             Request.Cookies.TryGetValue("refresh_token", out cookieRt)) &&
+            !string.IsNullOrWhiteSpace(cookieRt))
         {
             request = new RefreshTokenRequest
             {
@@ -186,14 +241,17 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Log out by revoking the specified refresh token.
+    /// Log out by revoking the specified refresh token and invalidating cookies.
     /// </summary>
     [HttpPost("logout")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request?.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieRt) && !string.IsNullOrWhiteSpace(cookieRt))
+        if (string.IsNullOrWhiteSpace(request?.RefreshToken) &&
+            (Request.Cookies.TryGetValue("__Host-refresh_token", out var cookieRt) ||
+             Request.Cookies.TryGetValue("refresh_token", out cookieRt)) &&
+            !string.IsNullOrWhiteSpace(cookieRt))
         {
             request = new LogoutRequest { RefreshToken = cookieRt, DeviceToken = request?.DeviceToken };
         }
@@ -205,6 +263,39 @@ public class AuthController : ControllerBase
 
         ClearAuthCookies();
         return Ok(new { message = "Logged out successfully." });
+    }
+
+    /// <summary>
+    /// Re-authenticate admin credentials (Password + optional TOTP) to obtain a short-lived step-up grant. (Admin only)
+    /// </summary>
+    [HttpPost("step-up")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(StepUpChallengeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<StepUpChallengeResponse>> StepUpChallenge(
+        [FromBody] StepUpChallengeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var response = await _stepUpAuthService.ChallengeAsync(adminId, request, clientIp, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Record user activity to keep the administrative session active. (Admin only)
+    /// </summary>
+    [HttpPost("session/heartbeat")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SessionHeartbeat(CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        await _authService.HeartbeatAsync(adminId, cancellationToken);
+        return Ok(new { message = "Session heartbeat updated successfully." });
     }
 
     /// <summary>
@@ -297,60 +388,105 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
 
+    private bool IsSecureRequest()
+    {
+        return Request.IsHttps ||
+               string.Equals(Request.Headers["X-Forwarded-Proto"], "https", StringComparison.OrdinalIgnoreCase) ||
+               !(_env.IsDevelopment() || _env.IsEnvironment("Testing"));
+    }
+
     private void SetAuthCookies(AuthResponse auth)
     {
         if (auth == null || string.IsNullOrWhiteSpace(auth.Token)) return;
 
-        var isDev = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-        var sameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
+        var isSecure = IsSecureRequest();
+        var sameSite = SameSiteMode.Lax; // Evaluated: Lax balances CSRF security with legitimate navigation and external callbacks
 
+        var accessCookieName = isSecure ? "__Host-access_token" : "access_token";
         var accessCookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = !isDev,
+            Secure = isSecure,
             SameSite = sameSite,
             Expires = DateTimeOffset.UtcNow.AddMinutes(15),
             Path = "/"
         };
-        Response.Cookies.Append("access_token", auth.Token, accessCookieOptions);
+        Response.Cookies.Append(accessCookieName, auth.Token, accessCookieOptions);
 
         if (!string.IsNullOrWhiteSpace(auth.RefreshToken))
         {
+            var refreshCookieName = isSecure ? "__Host-refresh_token" : "refresh_token";
             var refreshCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = !isDev,
+                Secure = isSecure,
                 SameSite = sameSite,
                 Expires = DateTimeOffset.UtcNow.AddDays(30),
-                Path = "/api/auth"
+                Path = "/"
             };
-            Response.Cookies.Append("refresh_token", auth.RefreshToken, refreshCookieOptions);
+            Response.Cookies.Append(refreshCookieName, auth.RefreshToken, refreshCookieOptions);
         }
+
+        var csrfToken = _csrfTokenService.GenerateToken();
+        SetCsrfCookie(csrfToken);
+        auth.CsrfToken = csrfToken;
+    }
+
+    private void SetCsrfCookie(string csrfToken)
+    {
+        var isSecure = IsSecureRequest();
+        var csrfCookieName = isSecure ? "__Host-XSRF-TOKEN" : "XSRF-TOKEN";
+        var csrfOptions = new CookieOptions
+        {
+            HttpOnly = false, // Accessible to JavaScript so it can send X-CSRF-TOKEN header
+            Secure = isSecure,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddDays(1),
+            Path = "/"
+        };
+        Response.Cookies.Append(csrfCookieName, csrfToken, csrfOptions);
     }
 
     private void ClearAuthCookies()
     {
-        var isDev = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-        var sameSite = isDev ? SameSiteMode.Lax : SameSiteMode.Strict;
+        var isSecure = IsSecureRequest();
+        var sameSite = SameSiteMode.Lax;
 
         var expiredOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = !isDev,
+            Secure = isSecure,
             SameSite = sameSite,
             Expires = DateTimeOffset.UtcNow.AddDays(-1),
             Path = "/"
         };
-        Response.Cookies.Append("access_token", "", expiredOptions);
 
-        var expiredRefreshOptions = new CookieOptions
+        Response.Cookies.Append("__Host-access_token", "", expiredOptions);
+        Response.Cookies.Append("access_token", "", expiredOptions);
+        Response.Cookies.Append("__Host-refresh_token", "", expiredOptions);
+        Response.Cookies.Append("refresh_token", "", expiredOptions);
+
+        // Also clear legacy /api/auth path
+        var legacyRefreshOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = !isDev,
+            Secure = isSecure,
             SameSite = sameSite,
             Expires = DateTimeOffset.UtcNow.AddDays(-1),
             Path = "/api/auth"
         };
-        Response.Cookies.Append("refresh_token", "", expiredRefreshOptions);
+        Response.Cookies.Append("__Host-refresh_token", "", legacyRefreshOptions);
+        Response.Cookies.Append("refresh_token", "", legacyRefreshOptions);
+
+        var expiredCsrfOptions = new CookieOptions
+        {
+            HttpOnly = false,
+            Secure = isSecure,
+            SameSite = sameSite,
+            Expires = DateTimeOffset.UtcNow.AddDays(-1),
+            Path = "/"
+        };
+        Response.Cookies.Append("__Host-XSRF-TOKEN", "", expiredCsrfOptions);
+        Response.Cookies.Append("XSRF-TOKEN", "", expiredCsrfOptions);
     }
 }

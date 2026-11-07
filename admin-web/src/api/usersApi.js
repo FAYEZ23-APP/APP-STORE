@@ -8,6 +8,8 @@ export const changePassword = (data) => client.put('/users/me/password', data);
 // Seller Profile endpoints (DispatchCity, DispatchAddress, ContactPhone)
 export const getMySellerProfile = () => client.get('/users/me/seller-profile');
 export const updateMySellerProfile = (data) => client.put('/users/me/seller-profile', data);
+export const submitSellerKyb = (data) => client.put('/users/me/seller-profile/kyb', data);
+export const getSellerPerformance = () => client.get('/sellers/performance');
 
 // Address Book CRUD endpoints (/api/users/me/addresses)
 export const getMyAddresses = () => client.get('/users/me/addresses');
@@ -35,6 +37,7 @@ export default {
   changePassword,
   getMySellerProfile,
   updateMySellerProfile,
+  submitSellerKyb,
   getMyAddresses,
   getMyAddressById,
   createMyAddress,

@@ -9,7 +9,14 @@ public static class ClaimsPrincipalExtensions
     public static int GetUserId(this ClaimsPrincipal user)
     {
         var value = user.FindFirstValue(JwtService.ClaimNames.UserId)
-            ?? throw new UnauthorizedAccessException("User id claim is missing.");
+            ?? throw new Marketplace.Application.Exceptions.UnauthorizedException("User id claim is missing.");
         return int.Parse(value);
+    }
+
+    /// <summary>Reads the authenticated user's role from the "role" claim.</summary>
+    public static string? GetUserRole(this ClaimsPrincipal user)
+    {
+        return user.FindFirstValue(JwtService.ClaimNames.Role)
+            ?? user.FindFirstValue(ClaimTypes.Role);
     }
 }

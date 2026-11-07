@@ -28,6 +28,7 @@ import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
 import { getCategoryIconName } from '../../utils/categoryIcons';
 import { CartContext } from '../../context/CartContext';
+import { AuthContext } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
 import ProductCard from '../../components/ProductCard';
 import { colors } from '../../theme/colors';
@@ -65,12 +66,17 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const { getQuantity, setQuantity } = useContext(CartContext);
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const { userId } = useContext(AuthContext);
 
   const initialProduct = route?.params?.product || null;
   const productId = route?.params?.productId || initialProduct?.id;
   const isFav = isWishlisted(productId);
 
   const handleToggleWishlist = async () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     try {
       await toggleWishlist(productId);
     } catch (err) {
@@ -404,6 +410,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
   };
 
   const handleQtyDecrease = () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (isOutOfStock) return;
     if (cartQty > 0) {
       const next = cartQty - 1;
@@ -415,6 +425,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
   };
 
   const handleQtyIncrease = () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (isOutOfStock) return;
     const current = cartQty > 0 ? cartQty : selectedQty;
     if (current >= stock) return;
@@ -426,6 +440,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
   };
 
   const handleAddToCart = () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (isOutOfStock) return;
     const qtyToAdd = Math.min(stock, Math.max(1, selectedQty));
     setQuantity(product, qtyToAdd, selectedVariant);
@@ -435,6 +453,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
   };
 
   const handleBuyNow = () => {
+    if (!userId) {
+      navigation.navigate('Login');
+      return;
+    }
     if (isOutOfStock) return;
     const qty = Math.min(stock, Math.max(1, selectedQty));
     // "Buy now" opens Checkout with only this product, selected variant and quantity

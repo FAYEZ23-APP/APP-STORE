@@ -1,0 +1,14 @@
+﻿
+> marketplacemobile@1.0.0 i18n:check
+> node scripts/check-i18n.js
+
+🌐 Validating i18n locale files and source code references...
+
+📊 Translation Key Statistics:
+   - Total locale keys (in sync): 1108
+   - Static keys extracted from source: 693
+   - Dynamic namespaces detected: shipmentStatus, orderStatus, categories, returnStatus, returnReason, payoutStatus, payoutMethod, walletTxType, roles, deliveryMethod, paymentMethod
+   - Backend enum/API values verified across 11 namespaces: 53
+   - Unreferenced keys (candidates for pruning): 356
+
+✅ i18n check passed! Both ar.json and en.json are in 100% sync (1108 keys), all static keys exist, and all 53 backend enum/API values are covered.

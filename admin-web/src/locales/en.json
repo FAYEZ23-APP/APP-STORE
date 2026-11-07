@@ -53,7 +53,12 @@
     "days_few": "{{count}} days",
     "days_many": "{{count}} days",
     "days_other": "{{count}} days",
-    "all": "All"
+    "all": "All",
+    "inactivityWarningTitle": "Session Expiring Soon",
+    "inactivitySecondsLeft": "Session will terminate in {{seconds}}s",
+    "inactivityWarningPrompt": "Your administrative session is about to expire due to inactivity. Would you like to stay signed in?",
+    "staySignedIn": "Stay Signed In",
+    "logout": "Sign Out"
   },
   "nav": {
     "home": "Home",
@@ -853,7 +858,9 @@
     "stepUpPlaceholder": "Enter admin password to confirm authorization",
     "stepUpRequired": "Please enter admin password to confirm this sensitive action",
     "payoutsDisabledTitle": "Vendor payouts are currently disabled",
-    "payoutsDisabledDesc": "Vendor settlements and payout processing are disabled under platform policy flags."
+    "payoutsDisabledDesc": "Vendor settlements and payout processing are disabled under platform policy flags.",
+    "stepUpTotpLabel": "Authenticator Code (2FA)",
+    "stepUpTotpPlaceholder": "6-digit code"
   },
   "buyer": {
     "catalog": "Catalog",
@@ -1012,7 +1019,13 @@
     "tabs": {
       "auditLogs": "Audit Logs",
       "security": "Security & 2FA",
-      "shipments": "Shipments & Delivery"
+      "shipments": "Shipments & Delivery",
+      "codBlacklist": "COD Blacklist",
+      "returns": "Returns & Disputes"
+    },
+    "codBlacklist": {
+      "title": "COD Refusal Blacklist",
+      "subtitle": "Manage phone numbers and buyers blocked from Cash on Delivery due to serial doorstep refusals"
     },
     "twoFactor": {
       "title": "Admin Two-Factor Authentication (TOTP 2FA)",
@@ -1070,6 +1083,18 @@
       "filterOrderId": "Order ID",
       "filterSellerId": "Seller ID",
       "settleCod": "Settle COD Cash"
+    },
+    "returns": {
+      "title": "Returns & Disputes Management",
+      "noReturns": "No returns found",
+      "resolve": "Resolve Dispute",
+      "favorSeller": "Favor Seller (Reject Return)",
+      "favorBuyer": "Favor Buyer (Accept Return)",
+      "resolutionNotes": "Resolution Notes",
+      "confirmResolve": "Confirm Decision",
+      "disputeOnly": "Disputes Only",
+      "allReturns": "All Returns",
+      "subtitle": "Monitor and arbitrate buyer and seller return disputes in accordance with consumer protection laws"
     }
   },
   "invoice": {
@@ -1111,5 +1136,29 @@
     "notFound": "Store not found or deactivated",
     "visitStore": "Visit Store",
     "sortBy": "Sort By"
+  },
+  "returns": {
+    "title": "Returns",
+    "category": {
+      "label": "Return Type",
+      "standard14Day": "14-Day Withdrawal (Art. 17)",
+      "defect30Day": "30-Day Manufacturing Defect (Art. 21)"
+    },
+    "reverseTracking": "Reverse Tracking Number",
+    "confirmReceived": "Confirm Item Received",
+    "dispute": {
+      "button": "Open Dispute",
+      "reason": "Dispute Reason",
+      "evidence": "Evidence URLs (one per line)",
+      "submit": "Submit Dispute",
+      "title": "Open Dispute"
+    },
+    "status": {
+      "Pending": "Pending",
+      "Approved": "Approved",
+      "ApprovedAwaitingReturn": "Awaiting Return",
+      "Rejected": "Rejected",
+      "Completed": "Completed"
+    }
   }
 }

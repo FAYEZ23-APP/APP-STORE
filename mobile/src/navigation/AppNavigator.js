@@ -1,6 +1,6 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
@@ -26,12 +26,42 @@ import WishlistScreen from '../screens/buyer/WishlistScreen';
 import NotificationsScreen from '../screens/common/NotificationsScreen';
 
 import { colors } from '../theme/colors';
+import { isRoleAuthorizedForScreen } from '../utils/deepLinkValidator';
 
 const Stack = createNativeStackNavigator();
 
-export default function AppNavigator() {
-  const { userRole, isLoading } = useContext(AuthContext);
+export default function AppNavigator({
+  userRole: propUserRole,
+  pendingNavigation,
+  onPendingNavigationConsumed,
+} = {}) {
+  const authContext = useContext(AuthContext);
+  const userRole = propUserRole !== undefined ? propUserRole : authContext?.userRole;
+  const isLoading = authContext?.isLoading;
   const { t } = useTranslation();
+  const navigationRef = useNavigationContainerRef();
+
+  // Consume and execute validated pending navigation after unlock
+  useEffect(() => {
+    if (pendingNavigation && navigationRef.isReady()) {
+      const { screen, params } = pendingNavigation;
+      const isAllowed = isRoleAuthorizedForScreen(screen, userRole);
+
+      if (isAllowed) {
+        try {
+          navigationRef.navigate(screen, params);
+        } catch (err) {
+          console.warn('[AppNavigator] Failed to navigate to pending route:', err?.message);
+        }
+      } else {
+        console.warn(`[AppNavigator] Blocked unauthorized navigation attempt to '${screen}' for role '${userRole}'`);
+      }
+
+      if (onPendingNavigationConsumed) {
+        onPendingNavigationConsumed();
+      }
+    }
+  }, [pendingNavigation, userRole, navigationRef, onPendingNavigationConsumed]);
 
   if (isLoading) {
     return (
@@ -56,7 +86,7 @@ export default function AppNavigator() {
   };
 
   const linking = {
-    prefixes: ['marketplace://', 'https://marketplace.com'],
+    prefixes: ['marketplace://', 'marketplacemobile://', 'https://marketplace.com'],
     config: {
       screens: {
         BuyerRoot: {
@@ -69,6 +99,7 @@ export default function AppNavigator() {
           },
         },
         ProductDetails: 'product/:productId',
+        ProductDetailsAlt: 'product/:id',
         SellerStore: 'store/:sellerId',
         Checkout: 'checkout',
         Login: 'login',
@@ -77,7 +108,7 @@ export default function AppNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme} linking={linking}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme} linking={linking}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

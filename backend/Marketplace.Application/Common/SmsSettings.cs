@@ -30,6 +30,16 @@ public class SmsSettings
     public string? SenderId { get; set; }
 
     /// <summary>
+    /// NTRA Sender ID explicitly configured for Egyptian telecommunication compliance.
+    /// </summary>
+    public string? NtraSenderId { get; set; }
+
+    /// <summary>
+    /// Approved NTRA template prefix or registration ID.
+    /// </summary>
+    public string? ApprovedTemplatePrefix { get; set; }
+
+    /// <summary>
     /// Environment flag (1 = live, 2 = test).
     /// </summary>
     public string? Environment { get; set; } = "1";

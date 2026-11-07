@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { AlertTriangle, RefreshCw, Home, ShieldAlert } from 'lucide-react';
+import { reportClientError } from '../utils/telemetry';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,7 +18,7 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo });
-    console.error('[Global ErrorBoundary caught an error]:', error, errorInfo);
+    reportClientError(error, { componentStack: errorInfo?.componentStack?.slice(0, 500) });
   }
 
   handleReload = () => {

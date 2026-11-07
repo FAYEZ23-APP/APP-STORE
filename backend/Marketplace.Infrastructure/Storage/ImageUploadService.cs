@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Marketplace.Application.Exceptions;
 using Marketplace.Application.Interfaces;
 using Marketplace.Domain.Entities;
+using Marketplace.Domain.Enums;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using SkiaSharp;
@@ -19,7 +20,7 @@ public class ImageUploadService : IImageUploadService
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex RelativePrivateUploadUrlRegex = new(
-        @"^/api/files/private/(?<file>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.(jpg|jpeg|png|webp))$",
+        @"^/api/files/private/(?<file>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.(jpg|jpeg|png|webp|pdf))$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -44,15 +45,33 @@ public class ImageUploadService : IImageUploadService
         _storageProvider = storageProvider;
     }
 
+    public Task<ImageUploadResult> ProcessAndSaveImageAsync(
+        int uploaderId,
+        Stream fileStream,
+        string originalFileName,
+        long fileLength,
+        string? subFolder)
+        => ProcessAndSaveImageAsync(uploaderId, fileStream, originalFileName, fileLength, subFolder, null, FileCategory.ProductImage);
+
+    public Task<ImageUploadResult> ProcessAndSavePrivateImageAsync(
+        int uploaderId,
+        Stream fileStream,
+        string originalFileName,
+        long fileLength,
+        string? subFolder)
+        => ProcessAndSavePrivateImageAsync(uploaderId, fileStream, originalFileName, fileLength, subFolder, null, FileCategory.ReturnEvidence);
+
     public async Task<ImageUploadResult> ProcessAndSaveImageAsync(
         int uploaderId,
         Stream fileStream,
         string originalFileName,
         long fileLength,
-        string? subFolder = null)
+        string? subFolder = null,
+        string? clientContentType = null,
+        FileCategory category = FileCategory.ProductImage)
     {
         var (cleanBytes, finalWidth, finalHeight, contentType, canonicalExtension) =
-            await CleanAndValidateImageAsync(fileStream, originalFileName, fileLength);
+            await CleanAndValidateImageAsync(fileStream, originalFileName, fileLength, clientContentType);
 
         var normalizedSubFolder = string.IsNullOrWhiteSpace(subFolder)
             ? null
@@ -74,6 +93,10 @@ public class ImageUploadService : IImageUploadService
             SizeBytes = cleanBytes.LongLength,
             Width = finalWidth,
             Height = finalHeight,
+            Category = category,
+            IsPrivate = false,
+            IsLegalHold = false,
+            RetentionExpiresAt = null,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -94,10 +117,12 @@ public class ImageUploadService : IImageUploadService
         Stream fileStream,
         string originalFileName,
         long fileLength,
-        string? subFolder = "returns")
+        string? subFolder = "returns",
+        string? clientContentType = null,
+        FileCategory category = FileCategory.ReturnEvidence)
     {
         var (cleanBytes, finalWidth, finalHeight, contentType, canonicalExtension) =
-            await CleanAndValidateImageAsync(fileStream, originalFileName, fileLength);
+            await CleanAndValidateImageAsync(fileStream, originalFileName, fileLength, clientContentType);
 
         var normalizedSubFolder = string.IsNullOrWhiteSpace(subFolder)
             ? "returns"
@@ -110,6 +135,7 @@ public class ImageUploadService : IImageUploadService
             normalizedSubFolder,
             isPrivate: true);
 
+        var disputeRetentionDays = _configuration.GetValue<int>("Uploads:DisputeDocumentRetentionDays", 180);
         var uploadedFile = new UploadedFile
         {
             UploaderId = uploaderId,
@@ -119,6 +145,10 @@ public class ImageUploadService : IImageUploadService
             SizeBytes = cleanBytes.LongLength,
             Width = finalWidth,
             Height = finalHeight,
+            Category = category,
+            IsPrivate = true,
+            IsLegalHold = false,
+            RetentionExpiresAt = DateTime.UtcNow.AddDays(disputeRetentionDays),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -134,10 +164,115 @@ public class ImageUploadService : IImageUploadService
             cleanBytes.LongLength);
     }
 
+    public async Task<ImageUploadResult> ProcessAndSavePrivateDocumentAsync(
+        int uploaderId,
+        Stream fileStream,
+        string originalFileName,
+        long fileLength,
+        string? subFolder = "disputes",
+        string? clientContentType = null,
+        FileCategory category = FileCategory.DisputeEvidence)
+    {
+        var extension = Path.GetExtension(originalFileName)?.ToLowerInvariant();
+        if (extension is ".jpg" or ".jpeg" or ".png" or ".webp")
+        {
+            return await ProcessAndSavePrivateImageAsync(uploaderId, fileStream, originalFileName, fileLength, subFolder, clientContentType, category);
+        }
+
+        if (extension != ".pdf")
+        {
+            throw new BadRequestException("Unsupported document type. Only PDF and image files are permitted.");
+        }
+
+        if (fileStream == null || fileLength <= 0)
+        {
+            throw new BadRequestException("No document file provided.");
+        }
+
+        var maxFileSizeBytes = _configuration.GetValue<long>("Uploads:MaxFileSizeBytes", 6L * 1024 * 1024);
+        if (fileLength > maxFileSizeBytes)
+        {
+            throw new BadRequestException($"Document size exceeds the {maxFileSizeBytes / (1024 * 1024)}MB limit.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(clientContentType))
+        {
+            var mime = clientContentType.Trim().ToLowerInvariant();
+            if (mime != "application/pdf")
+            {
+                throw new BadRequestException($"MIME type '{clientContentType}' does not match PDF document.");
+            }
+        }
+
+        await using var ms = new MemoryStream();
+        await fileStream.CopyToAsync(ms);
+        var rawBytes = ms.ToArray();
+
+        if (rawBytes.Length == 0 || rawBytes.Length > maxFileSizeBytes)
+        {
+            throw new BadRequestException($"Document size exceeds the {maxFileSizeBytes / (1024 * 1024)}MB limit.");
+        }
+
+        // PDF Magic bytes: %PDF- (0x25, 0x50, 0x44, 0x46, 0x2D)
+        if (rawBytes.Length < 5 ||
+            rawBytes[0] != 0x25 || rawBytes[1] != 0x50 || rawBytes[2] != 0x44 || rawBytes[3] != 0x46 || rawBytes[4] != 0x2D)
+        {
+            throw new BadRequestException("Invalid PDF header signature. File is not a valid PDF document.");
+        }
+
+        // Scan for dangerous embedded elements in PDF
+        var pdfText = System.Text.Encoding.Latin1.GetString(rawBytes);
+        if (pdfText.Contains("/JavaScript") || pdfText.Contains("/JS") || pdfText.Contains("/Launch") ||
+            pdfText.Contains("/EmbeddedFiles"))
+        {
+            throw new BadRequestException("PDF document contains forbidden interactive or executable elements.");
+        }
+
+        var normalizedSubFolder = string.IsNullOrWhiteSpace(subFolder)
+            ? "disputes"
+            : subFolder.Trim().Trim('/', '\\').ToLowerInvariant();
+
+        var fileName = $"{Guid.NewGuid():D}.pdf";
+        var relativeUrl = await _storageProvider.SaveFileAsync(
+            rawBytes,
+            fileName,
+            normalizedSubFolder,
+            isPrivate: true);
+
+        var retentionDays = _configuration.GetValue<int>("Uploads:DisputeDocumentRetentionDays", 180);
+        var uploadedFile = new UploadedFile
+        {
+            UploaderId = uploaderId,
+            FileName = fileName,
+            RelativeUrl = relativeUrl,
+            ContentType = "application/pdf",
+            SizeBytes = rawBytes.LongLength,
+            Width = 0,
+            Height = 0,
+            Category = category,
+            IsPrivate = true,
+            IsLegalHold = false,
+            RetentionExpiresAt = DateTime.UtcNow.AddDays(retentionDays),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _uow.UploadedFiles.AddAsync(uploadedFile);
+        await _uow.SaveChangesAsync();
+
+        return new ImageUploadResult(
+            relativeUrl,
+            fileName,
+            "application/pdf",
+            0,
+            0,
+            rawBytes.LongLength);
+    }
+
     private async Task<(byte[] CleanBytes, int Width, int Height, string ContentType, string CanonicalExtension)> CleanAndValidateImageAsync(
         Stream fileStream,
         string originalFileName,
-        long fileLength)
+        long fileLength,
+        string? clientContentType)
     {
         if (fileStream == null || fileLength <= 0)
         {
@@ -156,6 +291,31 @@ public class ImageUploadService : IImageUploadService
             throw new BadRequestException("Invalid file type. Only jpg, jpeg, png, and webp are allowed.");
         }
 
+        // Validate client Content-Type if provided (never trust client blindly, but reject mismatched / executable MIME)
+        if (!string.IsNullOrWhiteSpace(clientContentType))
+        {
+            var rawMime = clientContentType.Trim().ToLowerInvariant();
+            if (rawMime.Contains("javascript") || rawMime.Contains("html") || rawMime.Contains("executable") ||
+                rawMime.Contains("msdownload") || rawMime.Contains("bat") || rawMime.Contains("sh") ||
+                rawMime.Contains("php") || rawMime.Contains("cmd"))
+            {
+                throw new BadRequestException("Unsupported or executable MIME type.");
+            }
+
+            var isMimeValid = extension switch
+            {
+                ".jpg" or ".jpeg" => rawMime is "image/jpeg" or "image/pjpeg" or "image/jpg",
+                ".png" => rawMime is "image/png" or "image/x-png",
+                ".webp" => rawMime is "image/webp",
+                _ => false
+            };
+
+            if (!isMimeValid)
+            {
+                throw new BadRequestException($"MIME type '{clientContentType}' does not match expected image format for extension '{extension}'.");
+            }
+        }
+
         await using var memoryStream = new MemoryStream();
         await fileStream.CopyToAsync(memoryStream);
         var rawBytes = memoryStream.ToArray();
@@ -163,6 +323,12 @@ public class ImageUploadService : IImageUploadService
         if (rawBytes.Length == 0 || rawBytes.LongLength > maxFileSizeBytes)
         {
             throw new BadRequestException($"File size exceeds the {maxFileSizeBytes / (1024 * 1024)}MB limit.");
+        }
+
+        // Reject executable and script signatures (defense in depth)
+        if (IsExecutableOrScript(rawBytes))
+        {
+            throw new BadRequestException("Executable or script files are strictly prohibited.");
         }
 
         // 1. Magic-byte signature check
@@ -173,6 +339,7 @@ public class ImageUploadService : IImageUploadService
 
         // 2. Decode, validate pixel dimensions, apply EXIF orientation, downscale if needed, and re-encode to strip all EXIF/GPS metadata
         var maxInputDimension = _configuration.GetValue<int>("Uploads:MaxInputDimension", 8192);
+        var maxPixelCount = _configuration.GetValue<long>("Uploads:MaxPixelCount", 25_000_000L);
         var maxOutputDimension = _configuration.GetValue<int>("Uploads:MaxImageDimension", 1600);
         var quality = _configuration.GetValue<int>("Uploads:JpegWebpQuality", 85);
 
@@ -209,6 +376,13 @@ public class ImageUploadService : IImageUploadService
             {
                 throw new BadRequestException(
                     $"Image dimensions ({srcWidth}x{srcHeight}) are invalid or exceed the maximum allowed input dimension ({maxInputDimension}px).");
+            }
+
+            // Decompression bomb / pixel flood protection
+            if ((long)srcWidth * srcHeight > maxPixelCount)
+            {
+                throw new BadRequestException(
+                    $"Image pixel count ({(long)srcWidth * srcHeight:N0}) exceeds the safety limit of {maxPixelCount:N0} pixels.");
             }
 
             var decodeInfo = new SKImageInfo(srcWidth, srcHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
@@ -253,6 +427,10 @@ public class ImageUploadService : IImageUploadService
             }
 
             cleanBytes = encodedData.ToArray();
+
+            // 3. Final Output Validation: Inspect cleanBytes to verify all EXIF/GPS/metadata is completely absent
+            VerifyCleanImageOutput(cleanBytes, expectedFormat);
+
             canonicalExtension = expectedFormat switch
             {
                 SKEncodedImageFormat.Jpeg => ".jpg",
@@ -452,6 +630,134 @@ public class ImageUploadService : IImageUploadService
                    bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
 
         return false;
+    }
+
+    private static bool IsExecutableOrScript(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length < 2)
+            return false;
+
+        // Windows PE / DOS executable (MZ)
+        if (bytes[0] == 0x4D && bytes[1] == 0x5A)
+            return true;
+
+        // Linux ELF
+        if (bytes.Length >= 4 && bytes[0] == 0x7F && bytes[1] == 0x45 && bytes[2] == 0x4C && bytes[3] == 0x46)
+            return true;
+
+        // Java Class
+        if (bytes.Length >= 4 && bytes[0] == 0xCA && bytes[1] == 0xFE && bytes[2] == 0xBA && bytes[3] == 0xBE)
+            return true;
+
+        // Mach-O
+        if (bytes.Length >= 4 && (
+            (bytes[0] == 0xFE && bytes[1] == 0xED && bytes[2] == 0xFA && bytes[3] == 0xCE) ||
+            (bytes[0] == 0xCF && bytes[1] == 0xFA && bytes[2] == 0xED && bytes[3] == 0xFE)))
+            return true;
+
+        // Script markers in header
+        var headerAscii = System.Text.Encoding.Latin1.GetString(bytes.AsSpan(0, Math.Min(bytes.Length, 512))).ToLowerInvariant();
+        if (headerAscii.StartsWith("#!/") ||
+            headerAscii.Contains("<?php") ||
+            headerAscii.Contains("<html") ||
+            headerAscii.Contains("<script") ||
+            headerAscii.Contains("<!doctype"))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Inspects the re-encoded image buffer to ensure prohibited EXIF, GPS, camera metadata, and thumbnails are absent.
+    /// </summary>
+    public static void VerifyCleanImageOutput(byte[] bytes, SKEncodedImageFormat format)
+    {
+        if (bytes == null || bytes.Length == 0)
+        {
+            throw new BadRequestException("Sanitized output image is empty.");
+        }
+
+        switch (format)
+        {
+            case SKEncodedImageFormat.Jpeg:
+            {
+                // Scan JPEG markers: APP1 (0xFFE1) must not exist with Exif or XMP
+                if (bytes.Length > 4 && bytes[0] == 0xFF && bytes[1] == 0xD8)
+                {
+                    var offset = 2;
+                    while (offset + 4 <= bytes.Length && bytes[offset] == 0xFF)
+                    {
+                        var marker = bytes[offset + 1];
+                        if (marker == 0xDA || marker == 0xD9) break; // Start of scan or end of image
+                        var segLen = (bytes[offset + 2] << 8) | bytes[offset + 3];
+                        if (segLen < 2) break;
+
+                        if (marker == 0xE1) // APP1 segment
+                        {
+                            var payloadOffset = offset + 4;
+                            var payloadLength = Math.Min(segLen - 2, bytes.Length - payloadOffset);
+                            var payloadStr = System.Text.Encoding.Latin1.GetString(bytes, payloadOffset, payloadLength);
+                            if (payloadStr.StartsWith("Exif\0\0", StringComparison.Ordinal) ||
+                                payloadStr.Contains("http://ns.adobe.com/xap/1.0/") ||
+                                payloadStr.Contains("GPS"))
+                            {
+                                throw new InvalidOperationException("Sanitization verification failed: EXIF/GPS APP1 segment found in output JPEG.");
+                            }
+                        }
+
+                        offset += 2 + segLen;
+                    }
+                }
+
+                // Global string check for sensitive markers
+                var latin1 = System.Text.Encoding.Latin1.GetString(bytes);
+                if (latin1.Contains("GPSLatitude") || latin1.Contains("GPSLongitude") || latin1.Contains("GPS_CAIRO"))
+                {
+                    throw new InvalidOperationException("Sanitization verification failed: GPS metadata found in output JPEG.");
+                }
+                break;
+            }
+
+            case SKEncodedImageFormat.Png:
+            {
+                // Verify no eXIf or prohibited metadata chunks
+                if (bytes.Length > 8)
+                {
+                    var offset = 8;
+                    while (offset + 8 <= bytes.Length)
+                    {
+                        var chunkLen = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+                        if (chunkLen < 0 || offset + 8 + chunkLen + 4 > bytes.Length) break;
+                        var chunkType = System.Text.Encoding.ASCII.GetString(bytes, offset + 4, 4);
+
+                        if (chunkType is "eXIf" or "iTXt" or "tEXt" or "zTXt")
+                        {
+                            var chunkData = System.Text.Encoding.Latin1.GetString(bytes, offset + 8, chunkLen);
+                            if (chunkType == "eXIf" || chunkData.Contains("GPS") || chunkData.Contains("Exif"))
+                            {
+                                throw new InvalidOperationException($"Sanitization verification failed: Metadata chunk '{chunkType}' found in output PNG.");
+                            }
+                        }
+
+                        offset += 8 + chunkLen + 4;
+                    }
+                }
+                break;
+            }
+
+            case SKEncodedImageFormat.Webp:
+            {
+                // RIFF container checks
+                var latin1 = System.Text.Encoding.Latin1.GetString(bytes);
+                if (latin1.Contains("EXIF") || latin1.Contains("XMP "))
+                {
+                    throw new InvalidOperationException("Sanitization verification failed: EXIF/XMP chunk found in output WebP.");
+                }
+                break;
+            }
+        }
     }
 
     private static SKBitmap ApplyExifOrientation(SKBitmap bitmap, SKEncodedOrigin origin)

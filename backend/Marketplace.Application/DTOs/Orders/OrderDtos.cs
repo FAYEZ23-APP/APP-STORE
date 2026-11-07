@@ -21,6 +21,7 @@ public class CreateOrderRequest
     public string PaymentMethod { get; set; } = "OnReceipt";
     public string? CouponCode { get; set; }
     public bool UseWalletBalance { get; set; } = false;
+    public int? AddressId { get; set; }
     public string? IdempotencyKey { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
@@ -64,6 +65,7 @@ public class OrderResponse
     public double? DeliveryLongitude { get; set; }
     public bool IsBuyerConfirmed { get; set; }
     public DateTime? ConfirmedAt { get; set; }
+    public string? ConfirmationChannel { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
     public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -94,11 +96,27 @@ public class SellerOrderResponse
     public decimal TotalPrice { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime Date { get; set; }
+    public string? Governorate { get; set; }
+    public string? City { get; set; }
     public string? BuildingNumber { get; set; }
     public string? Floor { get; set; }
     public string? Apartment { get; set; }
     public string? Landmark { get; set; }
     public bool IsBuyerConfirmed { get; set; }
+    public string? ConfirmationChannel { get; set; }
+}
+
+public class SellerOrderDetailResponse
+{
+    public int OrderId { get; set; }
+    public string BuyerFirstName { get; set; } = string.Empty;
+    public string Governorate { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string MaskedPhone { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public decimal TotalSellerAmount { get; set; }
+    public List<OrderItemResponse> Items { get; set; } = new();
 }
 
 public class UpdateOrderStatusRequest
@@ -106,10 +124,16 @@ public class UpdateOrderStatusRequest
     public string Status { get; set; } = string.Empty;
 }
 
+public class ConfirmOrderRequest
+{
+    public string? Channel { get; set; }
+}
+
 public class ConfirmOrderResponse
 {
     public int OrderId { get; set; }
     public bool IsBuyerConfirmed { get; set; }
     public DateTime? ConfirmedAt { get; set; }
+    public string? ConfirmationChannel { get; set; }
     public string Message { get; set; } = string.Empty;
 }

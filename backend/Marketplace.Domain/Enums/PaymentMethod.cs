@@ -2,5 +2,8 @@ namespace Marketplace.Domain.Enums;
 
 public enum PaymentMethod
 {
-    OnReceipt
+    OnReceipt,
+    Card,
+    MobileWallet,
+    InstaPay
 }

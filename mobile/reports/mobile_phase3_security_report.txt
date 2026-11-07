@@ -1,0 +1,92 @@
+================================================================================
+PHASE 3 VERIFICATION REPORT: Mobile Network Security & API Configuration Hardening
+Project: Egypt Shop Mobile (React Native + Expo SDK 58)
+Security Reference: MOB-013
+Timestamp: 2026-11-03
+================================================================================
+
+1. API URL AUDIT FINDINGS:
+--------------------------------------------------------------------------------
+- Sources Audited:
+  * `app.config.js`: Evaluates `process.env.EXPO_PUBLIC_API_URL` and `ALLOW_CLEARTEXT`. Added strict production build guards.
+  * `.env`: `EXPO_PUBLIC_API_URL=http://192.168.1.8:5209/api` (Local LAN dev endpoint).
+  * `.env.example`: `EXPO_PUBLIC_API_URL=http://192.168.1.8:5209/api`.
+  * `eas.json`: Standard profiles (`development`, `preview`, `production`). Zero secrets or URL overrides present.
+  * `client.js`: Previously checked `process.env.EXPO_PUBLIC_API_URL` before verifying production mode. Now upgraded to use `resolveApiBaseUrl()` from `networkSecurity.js`.
+  * Debug/Developer Settings: Zero hidden developer screens or runtime URL override UI exist in the application.
+
+2. REMOVE PRODUCTION API URL OVERRIDE & HARDENING:
+--------------------------------------------------------------------------------
+- Hardened Endpoint Resolution (`src/utils/networkSecurity.js`):
+  * Production mode (`!__DEV__` or `NODE_ENV === 'production'`):
+    - HTTPS is strictly mandatory (`protocol === 'https:'`).
+    - Hostname must match approved production allowlist (`APPROVED_PRODUCTION_HOSTS`: `api.marketplace.eg`).
+    - Malformed, insecure, or unknown destinations fail closed.
+    - Missing production URL safely defaults to approved HTTPS endpoint `https://api.marketplace.eg/api`.
+    - Never falls back to localhost or 10.0.2.2 in production.
+  * Development mode:
+    - Allows localhost, 127.0.0.1, and 10.0.2.2 loopback.
+    - Private LAN IPs (192.168.x.x, 10.x.x.x) require explicit `ALLOW_CLEARTEXT === '1'`.
+- Request Interceptor Destination Validation:
+  * Blocks pseudo-protocols (`javascript:`, `file:`, `data:`).
+  * Validates absolute URLs against approved host allowlist.
+
+3. ANDROID CLEARTEXT TRAFFIC PROTECTION:
+--------------------------------------------------------------------------------
+- `android:usesCleartextTraffic`:
+  * Enforced to `"false"` in production `AndroidManifest.xml`.
+  * Configured via `plugins/withMobileSecurity.js`.
+- Production Build Guard (`app.config.js`):
+  * Explicit guard throws build exception if `ALLOW_CLEARTEXT=1` is present during a production build.
+  * Explicit guard throws build exception if `EXPO_PUBLIC_API_URL` starts with `http://` in production.
+- Android Network Security Config (`network_security_config.xml`):
+  * Generated under `android/app/src/main/res/xml/network_security_config.xml`.
+  * `<base-config cleartextTrafficPermitted="false">` denies cleartext HTTP application-wide.
+  * `<domain-config cleartextTrafficPermitted="false">` explicitly protects `api.marketplace.eg` and `marketplace.eg`.
+  * Linked via `android:networkSecurityConfig="@xml/network_security_config"` in `AndroidManifest.xml`.
+
+4. IOS APP TRANSPORT SECURITY (ATS):
+--------------------------------------------------------------------------------
+- Enforced in `withMobileSecurity.js`:
+  * `NSAppTransportSecurity.NSAllowsArbitraryLoads: false`.
+  * Broad domain exceptions eliminated.
+  * Mandatory HTTPS for production communication.
+
+5. EXPO_PUBLIC SECRET SCANNING & HERMES BUNDLE AUDIT:
+--------------------------------------------------------------------------------
+- Secret Scanning across `.env`, `.env.example`, `app.config.js`, and `src/`:
+  * Zero database credentials.
+  * Zero JWT signing keys or private asymmetric keys.
+  * Zero AWS/GCP service account private keys.
+  * Zero admin credentials or internal service tokens.
+  * Only public client identifiers (Google OAuth Client IDs) and public API URLs are exposed via `EXPO_PUBLIC_*`.
+- Hermes / Static JS Bundle Scanning:
+  * Exported Android JS bundle (`npx expo export -p android`) audited against secret regex patterns.
+  * 0 leaked secrets or connection strings found.
+
+6. AUTOMATED TEST SUITE RESULTS:
+--------------------------------------------------------------------------------
+`tests/test_mobile_network_security.js`:
+  1. HTTPS production API configuration: PASSED
+  2. HTTP development endpoint with explicit opt-in: PASSED
+  3. Insecure HTTP production endpoint rejection: PASSED
+  4. ALLOW_CLEARTEXT mistakenly enabled in production guard: PASSED
+  5. Missing production API URL safe HTTPS default: PASSED
+  6. Unknown API hostname rejection: PASSED
+  7. Hidden API override / pseudo-protocol rejection: PASSED
+  8. Android usesCleartextTraffic="false" verification: PASSED
+  9. Android Network Security Config verification: PASSED
+  10. iOS ATS configuration (NSAllowsArbitraryLoads: false): PASSED
+  11. EXPO_PUBLIC secret scanning: PASSED
+  12. Compiled JS bundle secret scanning: PASSED
+  13. Request interceptor destination safety validation: PASSED
+Result: 13 Passed, 0 Failed.
+
+All Combined Mobile Tests:
+  - Security Suites (Storage + Biometrics + Navigation + Permissions + Network): 45/45 Passed
+  - Biometric Lock State Machine: 14/14 Passed
+  - Smart Search Test Suite: 31/31 Passed
+  - i18n Check: 1100 keys (100% parity)
+
+TOTAL: 90 Passed, 0 Failed, 0 Skipped.
+================================================================================

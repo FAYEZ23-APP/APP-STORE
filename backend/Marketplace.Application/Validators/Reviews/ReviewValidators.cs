@@ -59,4 +59,14 @@ public class ReportReviewRequestValidator : AbstractValidator<ReportReviewReques
         RuleFor(x => x.Details)
             .MaximumLength(500).WithMessage("تفاصيل الإبلاغ لا يمكن أن تتجاوز 500 حرف.");
     }
+
+public class ModerateReviewRequestValidator : AbstractValidator<ModerateReviewRequest>
+{
+    public ModerateReviewRequestValidator()
+    {
+        RuleFor(x => x.Note)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.Note));
+    }
+}
 }

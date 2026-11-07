@@ -49,3 +49,44 @@ public class ResolveReturnRequestValidator : AbstractValidator<ResolveReturnRequ
             .WithMessage("Status must be 'Approved', 'Completed', or 'Rejected'.");
     }
 }
+
+public class ConfirmReturnReceivedRequestValidator : AbstractValidator<ConfirmReturnReceivedRequest>
+{
+    public ConfirmReturnReceivedRequestValidator()
+    {
+        RuleFor(x => x.Note)
+            .MaximumLength(500)
+            .When(x => !string.IsNullOrEmpty(x.Note));
+    }
+}
+
+public class DisputeReturnRequestValidator : AbstractValidator<DisputeReturnRequest>
+{
+    public DisputeReturnRequestValidator()
+    {
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Dispute reason is required.")
+            .MaximumLength(500).WithMessage("Dispute reason must not exceed 500 characters.");
+
+        RuleForEach(x => x.EvidenceUrls)
+            .Must(CreateReturnRequestValidator.IsValidDefectImageUrl)
+            .When(x => x.EvidenceUrls != null && x.EvidenceUrls.Count > 0)
+            .WithMessage("Dispute evidence URL must be a valid upload URL.");
+    }
+}
+
+public class ResolveReturnDisputeRequestValidator : AbstractValidator<ResolveReturnDisputeRequest>
+{
+    public ResolveReturnDisputeRequestValidator()
+    {
+        RuleFor(x => x.Decision)
+            .NotEmpty().WithMessage("Decision is required.")
+            .Must(d => d.Equals("FavorSeller", StringComparison.OrdinalIgnoreCase) ||
+                       d.Equals("FavorBuyer", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("Decision must be 'FavorSeller' or 'FavorBuyer'.");
+
+        RuleFor(x => x.ResolutionNotes)
+            .MaximumLength(1000)
+            .When(x => !string.IsNullOrEmpty(x.ResolutionNotes));
+    }
+}

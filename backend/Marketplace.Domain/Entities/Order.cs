@@ -27,6 +27,7 @@ public class Order
     public double? DeliveryLongitude { get; set; }
     public bool IsBuyerConfirmed { get; set; } = false;
     public DateTime? ConfirmedAt { get; set; }
+    public string? ConfirmationChannel { get; set; }
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.OnReceipt;
     public string? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

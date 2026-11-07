@@ -107,6 +107,7 @@ public class AuthResponse
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string Role { get; set; } = string.Empty;
+    public string? CsrfToken { get; set; }
 
     public bool RequiresTwoFactor { get; set; } = false;
     public bool TwoFactorSetupRequired { get; set; } = false;
@@ -178,4 +179,22 @@ public class GoogleAuthRequest
 
     public string? DeviceId { get; set; }
     public string? DeviceName { get; set; }
+}
+
+
+public class StepUpChallengeRequest
+{
+    public string Password { get; set; } = string.Empty;
+    public string? TotpCode { get; set; }
+    public string Scope { get; set; } = string.Empty;
+    public string? TargetEntity { get; set; }
+}
+
+public class StepUpChallengeResponse
+{
+    public string StepUpToken { get; set; } = string.Empty;
+    public string Scope { get; set; } = string.Empty;
+    public int ExpiresInSeconds { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public string Method { get; set; } = string.Empty;
 }

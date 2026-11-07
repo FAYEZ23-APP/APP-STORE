@@ -28,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<ISearchService, SearchService>();
         services.AddScoped<IWishlistService, WishlistService>();
         services.AddSingleton<ITotpService, TotpService>();
+        services.AddScoped<IFulfillmentSlaService, FulfillmentSlaService>();
+        services.AddScoped<IExchangeService, ExchangeService>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
 
         return services;
     }

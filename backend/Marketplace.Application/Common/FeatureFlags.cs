@@ -15,6 +15,9 @@ public class FeatureFlags
     /// <summary>Features:EnableCoupons</summary>
     public bool EnableCoupons { get; set; } = false;
 
+    /// <summary>Features:EnableOnlinePayments (default false)</summary>
+    public bool EnableOnlinePayments { get; set; } = false;
+
     /// <summary>Features:AllowFinancialInProduction</summary>
     public bool AllowFinancialInProduction { get; set; } = false;
 

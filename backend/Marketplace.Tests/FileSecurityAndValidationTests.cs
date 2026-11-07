@@ -411,6 +411,14 @@ internal class FakeUnitOfWork : IUnitOfWork
     public IRepository<AdminAuditLog> AdminAuditLogs => throw new NotImplementedException();
     public IRepository<CodBlacklistEntry> CodBlacklistEntries => throw new NotImplementedException();
     public IRepository<ProcessedWebhookEvent> ProcessedWebhookEvents => throw new NotImplementedException();
+    public IRepository<PrivacySubjectRequest> PrivacySubjectRequests => throw new NotImplementedException();
+    public IRepository<ProcessorDeletionLog> ProcessorDeletionLogs => throw new NotImplementedException();
+    public IRepository<PrivacyIncidentLog> PrivacyIncidentLogs => throw new NotImplementedException();
+    public IRepository<ExchangeRequest> ExchangeRequests => throw new NotImplementedException();
+    public IRepository<SupportTicket> SupportTickets => throw new NotImplementedException();
+    public IRepository<SupportTicketMessage> SupportTicketMessages => throw new NotImplementedException();
+    public IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches => throw new NotImplementedException();
+    public IRepository<TaxInvoice> TaxInvoices => throw new NotImplementedException();
 
     public Task<int> SaveChangesAsync() => Task.FromResult(1);
     public Task BeginTransactionAsync() => Task.CompletedTask;

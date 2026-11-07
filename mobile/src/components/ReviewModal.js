@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import tw from 'twrnc';
+import tw from '../theme/tw';
 import { colors } from '../theme/colors';
 import {
   createReview,
@@ -342,7 +342,7 @@ export default function ReviewModal({
                   <MaterialCommunityIcons
                     name={star <= rating ? 'star' : 'star-outline'}
                     size={36}
-                    color={star <= rating ? '#F59E0B' : '#CBD5E1'}
+                    color={star <= rating ? colors.star : colors.neutralDark}
                   />
                   <Text style={[tw`text-[10px] font-bold mt-0.5`, { color: colors.textSecondary }]}>
                     {star}

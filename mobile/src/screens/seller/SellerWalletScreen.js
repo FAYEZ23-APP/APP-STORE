@@ -192,7 +192,7 @@ export default function SellerWalletScreen({ navigation }) {
   if (loading) {
     return (
       <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -201,7 +201,7 @@ export default function SellerWalletScreen({ navigation }) {
     return (
       <View style={[tw`flex-1 justify-center items-center px-6`, { backgroundColor: colors.screenBg }]}>
         <MaterialCommunityIcons name="wallet-off-outline" size={64} color="#94A3B8" />
-        <Text style={[tw`text-base font-bold text-slate-700 mt-4 text-center`]}>
+        <Text style={[tw`text-base font-bold text-[#1F2329] mt-4 text-center`]}>
           {isRTL ? 'خدمة المحفظة والمدفوعات غير مفعلة حالياً' : 'Wallet and payouts service is currently disabled'}
         </Text>
       </View>
@@ -212,7 +212,7 @@ export default function SellerWalletScreen({ navigation }) {
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       <ScrollView
         contentContainerStyle={tw`pb-12`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         {/* Top Gradient Header */}
         <LinearGradient
@@ -254,7 +254,7 @@ export default function SellerWalletScreen({ navigation }) {
             <View style={tw`flex-row items-center justify-between`}>
               <View style={tw`flex-row items-center`}>
                 <View style={tw`w-10 h-10 rounded-xl bg-orange-500/20 items-center justify-center ${isRTL ? 'ml-3' : 'mr-3'}`}>
-                  <MaterialCommunityIcons name="wallet-outline" size={24} color={colors.accent} />
+                  <MaterialCommunityIcons name="wallet-outline" size={24} color={colors.primary} />
                 </View>
                 <View>
                   <Text style={tw`text-slate-400 text-xs font-bold uppercase tracking-wider`}>
@@ -517,7 +517,7 @@ export default function SellerWalletScreen({ navigation }) {
           <View style={tw`bg-white rounded-t-3xl p-6 max-h-[85%]`}>
             <View style={tw`flex-row justify-between items-center border-b border-slate-100 pb-3 mb-4`}>
               <View style={tw`flex-row items-center`}>
-                <MaterialCommunityIcons name="cash-fast" size={22} color={colors.accent} style={isRTL ? tw`ml-2` : tw`mr-2`} />
+                <MaterialCommunityIcons name="cash-fast" size={22} color={colors.primary} style={isRTL ? tw`ml-2` : tw`mr-2`} />
                 <Text style={tw`text-base font-black text-slate-900`}>{t('wallet.requestPayout')}</Text>
               </View>
               <TouchableOpacity accessible={true} accessibilityRole="button"
@@ -544,7 +544,7 @@ export default function SellerWalletScreen({ navigation }) {
 
               {/* Amount Input */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>{t('wallet.amount')} *</Text>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>{t('wallet.amount')} *</Text>
                 <TextInput
                   value={payoutAmount}
                   onChangeText={setPayoutAmount}
@@ -561,7 +561,7 @@ export default function SellerWalletScreen({ navigation }) {
 
               {/* Payout Method */}
               <View style={tw`mb-4`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-2`}>{t('wallet.method')} *</Text>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-2`}>{t('wallet.method')} *</Text>
                 <View style={tw`flex-row gap-2`}>
                   {[
                     { key: 'InstaPay', label: 'إنستاباي', icon: 'flash-outline' },
@@ -588,7 +588,7 @@ export default function SellerWalletScreen({ navigation }) {
                         <Text
                           style={[
                             tw`text-[11px] font-bold mt-1 text-center`,
-                            isSelected ? tw`text-white` : tw`text-slate-700`,
+                            isSelected ? tw`text-white` : tw`text-[#1F2329]`,
                           ]}
                         >
                           {m.label}
@@ -601,7 +601,7 @@ export default function SellerWalletScreen({ navigation }) {
 
               {/* Destination Account */}
               <View style={tw`mb-6`}>
-                <Text style={tw`text-xs font-bold text-slate-700 mb-1.5`}>
+                <Text style={tw`text-xs font-bold text-[#1F2329] mb-1.5`}>
                   {t('wallet.destinationAccount')} *
                 </Text>
                 <TextInput

@@ -1,0 +1,108 @@
+================================================================================
+PHASE 1 VERIFICATION REPORT: Secure Token Storage & Hardware-Backed Biometrics
+Project: Egypt Shop Mobile (React Native + Expo SDK 58)
+Security Reference: MOB-006
+Timestamp: 2026-11-03
+================================================================================
+
+1. AUTHENTICATION STORAGE AUDIT FINDINGS:
+--------------------------------------------------------------------------------
+- Legacy Storage Audit:
+  * AsyncStorage previously held non-credential data (deviceId, lastUserId, biometrics preferences, push tokens) alongside legacy token attempts.
+  * No Redux or Redux-Persist exists in the project (React Context architecture).
+  * No file-system cache or plain-text token dumps were found.
+- Eliminated all possible persistence of JWT access tokens and refresh tokens in AsyncStorage.
+- Centralized all token read, write, rotate, and clear operations into `src/services/authStorageService.js`.
+
+2. SECURESTORE MIGRATION & TOKEN POLICY:
+--------------------------------------------------------------------------------
+- Access Token (`jwt_token`):
+  * Primary storage: In-memory cache for ultra-fast, prompt-free API interceptor requests.
+  * Persistence: Expo SecureStore exclusively. Never saved to AsyncStorage.
+- Refresh Token (`refresh_token_${userId}`):
+  * Persistence: Expo SecureStore exclusively.
+  * User ID segment is strictly sanitized via `validateUserId()`: rejecting email addresses, path traversals (`/`, `\`), spaces, and SQL/script characters to prevent PII leakage in key names.
+- Centralized Service API (`authStorageService.js`):
+  * `saveTokens({ accessToken, refreshToken, userId, isBiometricBound })`
+  * `getAccessToken()`
+  * `getRefreshToken(userId)`
+  * `updateAccessToken(accessToken)`
+  * `rotateRefreshToken(userId, newRefreshToken)`
+  * `clearAuthTokens(userId)`
+  * `invalidateSession(userId)`
+- Safe Legacy Migration (`migrateLegacyStorage()`):
+  * Reads legacy credentials from AsyncStorage only when present.
+  * Discards expired or corrupted JWTs.
+  * Persists valid credentials to SecureStore and verifies by readback.
+  * Removes legacy entries from AsyncStorage with zero leftover credentials.
+  * Fails closed upon SecureStore failure to avoid corrupted/duplicate state.
+
+3. HARDWARE-BACKED BIOMETRIC PROTECTION:
+--------------------------------------------------------------------------------
+- Companion Hardware-Bound Key (`bio_bound_token_${userId}`):
+  * Stored via `SecureStore.setItemAsync` with `requireAuthentication: true` and `WHEN_UNLOCKED_THIS_DEVICE_ONLY`.
+  * Detects Android Keystore `KeyPermanentlyInvalidatedException` and iOS Keychain `errSecAuthFailed` / `-25293`.
+- Invalidation Handling:
+  * When biometric credentials on the device change (fingerprint added or removed at OS level), the hardware key invalidates.
+  * Handled via `handleBiometricInvalidationAlert`: clears remaining tokens, invalidates session, forces normal password login, and notifies user with bilingual Arabic and English alert.
+- Performance:
+  * API requests via `client.js` never trigger native biometric prompts; they use the in-memory access token.
+  * Handled user cancellation (`user_cancel`), biometric lockout (`lockout`), unsupported hardware, and errors gracefully without crashing.
+
+4. APPNAVIGATOR LOCK ENFORCEMENT & DEEP-LINK GATING:
+--------------------------------------------------------------------------------
+- Strict Navigation Gate:
+  * `isLoading`: Renders an activity loading indicator. `NavigationContainer` is NOT mounted.
+  * `isLocked`: Renders ONLY `UnlockScreen`. Authenticated navigation tree is completely unmounted and inaccessible.
+- Deep Link & Notification Gating (`deepLinkValidator.js`):
+  * External URLs (`marketplace://`, `https://marketplace.com`) arriving while locked/loading are intercepted at the root level.
+  * Route parameters are sanitized against script injections, path traversals, and query manipulations.
+  * Requests are queued in `pendingNavigation`.
+  * Upon successful unlock, current authentication status and user role are strictly verified against the requested screen before navigating.
+  * Queue is wiped immediately if user logs out or opts for "Use Password".
+
+5. AUTOMATED TEST SUITE EXECUTION RESULTS:
+--------------------------------------------------------------------------------
+A) `tests/test_secure_auth_storage.js`:
+   - 1. SecureStore token persistence: PASSED
+   - 2. Zero tokens in AsyncStorage: PASSED
+   - 3. Safe legacy migration and AsyncStorage purge: PASSED
+   - 4. Expired/corrupt token rejection: PASSED
+   - 5. Fail-closed policy on migration error: PASSED
+   - 6. validateUserId PII & injection protection: PASSED
+   - 7. Token rotation & session invalidation: PASSED
+   - 8. SecureStore read failure resilience: PASSED
+   Result: 8/8 Passed (100%)
+
+B) `tests/test_hardware_biometrics_and_lock.js`:
+   - 1. Successful biometric auth and resume: PASSED
+   - 2. User cancellation handling (stays locked): PASSED
+   - 3. Biometric lockout handling: PASSED
+   - 4. No hardware / not enrolled handling: PASSED
+   - 5. Android KeyPermanentlyInvalidatedException detection: PASSED
+   - 6. iOS Keychain errSecAuthFailed detection: PASSED
+   - 7. Invalidation session purge & logout: PASSED
+   - 8. Cold start while locked (0 network calls prior to unlock): PASSED
+   Result: 8/8 Passed (100%)
+
+C) `tests/test_navigation_lock_and_deep_links.js`:
+   - 1. Deep link while locked queued without mounting screens: PASSED
+   - 2. Parameter sanitization (<script>, javascript:, ../): PASSED
+   - 3. Deep link parsing & validation: PASSED
+   - 4. Role validation allows authorized screens upon unlocking: PASSED
+   - 5. Role validation BLOCKS unauthorized screens upon unlocking: PASSED
+   - 6. Pending navigation wiped on logout/password unlock: PASSED
+   - 7. Account switching resets state & enforces role boundaries: PASSED
+   Result: 7/7 Passed (100%)
+
+D) Existing Test Suites & i18n Check:
+   - `test_biometric_lock_state_machine_mock.js`: 14/14 Passed
+   - `test_mobile_smart_search.js`: 31/31 Passed
+   - `test_auth_flows_mock.js`: 5/5 Passed
+   - `test_biometric_cold_start_and_use_password_mock.js`: 3/3 Passed
+   - `test_feature_gating_mock.js`: 9/9 Passed
+   - `test_single_flight_refresh_mock.js`: 3/3 Passed
+   - `i18n:check`: 1100 keys (100% parity between ar.json and en.json)
+
+TOTAL TEST RESULTS: 88 Passed, 0 Failed, 0 Skipped.
+================================================================================

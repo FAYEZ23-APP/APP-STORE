@@ -1,3 +1,5 @@
+using Marketplace.Application.DTOs.Invoices;
+using Marketplace.Application.DTOs.Users;
 using Marketplace.API.Extensions;
 using Marketplace.API.Filters;
 using Marketplace.Application.DTOs.Admin;
@@ -17,15 +19,27 @@ public class AdminController : ControllerBase
     private readonly IAdminService _adminService;
     private readonly IWalletService _walletService;
     private readonly IShipmentService _shipmentService;
+    private readonly IUserService _userService;
+    private readonly IStepUpAuthService _stepUpAuth;
+    private readonly IFulfillmentSlaService _slaService;
+    private readonly IEtaInvoiceService _etaInvoiceService;
 
     public AdminController(
         IAdminService adminService,
         IWalletService walletService,
-        IShipmentService shipmentService)
+        IShipmentService shipmentService,
+        IUserService userService,
+        IStepUpAuthService stepUpAuth,
+        IFulfillmentSlaService slaService,
+        IEtaInvoiceService etaInvoiceService)
     {
         _adminService = adminService;
         _walletService = walletService;
         _shipmentService = shipmentService;
+        _userService = userService;
+        _stepUpAuth = stepUpAuth;
+        _slaService = slaService;
+        _etaInvoiceService = etaInvoiceService;
     }
 
     /// <summary>List platform users with optional role and status filters. (Admin only)</summary>
@@ -51,6 +65,8 @@ public class AdminController : ControllerBase
     public async Task<ActionResult<AdminUserResponse>> UpdateUserStatus(int id, [FromBody] UpdateUserStatusRequest request)
     {
         var adminId = User.GetUserId();
+        var stepUpToken = Request.Headers["X-Step-Up-Token"].FirstOrDefault();
+        await _stepUpAuth.ValidateAndConsumeGrantAsync(adminId, stepUpToken, "user:status", id.ToString());
         var updated = await _adminService.UpdateUserStatusAsync(adminId, id, request);
         return Ok(updated);
     }
@@ -121,6 +137,9 @@ public class AdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PayoutRequestResponse>> ProcessPayout(int id, [FromBody] ProcessPayoutRequest request)
     {
+        var adminId = User.GetUserId();
+        var stepUpToken = Request.Headers["X-Step-Up-Token"].FirstOrDefault();
+        await _stepUpAuth.ValidateAndConsumeGrantAsync(adminId, stepUpToken, "payout:process", id.ToString());
         var processed = await _walletService.ProcessPayoutAsync(id, request);
         return Ok(processed);
     }
@@ -136,6 +155,8 @@ public class AdminController : ControllerBase
     public async Task<ActionResult<SettleCodResultResponse>> SettleCod(int id, [FromBody] AdminSettleCodRequest request)
     {
         var adminId = User.GetUserId();
+        var stepUpToken = Request.Headers["X-Step-Up-Token"].FirstOrDefault();
+        await _stepUpAuth.ValidateAndConsumeGrantAsync(adminId, stepUpToken, "shipment:settle-cod", id.ToString());
         var result = await _walletService.SettleCodByAdminAsync(id, adminId, request);
         return Ok(result);
     }
@@ -154,4 +175,138 @@ public class AdminController : ControllerBase
         var logs = await _adminService.GetAuditLogsAsync(page, pageSize, entityType, action);
         return Ok(logs);
     }
+
+    /// <summary>List COD blacklisted phone numbers and accounts. (Admin only)</summary>
+    [HttpGet("cod-blacklist")]
+    [ProducesResponseType(typeof(IEnumerable<CodBlacklistDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IEnumerable<CodBlacklistDto>>> GetCodBlacklist()
+    {
+        var entries = await _adminService.GetCodBlacklistAsync();
+        return Ok(entries);
+    }
+
+    /// <summary>Add or update an entry in the COD refusal blacklist. (Admin only)</summary>
+    [HttpPost("cod-blacklist")]
+    [ProducesResponseType(typeof(CodBlacklistDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CodBlacklistDto>> AddCodBlacklist([FromBody] AddCodBlacklistRequest request)
+    {
+        var adminId = User.GetUserId();
+        var entry = await _adminService.AddCodBlacklistEntryAsync(adminId, request);
+        return StatusCode(StatusCodes.Status201Created, entry);
+    }
+
+    /// <summary>Remove an entry from the COD refusal blacklist. (Admin only)</summary>
+    [HttpDelete("cod-blacklist/{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteCodBlacklist(int id)
+    {
+        var adminId = User.GetUserId();
+        await _adminService.DeleteCodBlacklistEntryAsync(adminId, id);
+        return NoContent();
+    }
+
+
+
+    /// <summary>Settle a batch of carrier remittances atomically and release escrow.</summary>
+    [HttpPost("shipments/settle-remittance-batch")]
+    [ProducesResponseType(typeof(SettleRemittanceBatchResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SettleRemittanceBatchResponse>> SettleRemittanceBatch(
+        [FromBody] SettleRemittanceBatchRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _shipmentService.SettleRemittanceBatchAsync(adminId, request);
+        return Ok(result);
+    }
+
+    /// <summary>Update KYB verification status for a seller.</summary>
+    [HttpPut("sellers/{id:int}/kyb-status")]
+    [ProducesResponseType(typeof(SellerProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SellerProfileDto>> UpdateKybStatus(
+        int id,
+        [FromBody] UpdateKybStatusRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _userService.UpdateKybStatusAsync(id, request, adminId);
+        return Ok(result);
+    }
+
+    /// <summary>Enforce SLA deadlines across pending shipments.</summary>
+    [HttpPost("shipments/enforce-sla")]
+    [ProducesResponseType(typeof(FulfillmentSlaCheckResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FulfillmentSlaCheckResult>> EnforceSla()
+    {
+        var result = await _slaService.CheckAndEnforceSlaAsync();
+        return Ok(result);
+    }
+
+    /// <summary>Get seller fulfillment and return performance metrics.</summary>
+    [HttpGet("sellers/{id:int}/performance")]
+    [ProducesResponseType(typeof(SellerPerformanceMetricsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SellerPerformanceMetricsDto>> GetSellerPerformance(int id)
+    {
+        var metrics = await _userService.GetSellerPerformanceMetricsAsync(id);
+        return Ok(metrics);
+    }
+
+
+    /// <summary>Reconcile carrier remittance sheet against system shipments.</summary>
+    [HttpPost("shipments/reconcile-sheet")]
+    [ProducesResponseType(typeof(CarrierRemittanceBatchDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CarrierRemittanceBatchDto>> ReconcileCarrierSheet([FromBody] ReconcileCarrierSheetRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _shipmentService.ReconcileCarrierSheetAsync(adminId, request);
+        return Ok(result);
+    }
+
+    /// <summary>Process doorstep partial delivery with item acceptance and refusal restock.</summary>
+    [HttpPost("shipments/{id:int}/partial-delivery")]
+    [ProducesResponseType(typeof(SellerShipmentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SellerShipmentResponse>> ProcessPartialDelivery(int id, [FromBody] PartialDeliveryRequest request)
+    {
+        var adminId = User.GetUserId();
+        var result = await _shipmentService.ProcessPartialDeliveryAsync(id, request, adminId);
+        return Ok(result);
+    }
+
+
+    /// <summary>Assign or update courier contact and estimated delivery time for a shipment.</summary>
+    [HttpPut("shipments/{id:int}/courier")]
+    [ProducesResponseType(typeof(AdminShipmentDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AdminShipmentDetailResponse>> UpdateCourierDetails(int id, [FromBody] UpdateCourierDetailsRequest request)
+    {
+        var result = await _shipmentService.UpdateCourierDetailsAsync(id, request);
+        return Ok(result);
+    }
+
+
+    /// <summary>Generate official Egyptian ETA e-invoice/receipt for an order. (Admin only)</summary>
+    [HttpPost("invoices/generate/{orderId:int}")]
+    [ProducesResponseType(typeof(TaxInvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TaxInvoiceDto>> GenerateInvoiceForOrder(int orderId, [FromBody] GenerateInvoiceRequest? request = null)
+    {
+        var type = request?.InvoiceType ?? "Receipt";
+        var invoice = await _etaInvoiceService.GenerateInvoiceForOrderAsync(orderId, type);
+        return Ok(invoice);
+    }
+
 }
