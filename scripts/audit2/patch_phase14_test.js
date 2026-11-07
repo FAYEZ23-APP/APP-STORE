@@ -8,7 +8,7 @@ let c = fs.readFileSync(testFile, 'utf8');
 const newBody = `
   console.log('Backend test host is healthy!\\n');
 
-  async function setupUser(role, suffix) {
+  async function setupUser(role, suffix, deviceId = 'test-sec-device-01') {
     const email = \`\${role.toLowerCase()}_sec_\${suffix}_\${Date.now()}@test.com\`;
     const password = 'Password123!';
     await sendRequest(testPort, 'POST', '/api/auth/register', {
@@ -21,7 +21,8 @@ const newBody = `
     });
     const login = await sendRequest(testPort, 'POST', '/api/auth/login', {
       identifier: email,
-      password: password
+      password: password,
+      deviceId: deviceId
     });
     if (role === 'Seller') {
       await sendRequest(testPort, 'PUT', '/api/users/me/seller-profile', {
@@ -34,7 +35,8 @@ const newBody = `
       token: login.body?.token,
       refreshToken: login.body?.refreshToken,
       userId: login.body?.userId,
-      email: email
+      email: email,
+      deviceId: deviceId
     };
   }
 
@@ -45,7 +47,8 @@ const newBody = `
     console.log('[Check 1] Security Event Schema & Structured Output...');
     const loginAdmin = await sendRequest(testPort, 'POST', '/api/auth/login', {
       identifier: adminEmail,
-      password: adminPassword
+      password: adminPassword,
+      deviceId: 'admin-sec-device-01'
     });
 
     const adminToken = loginAdmin.body?.token;
@@ -120,7 +123,7 @@ const newBody = `
     // Check 5: Refresh Token Reuse Detection (Critical Severity)
     // -------------------------------------------------------------------------
     console.log('\\n[Check 5] Refresh Token Reuse Detection (Critical Severity)...');
-    const buyer1 = await setupUser('Buyer', '1');
+    const buyer1 = await setupUser('Buyer', '1', 'test-sec-device-01');
     const deviceId = 'test-sec-device-01';
 
     // First rotation (legitimate)
@@ -193,13 +196,12 @@ const newBody = `
       'POST',
       '/api/products',
       {
-        nameAr: 'منتج أمان 14',
-        nameEn: 'Security Product 14',
-        descriptionAr: 'وصف المنتج',
-        descriptionEn: 'Product description',
+        name: 'منتج أمان 14',
+        description: 'وصف منتج أمان 14 للاختبار',
         price: 350.0,
-        stockQuantity: 10,
-        categoryId: 1
+        stock: 50,
+        categoryId: 1,
+        weightGrams: 500
       },
       { Authorization: \`Bearer \${seller.token}\` }
     );
@@ -223,14 +225,16 @@ const newBody = `
             unitPrice: 1.0 // Tampered!
           }
         ],
-        shippingAddress: {
-          governorate: 'القاهرة',
-          city: 'مدينة نصر',
-          streetBuilding: 'شارع عباس العقاد',
-          recipientName: 'المشتري',
-          recipientPhone: '01011223344'
-        },
-        paymentMethod: 'CashOnDelivery'
+        deliveryMethod: 'Courier',
+        governorate: 'القاهرة',
+        city: 'القاهرة',
+        area: 'المعادي',
+        streetBuilding: 'شارع 9 عمارة 1',
+        recipientName: 'المشتري',
+        recipientPhone: '01011223344',
+        paymentMethod: 'OnReceipt',
+        totalAmount: 1.0,
+        subtotal: 1.0
       },
       {
         Authorization: \`Bearer \${buyer1.token}\`,
@@ -239,7 +243,7 @@ const newBody = `
     );
 
     assert(
-      tamperedOrder.status === 201 && tamperedOrder.body?.itemsSubtotal === 350.0,
+      tamperedOrder.status === 201 && (tamperedOrder.body?.itemsSubtotal === 350.0 || tamperedOrder.body?.subtotal === 350.0),
       'Server strictly enforced authoritative DB price (350 EGP), neutralising client price tampering'
     );
 
