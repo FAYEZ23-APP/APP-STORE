@@ -29,6 +29,10 @@ public class SecurityEventLoggingMiddleware
             var path = context.Request.Path.Value ?? string.Empty;
             var method = context.Request.Method;
             var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+            if (clientIp == "::1" || clientIp.StartsWith("::ffff:127.0.0.1"))
+            {
+                clientIp = "127.0.0.1";
+            }
             var actorId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var actorRole = context.User.FindFirst(ClaimTypes.Role)?.Value;
 

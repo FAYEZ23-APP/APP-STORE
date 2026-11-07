@@ -198,6 +198,10 @@ public class SecurityEventLogger : ISecurityEventLogger
         var http = _httpContextAccessor?.HttpContext;
 
         var clientIp = evt.ClientIp ?? http?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+        if (clientIp == "::1" || clientIp.StartsWith("::ffff:127.0.0.1"))
+        {
+            clientIp = "127.0.0.1";
+        }
         var userAgent = evt.UserAgent ?? http?.Request?.Headers["User-Agent"].FirstOrDefault() ?? "Unknown";
         var correlationId = evt.CorrelationId ?? http?.Response?.Headers["X-Correlation-ID"].FirstOrDefault()
                             ?? http?.Request?.Headers["X-Correlation-ID"].FirstOrDefault()
