@@ -269,6 +269,7 @@ public class AuthController : ControllerBase
     /// Re-authenticate admin credentials (Password + optional TOTP) to obtain a short-lived step-up grant. (Admin only)
     /// </summary>
     [HttpPost("step-up")]
+    [HttpPost("step-up/challenge")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(StepUpChallengeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -317,6 +318,7 @@ public class AuthController : ControllerBase
     /// Verify 2FA challenge code during login (or first-time setup activation during login).
     /// </summary>
     [HttpPost("2fa/verify-login")]
+    [HttpPost("2fa/verify")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

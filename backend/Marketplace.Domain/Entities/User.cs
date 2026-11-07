@@ -17,6 +17,7 @@ public class User
     public int CodRefusalCount { get; set; } = 0;
     public bool IsTwoFactorEnabled { get; set; } = false;
     public string? TwoFactorSecret { get; set; }
+    public long? TwoFactorLastAcceptedStep { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public SellerProfile? SellerProfile { get; set; }

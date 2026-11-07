@@ -118,6 +118,9 @@ public class AppDbContext : DbContext
                 .IsRequired(false)
                 .HasMaxLength(128);
 
+            entity.Property(u => u.TwoFactorLastAcceptedStep)
+                .IsRequired(false);
+
             entity.Property(u => u.CreatedAt)
                 .IsRequired();
         });

@@ -16,13 +16,16 @@ public static class LogMasking
     private static readonly HashSet<string> SensitiveSecretKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "password", "pwd", "secret", "token", "accesstoken", "refreshtoken", "jwt",
-        "apikey", "code", "otp", "verificationcode", "cvv", "creditcard", "pan", "cardnumber"
+        "apikey", "code", "otp", "verificationcode", "cvv", "creditcard", "pan", "cardnumber",
+        "twofactortoken", "clientsecret", "client_secret", "privatekey", "private_key",
+        "cvc", "pin", "securitycode", "signature"
     };
 
     private static readonly HashSet<string> SensitiveAddressKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "address", "addressline", "streetbuilding", "buildingnumber", "apartment",
-        "floor", "landmark", "latitude", "longitude", "deliverylatitude", "deliverylongitude"
+        "floor", "landmark", "latitude", "longitude", "deliverylatitude", "deliverylongitude",
+        "gps", "coord", "coordinates", "postalcode", "zipcode"
     };
 
     private static readonly HashSet<string> SensitiveContactKeys = new(StringComparer.OrdinalIgnoreCase)
@@ -39,6 +42,15 @@ public static class LogMasking
         "CorrelationId", "RequestId", "TraceId", "Path", "Method", "StatusCode", "Action",
         "EntityType", "EntityId", "Purpose", "Type", "Event", "ItemsCount", "DurationMs"
     };
+
+    /// <summary>
+    /// Strips carriage returns and newlines from a log string to prevent Log Injection / Log Forgery (CWE-117).
+    /// </summary>
+    public static string SanitizeLogString(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Replace("\r", " ").Replace("\n", " ");
+    }
 
     /// <summary>OTP / verification codes are always redacted.</summary>
     public static string MaskCode(string? code) => Redacted;

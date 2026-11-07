@@ -16,6 +16,7 @@ public class StepUpAuthService : IStepUpAuthService
     {
         public string Token { get; set; } = string.Empty;
         public int AdminId { get; set; }
+        public int TokenVersion { get; set; }
         public string Scope { get; set; } = string.Empty;
         public string? TargetEntity { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -109,12 +110,24 @@ public class StepUpAuthService : IStepUpAuthService
                 throw new UnauthorizedException("رمز المصادقة الثنائية (TOTP) مطلوب لإتمام العملية (Admin step-up TOTP code is required).");
             }
 
-            if (!_totp.VerifyCode(admin.TwoFactorSecret, request.TotpCode.Trim()))
+            if (!_totp.TryVerifyCode(admin.TwoFactorSecret, request.TotpCode.Trim(), admin.TwoFactorLastAcceptedStep, out var stepUpStep))
             {
                 RecordFailure(adminId);
                 await RecordAuditLogInScopeAsync(uow, adminId, "StepUpChallenge", request.Scope, request.TargetEntity,
                     $"Re-authentication failed: Invalid or expired TOTP code. IP: {clientIp ?? "unknown"}", cancellationToken);
                 throw new UnauthorizedException("رمز المصادقة الثنائية (TOTP) غير صحيح أو منتهي الصلاحية (Invalid or expired TOTP code).");
+            }
+
+            var stepUpRows = await uow.ExecuteSqlRawAsync(
+                "UPDATE \"Users\" SET \"TwoFactorLastAcceptedStep\" = {0} WHERE \"Id\" = {1} AND (\"TwoFactorLastAcceptedStep\" IS NULL OR \"TwoFactorLastAcceptedStep\" < {0})",
+                stepUpStep, admin.Id);
+
+            if (stepUpRows == 0)
+            {
+                RecordFailure(adminId);
+                await RecordAuditLogInScopeAsync(uow, adminId, "StepUpChallenge", request.Scope, request.TargetEntity,
+                    $"Re-authentication failed: Replayed TOTP code. IP: {clientIp ?? "unknown"}", cancellationToken);
+                throw new UnauthorizedException("رمز المصادقة الثنائية (TOTP) تم استخدامه مسبقاً (TOTP code already used / replay detected).");
             }
         }
 
@@ -129,6 +142,7 @@ public class StepUpAuthService : IStepUpAuthService
         {
             Token = rawToken,
             AdminId = adminId,
+            TokenVersion = admin.TokenVersion,
             Scope = request.Scope?.Trim() ?? "*",
             TargetEntity = request.TargetEntity?.Trim(),
             CreatedAt = DateTime.UtcNow,
@@ -186,6 +200,14 @@ public class StepUpAuthService : IStepUpAuthService
             throw new ForbiddenException("رمز المصادقة الإضافية لا يخص المشرف الحالي (Admin identity mismatch).");
         }
 
+        var admin = await uow.Users.GetByIdAsync(adminId);
+        if (admin == null || !admin.IsActive || admin.TokenVersion != grant.TokenVersion)
+        {
+            await RecordAuditLogInScopeAsync(uow, adminId, "StepUpViolation", requiredScope, targetEntity,
+                $"Rejected: Admin session invalidated (TokenVersion mismatch: expected {grant.TokenVersion}, current {admin?.TokenVersion}).", cancellationToken);
+            throw new ForbiddenException("جلسة المشرف تغيرت أو تم تسجيل الخروج. يرجى إعادة تأكيد الهوية (Admin session invalidated).");
+        }
+
         if (DateTime.UtcNow > grant.ExpiresAt)
         {
             _grants.TryRemove(stepUpToken.Trim(), out _);
@@ -219,9 +241,16 @@ public class StepUpAuthService : IStepUpAuthService
             throw new ForbiddenException("رمز المصادقة الإضافية مخصص لكيان آخر ولا يمكن استخدامه لهذا الكيان.");
         }
 
-        // Atomic one-time consumption (single-use guarantee)
-        grant.IsConsumed = true;
-        grant.ConsumedAt = DateTime.UtcNow;
+        // Atomic one-time consumption (thread-safe single-use guarantee)
+        lock (grant)
+        {
+            if (grant.IsConsumed)
+            {
+                throw new ForbiddenException("تم استخدام رمز المصادقة الإضافية مسبقاً ولا يمكن إعادة استخدامه (Token already consumed / replay detected).");
+            }
+            grant.IsConsumed = true;
+            grant.ConsumedAt = DateTime.UtcNow;
+        }
 
         await RecordAuditLogInScopeAsync(uow, adminId, "StepUpConsumed", requiredScope, targetEntity,
             $"Step-up grant successfully consumed for operation '{requiredScope}' on entity {targetEntity ?? "N/A"}.", cancellationToken);

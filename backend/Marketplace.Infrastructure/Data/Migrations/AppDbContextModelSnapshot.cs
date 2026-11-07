@@ -2110,6 +2110,9 @@ namespace Marketplace.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<long?>("TwoFactorLastAcceptedStep")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("TwoFactorSecret")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

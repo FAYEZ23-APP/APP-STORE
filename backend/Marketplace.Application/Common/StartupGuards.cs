@@ -47,8 +47,8 @@ public static class StartupGuards
         // Admin
         flags.AdminWebEnabled = configuration.GetValue<bool>("Admin:WebEnabled", false);
 
-        // Admin:Require2FA: default true in Production, false outside unless explicitly configured
-        flags.AdminRequire2FA = configuration.GetValue<bool?>("Admin:Require2FA") ?? isProd;
+        // Admin:Require2FA: strictly enforced (always true) in Production, false outside unless explicitly configured
+        flags.AdminRequire2FA = isProd ? true : (configuration.GetValue<bool?>("Admin:Require2FA") ?? false);
 
         // Admin:AllowedCidrs
         var cidrs = configuration.GetSection("Admin:AllowedCidrs").Get<List<string>>();
@@ -186,6 +186,16 @@ public static class StartupGuards
         {
             throw new InvalidOperationException(
                 "CRITICAL_PRODUCTION_GUARD: 'Security:TwoFactorEncryptionKey' must be configured in Production environment.");
+        }
+
+        // 6. Development endpoints isolation guard
+        if (configuration.GetValue<bool>("DevAuth:Enabled", false) ||
+            configuration.GetValue<bool>("Auth:AllowDevEndpoints", false) ||
+            configuration.GetValue<bool>("Carrier:AllowDevEndpoints", false) ||
+            configuration.GetValue<bool>("Dev:Enabled", false))
+        {
+            throw new InvalidOperationException(
+                "CRITICAL_PRODUCTION_GUARD: Development endpoints cannot be enabled in Production environment. Startup refused.");
         }
     }
 }

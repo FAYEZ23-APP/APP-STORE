@@ -30,6 +30,12 @@ public class TotpService : ITotpService
 
     public bool VerifyCode(string secret, string code, int toleranceSteps = 1)
     {
+        return TryVerifyCode(secret, code, null, out _, toleranceSteps);
+    }
+
+    public bool TryVerifyCode(string secret, string code, long? lastAcceptedStep, out long matchedStep, int toleranceSteps = 1)
+    {
+        matchedStep = 0;
         if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(code))
             return false;
 
@@ -40,11 +46,19 @@ public class TotpService : ITotpService
 
         long currentStep = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
 
-        for (int i = -toleranceSteps; i <= toleranceSteps; i++)
+        // RFC 6238 Replay Protection: evaluate candidate steps in descending order
+        for (int i = toleranceSteps; i >= -toleranceSteps; i--)
         {
-            var expectedCode = GenerateCode(cleanSecret, currentStep + i);
+            long step = currentStep + i;
+            if (lastAcceptedStep.HasValue && step <= lastAcceptedStep.Value)
+            {
+                continue; // Skip already accepted time step
+            }
+
+            var expectedCode = GenerateCode(cleanSecret, step);
             if (CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expectedCode), Encoding.UTF8.GetBytes(cleanCode)))
             {
+                matchedStep = step;
                 return true;
             }
         }

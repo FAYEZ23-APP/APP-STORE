@@ -8,5 +8,5 @@ public interface IJwtService
 {
     JwtToken GenerateToken(User user);
     string GenerateTwoFactorToken(User user, int expiryMinutes = 5);
-    (int UserId, string Role)? ValidateTwoFactorToken(string token);
+    (int UserId, string Role, string Jti)? ValidateTwoFactorToken(string token);
 }

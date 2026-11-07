@@ -5,6 +5,7 @@ namespace Marketplace.API.Controllers;
 
 [ApiController]
 [Route("api/dev/auth")]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class DevAuthController : ControllerBase
 {
     private readonly IFakeMessageStore _messageStore;

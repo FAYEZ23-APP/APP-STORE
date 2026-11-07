@@ -74,7 +74,8 @@ public class JwtService : IJwtService
         {
             new(ClaimNames.UserId, user.Id.ToString()),
             new("purpose", "2fa_challenge"),
-            new(ClaimNames.Role, user.Role.ToString())
+            new(ClaimNames.Role, user.Role.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
         };
 
         var descriptor = new SecurityTokenDescriptor
@@ -89,7 +90,7 @@ public class JwtService : IJwtService
         return new JsonWebTokenHandler().CreateToken(descriptor);
     }
 
-    public (int UserId, string Role)? ValidateTwoFactorToken(string token)
+    public (int UserId, string Role, string Jti)? ValidateTwoFactorToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token))
             return null;
@@ -124,9 +125,10 @@ public class JwtService : IJwtService
         var sub = jwt.Claims.FirstOrDefault(c => c.Type == ClaimNames.UserId || c.Type == "sub")?.Value;
         var role = jwt.Claims.FirstOrDefault(c => c.Type == ClaimNames.Role || c.Type == "role")?.Value;
 
+        var jti = jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti || c.Type == "jti")?.Value ?? string.Empty;
         if (int.TryParse(sub, out var userId))
         {
-            return (userId, role ?? string.Empty);
+            return (userId, role ?? string.Empty, jti);
         }
 
         return null;

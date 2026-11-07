@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Hosting;
 using System.Security.Cryptography;
 using System.Text;
 using Marketplace.Application.Common;
@@ -21,6 +23,10 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ITotpService _totp;
     private readonly ITwoFactorSecretProtector _secretProtector;
+    private readonly IHostEnvironment? _env;
+
+    private static readonly ConcurrentDictionary<string, DateTime> _consumedTwoFactorTokens = new();
+    private static readonly ConcurrentDictionary<int, (int FailureCount, DateTime WindowStart)> _twoFactorRateLimits = new();
 
     public AuthService(
         IUnitOfWork uow,
@@ -30,7 +36,8 @@ public class AuthService : IAuthService
         IVerificationService verificationService,
         IConfiguration configuration,
         ITotpService totp,
-        ITwoFactorSecretProtector secretProtector)
+        ITwoFactorSecretProtector secretProtector,
+        IHostEnvironment? env = null)
     {
         _uow = uow;
         _hasher = hasher;
@@ -40,6 +47,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _totp = totp;
         _secretProtector = secretProtector;
+        _env = env;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, string? clientIp = null, CancellationToken cancellationToken = default)
@@ -229,7 +237,7 @@ public class AuthService : IAuthService
 
         await _uow.SaveChangesAsync();
 
-        return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+        return await ChallengeOrBuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
     }
 
     public async Task ResendCodeAsync(ResendCodeRequest request, string? clientIp = null, CancellationToken cancellationToken = default)
@@ -332,41 +340,7 @@ public class AuthService : IAuthService
             }
         }
 
-        // Two-Factor Authentication Check (Admins or users with 2FA enabled)
-        var adminRequire2FA = _configuration.GetValue<bool>("Admin:Require2FA", false);
-        var is2FAEnforced = user.Role == UserRole.Admin && adminRequire2FA;
-
-        if (user.IsTwoFactorEnabled || is2FAEnforced)
-        {
-            var twoFactorToken = _jwt.GenerateTwoFactorToken(user);
-            var setupRequired = !user.IsTwoFactorEnabled && is2FAEnforced;
-            string? qrCodeUri = null;
-            string? manualEntryKey = null;
-
-            if (setupRequired)
-            {
-                var secret = _totp.GenerateSecret();
-                var issuer = _configuration["Admin:TotpIssuer"] ?? "MarketplaceAdmin";
-                qrCodeUri = _totp.GenerateQrCodeUri(issuer, user.Email, secret);
-                manualEntryKey = secret;
-            }
-
-            return new AuthResponse
-            {
-                RequiresTwoFactor = true,
-                TwoFactorSetupRequired = setupRequired,
-                TwoFactorToken = twoFactorToken,
-                QrCodeUri = qrCodeUri,
-                ManualEntryKey = manualEntryKey,
-                UserId = user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                Phone = user.Phone,
-                Role = user.Role.ToString()
-            };
-        }
-
-        return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+        return await ChallengeOrBuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, string? clientIp = null, CancellationToken cancellationToken = default)
@@ -452,7 +426,7 @@ public class AuthService : IAuthService
                 throw new ForbiddenException("This account has been deactivated or not found.");
             }
 
-            return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
+            return await ChallengeOrBuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
         }
 
         // 2. If subject is not yet linked, check if an account with this email exists
@@ -476,7 +450,7 @@ public class AuthService : IAuthService
             await _uow.ExternalLogins.AddAsync(link);
             await _uow.SaveChangesAsync();
 
-            return await BuildResponseAsync(existingUser, request.DeviceId, request.DeviceName, cancellationToken);
+            return await ChallengeOrBuildResponseAsync(existingUser, request.DeviceId, request.DeviceName, cancellationToken);
         }
 
         // 3. New registration through Google OAuth
@@ -952,15 +926,19 @@ public class AuthService : IAuthService
         if (user.Role != UserRole.Admin)
             throw new ForbiddenException("Two-factor authentication is currently only available for administrators.");
 
+        if (user.IsTwoFactorEnabled)
+            throw new BadRequestException("المصادقة الثنائية مفعلة بالفعل لهذا الحساب (Two-factor authentication is already enabled).");
+
         if (string.IsNullOrWhiteSpace(request.Secret) || string.IsNullOrWhiteSpace(request.Code))
             throw new BadRequestException("Secret and verification code are required.");
 
-        var isValid = _totp.VerifyCode(request.Secret, request.Code);
+        var isValid = _totp.TryVerifyCode(request.Secret, request.Code, user.TwoFactorLastAcceptedStep, out var setupStep);
         if (!isValid)
             throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
 
         user.TwoFactorSecret = _secretProtector.Protect(request.Secret.Trim());
         user.IsTwoFactorEnabled = true;
+        user.TwoFactorLastAcceptedStep = setupStep;
         _uow.Users.Update(user);
         await _uow.SaveChangesAsync();
 
@@ -987,6 +965,7 @@ public class AuthService : IAuthService
 
         user.IsTwoFactorEnabled = false;
         user.TwoFactorSecret = null;
+        user.TwoFactorLastAcceptedStep = null;
         _uow.Users.Update(user);
         await _uow.SaveChangesAsync();
 
@@ -997,16 +976,115 @@ public class AuthService : IAuthService
         };
     }
 
+    private bool IsAdmin2FAEnforced(User user)
+    {
+        if (user.Role != UserRole.Admin) return false;
+        bool isProd = (_env != null && _env.IsProduction()) ||
+                      string.Equals(_configuration["ASPNETCORE_ENVIRONMENT"], "Production", StringComparison.OrdinalIgnoreCase);
+        if (isProd) return true;
+        return _configuration.GetValue<bool>("Admin:Require2FA", false);
+    }
+
+    private async Task<AuthResponse> ChallengeOrBuildResponseAsync(User user, string? deviceId, string? deviceName, CancellationToken cancellationToken)
+    {
+        var is2FAEnforced = IsAdmin2FAEnforced(user);
+        if (user.IsTwoFactorEnabled || is2FAEnforced)
+        {
+            var twoFactorToken = _jwt.GenerateTwoFactorToken(user);
+            var setupRequired = !user.IsTwoFactorEnabled && is2FAEnforced;
+            string? qrCodeUri = null;
+            string? manualEntryKey = null;
+
+            if (setupRequired)
+            {
+                var secret = _totp.GenerateSecret();
+                var issuer = _configuration["Admin:TotpIssuer"] ?? "MarketplaceAdmin";
+                qrCodeUri = _totp.GenerateQrCodeUri(issuer, user.Email ?? "admin@marketplace.local", secret);
+                manualEntryKey = secret;
+            }
+
+            return new AuthResponse
+            {
+                RequiresTwoFactor = true,
+                TwoFactorSetupRequired = setupRequired,
+                TwoFactorToken = twoFactorToken,
+                QrCodeUri = qrCodeUri,
+                ManualEntryKey = manualEntryKey,
+                UserId = user.Id,
+                Name = user.Name,
+                Email = user.Email,
+                Phone = user.Phone,
+                Role = user.Role.ToString()
+            };
+        }
+
+        return await BuildResponseAsync(user, deviceId, deviceName, cancellationToken);
+    }
+
+    private static void RecordTwoFactorFailure(int userId, string? jti)
+    {
+        var info = _twoFactorRateLimits.AddOrUpdate(
+            userId,
+            _ => (1, DateTime.UtcNow),
+            (_, existing) => (existing.FailureCount + 1, existing.WindowStart));
+
+        if (info.FailureCount >= 5 && !string.IsNullOrEmpty(jti))
+        {
+            _consumedTwoFactorTokens.TryAdd(jti, DateTime.UtcNow.AddMinutes(10));
+        }
+    }
+
+    private static void CleanupTwoFactorTracking()
+    {
+        var now = DateTime.UtcNow;
+        var expiredTokens = _consumedTwoFactorTokens
+            .Where(kv => kv.Value < now)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        foreach (var tok in expiredTokens)
+        {
+            _consumedTwoFactorTokens.TryRemove(tok, out _);
+        }
+    }
+
     public async Task<AuthResponse> VerifyTwoFactorLoginAsync(TwoFactorVerifyRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.TwoFactorToken))
             throw new BadRequestException("Two-factor authentication ticket is required.");
 
+        CleanupTwoFactorTracking();
+
         var tokenValidation = _jwt.ValidateTwoFactorToken(request.TwoFactorToken);
         if (tokenValidation == null)
             throw new UnauthorizedException("Two-factor ticket has expired or is invalid. Please login again.");
 
-        var (userId, _) = tokenValidation.Value;
+        var (userId, _, jti) = tokenValidation.Value;
+
+        // Strict rate limiting: max 5 failed attempts within 5 minutes per user
+        if (_twoFactorRateLimits.TryGetValue(userId, out var rateInfo))
+        {
+            if (rateInfo.FailureCount >= 5 && (DateTime.UtcNow - rateInfo.WindowStart).TotalMinutes < 5)
+            {
+                if (!string.IsNullOrEmpty(jti))
+                {
+                    _consumedTwoFactorTokens.TryAdd(jti, DateTime.UtcNow.AddMinutes(10));
+                }
+                throw new TooManyRequestsException("تم تجاوز الحد الأقصى لمحاولات التحقق الثنائي (5 محاولات). يرجى تسجيل الدخول مجدداً (Two-factor verification rate limit exceeded).");
+            }
+            if ((DateTime.UtcNow - rateInfo.WindowStart).TotalMinutes >= 5)
+            {
+                _twoFactorRateLimits.TryRemove(userId, out _);
+            }
+        }
+
+        // Check if ticket was already consumed (Reused TwoFactorToken rejected)
+        if (_consumedTwoFactorTokens.ContainsKey(request.TwoFactorToken) ||
+            (!string.IsNullOrEmpty(jti) && _consumedTwoFactorTokens.ContainsKey(jti)))
+        {
+            throw new UnauthorizedException("Two-factor ticket has already been used or invalidated. Please login again.");
+        }
+
         var user = await _uow.Users.GetByIdAsync(userId);
         if (user == null || !user.IsActive)
             throw new UnauthorizedException("User not found or inactive.");
@@ -1017,15 +1095,26 @@ public class AuthService : IAuthService
             if (string.IsNullOrWhiteSpace(request.Secret))
                 throw new BadRequestException("Two-factor setup secret is required for first-time activation.");
 
-            var isSetupValid = _totp.VerifyCode(request.Secret, request.Code);
+            var isSetupValid = _totp.TryVerifyCode(request.Secret, request.Code, null, out var setupStep);
             if (!isSetupValid)
+            {
+                RecordTwoFactorFailure(userId, jti);
                 throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+            }
+
+            _consumedTwoFactorTokens.TryAdd(request.TwoFactorToken, DateTime.UtcNow.AddMinutes(10));
+            if (!string.IsNullOrEmpty(jti))
+            {
+                _consumedTwoFactorTokens.TryAdd(jti, DateTime.UtcNow.AddMinutes(10));
+            }
 
             user.TwoFactorSecret = _secretProtector.Protect(request.Secret.Trim());
             user.IsTwoFactorEnabled = true;
+            user.TwoFactorLastAcceptedStep = setupStep;
             _uow.Users.Update(user);
             await _uow.SaveChangesAsync();
 
+            _twoFactorRateLimits.TryRemove(userId, out _);
             return await BuildResponseAsync(user, request.DeviceId, request.DeviceName, cancellationToken);
         }
 
@@ -1033,9 +1122,31 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(user.TwoFactorSecret))
             throw new BadRequestException("Two-factor authentication is not configured for this user.");
 
-        var isValid = _totp.VerifyCode(user.TwoFactorSecret, request.Code);
+        var isValid = _totp.TryVerifyCode(user.TwoFactorSecret, request.Code, user.TwoFactorLastAcceptedStep, out var matchedStep);
         if (!isValid)
+        {
+            RecordTwoFactorFailure(userId, jti);
             throw new BadRequestException("رمز التحقق غير صحيح أو منتهي الصلاحية.");
+        }
+
+        // Atomic database update with row-level condition: ("TwoFactorLastAcceptedStep" IS NULL OR "TwoFactorLastAcceptedStep" < matchedStep)
+        var rowsAffected = await _uow.ExecuteSqlRawAsync(
+            "UPDATE \"Users\" SET \"TwoFactorLastAcceptedStep\" = {0} WHERE \"Id\" = {1} AND (\"TwoFactorLastAcceptedStep\" IS NULL OR \"TwoFactorLastAcceptedStep\" < {0})",
+            matchedStep, user.Id);
+
+        if (rowsAffected == 0)
+        {
+            RecordTwoFactorFailure(userId, jti);
+            throw new BadRequestException("رمز التحقق تم استخدامه مسبقاً (This verification code has already been used / replay detected).");
+        }
+
+        _consumedTwoFactorTokens.TryAdd(request.TwoFactorToken, DateTime.UtcNow.AddMinutes(10));
+        if (!string.IsNullOrEmpty(jti))
+        {
+            _consumedTwoFactorTokens.TryAdd(jti, DateTime.UtcNow.AddMinutes(10));
+        }
+
+        _twoFactorRateLimits.TryRemove(userId, out _);
 
         // Transparent upgrade of legacy unencrypted secret
         if (!user.TwoFactorSecret.StartsWith("ENC:v1:", StringComparison.Ordinal))
