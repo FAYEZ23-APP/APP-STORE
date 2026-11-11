@@ -130,6 +130,8 @@ const RegisterScreen = ({ navigation }) => {
   }, [fadeAnim, slideAnim, logoScale]);
 
   const handleRegister = async () => {
+    // Prevent duplicate submissions from rapid double taps
+    if (loading) return;
     const rawName = name.trim();
     const rawEmail = email.trim();
     const rawPhone = phone.trim();
@@ -187,12 +189,17 @@ const RegisterScreen = ({ navigation }) => {
 
       navigation.navigate('Verify', {
         target: targetIdentifier,
-        maskedTarget: res?.data?.target || targetIdentifier,
+        maskedTarget: res?.target || targetIdentifier,
         purpose: 'Verify',
         initialCountdown: 60,
       });
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || err.message);
+      // Surface the first concrete validation message (ASP.NET ProblemDetails) instead of the generic title
+      const data = err.response?.data;
+      const firstValidationMsg = data?.errors
+        ? Object.values(data.errors).flat().find(Boolean)
+        : null;
+      Alert.alert(t('common.error'), data?.error || firstValidationMsg || data?.title || err.message);
     } finally {
       setLoading(false);
     }

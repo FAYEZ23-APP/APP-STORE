@@ -727,6 +727,38 @@ export default function CheckoutScreen({ route, navigation }) {
                       );
                     })}
                   </ScrollView>
+                  {(() => {
+                    const currentSelected = savedAddresses.find((a) => a.id === selectedAddressId);
+                    if (currentSelected && (!currentSelected.latitude || !currentSelected.longitude)) {
+                      return (
+                        <TouchableOpacity
+                          accessible={true}
+                          accessibilityRole="button"
+                          onPress={() => {
+                            navigation.navigate('LocationPicker', {
+                              onConfirmLocation: (loc) => {
+                                if (loc?.latitude && loc?.longitude) {
+                                  currentSelected.latitude = loc.latitude;
+                                  currentSelected.longitude = loc.longitude;
+                                  if (loc.governorate) setGovernorate(loc.governorate);
+                                  if (loc.city) setCity(loc.city);
+                                  if (loc.area) setArea(loc.area);
+                                  if (loc.streetBuilding) setStreetBuilding(loc.streetBuilding);
+                                }
+                              },
+                            });
+                          }}
+                          style={styles.pinLocationNudgeBanner}
+                        >
+                          <Ionicons name="location-outline" size={16} color={colors.accent || '#D97706'} />
+                          <Text style={styles.pinLocationNudgeText}>
+                            {t('checkout.pinLocationNudge')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    }
+                    return null;
+                  })()}
                 </View>
               )}
 
@@ -1577,6 +1609,23 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#94A3B8',
     marginTop: 2,
+  },
+  pinLocationNudgeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pinLocationNudgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
   },
   cityPill: {
     paddingHorizontal: 14,

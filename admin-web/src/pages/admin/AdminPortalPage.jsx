@@ -1819,7 +1819,7 @@ export default function AdminPortalPage() {
                   </span>
                   <button
                     onClick={() => fetchAuditLogs(auditPage + 1)}
-                    disabled={auditPage * 30 >= auditTotalCount || auditLoading}
+                    disabled={auditPage >= Math.max(1, Math.ceil(auditTotalCount / 30)) || auditLoading}
                     className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
                   >
                     {t('common.next')}
@@ -2407,7 +2407,7 @@ export default function AdminPortalPage() {
                   <span className="font-bold text-slate-800 px-2">{shipmentPage}</span>
                   <button
                     onClick={() => fetchShipments(shipmentPage + 1)}
-                    disabled={shipmentPage * 15 >= shipmentTotalCount || shipmentsLoading}
+                    disabled={shipmentPage >= Math.max(1, Math.ceil(shipmentTotalCount / 15)) || shipmentsLoading}
                     className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition-colors"
                   >
                     {t('common.next')}

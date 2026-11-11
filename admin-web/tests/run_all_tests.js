@@ -24,6 +24,7 @@ const suites = [
   { name: 'Storefront Gating & Routing Suite', file: 'test_storefront_gating_router.test.js' },
   { name: 'XSS Prevention & Build Hardening Suite', file: 'test_production_build_hardening.cjs' },
   { name: 'Google Maps Security & Restrictions Suite', file: 'test_maps_security_and_restrictions.cjs' },
+  { name: 'Profile Redesign & Identity Dashboard Suite', file: 'test_web_profile_redesign.js' },
 ];
 
 console.log('\n===============================================================');

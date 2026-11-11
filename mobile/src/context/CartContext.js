@@ -11,71 +11,21 @@ import {
 
 export { getCartItemKey, sanitizeCartItems, mergeCarts, GUEST_CART_KEY, LEGACY_GUEST_CART_KEY };
 
-
-
 export const CartContext = createContext({
   items: {},
-  add: () => {},
-  increase: () => {},
-  decrease: () => {},
-  remove: () => {},
-  removeItems: () => {},
-  setQuantity: () => {},
-  updateCartItem: () => {},
+  add: () => { },
+  increase: () => { },
+  decrease: () => { },
+  remove: () => { },
+  removeItems: () => { },
+  setQuantity: () => { },
+  updateCartItem: () => { },
   getQuantity: () => 0,
-  clearCart: () => {},
+  clearCart: () => { },
   totalCount: 0,
   totalPrice: 0,
   isLoaded: false,
 });
-
-const sanitizeCartItems = (rawObj) => {
-  if (!rawObj || typeof rawObj !== 'object' || Array.isArray(rawObj)) return {};
-  const clean = {};
-
-  Object.entries(rawObj).forEach(([rawKey, entry]) => {
-    let productId = Number(entry?.productId);
-    let variantId = entry?.variantId != null ? Number(entry.variantId) : null;
-
-    if (!Number.isInteger(productId) || productId <= 0) {
-      if (rawKey.includes('_')) {
-        const parts = rawKey.split('_');
-        productId = Number(parts[0]);
-        if (parts[1] && parts[1] !== 'base') {
-          variantId = Number(parts[1]);
-        }
-      } else {
-        productId = Number(rawKey);
-      }
-    }
-
-    const quantity = Number(entry?.quantity);
-
-    if (
-      Number.isInteger(productId) &&
-      productId > 0 &&
-      Number.isInteger(quantity) &&
-      quantity > 0 &&
-      entry?.product &&
-      typeof entry.product === 'object' &&
-      Number(entry.product.id) === productId
-    ) {
-      const canonicalKey = `${productId}_${variantId || 'base'}`;
-      clean[canonicalKey] = {
-        cartKey: canonicalKey,
-        productId,
-        variantId: variantId && Number.isInteger(variantId) && variantId > 0 ? variantId : null,
-        selectedVariant: entry.selectedVariant && typeof entry.selectedVariant === 'object' ? entry.selectedVariant : null,
-        quantity,
-        product: entry.product,
-      };
-    }
-  });
-
-  return clean;
-};
-
-
 
 export const CartProvider = ({ children }) => {
   const { userId } = useContext(AuthContext);
@@ -97,7 +47,7 @@ export const CartProvider = ({ children }) => {
           const legacyRaw = await AsyncStorage.getItem(LEGACY_GUEST_CART_KEY);
           if (legacyRaw) {
             await AsyncStorage.setItem(GUEST_CART_KEY, legacyRaw);
-            await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => {});
+            await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => { });
             guestRaw = legacyRaw;
           }
         }
@@ -122,8 +72,8 @@ export const CartProvider = ({ children }) => {
               if (Object.keys(guestItems).length > 0) {
                 userItems = mergeCarts(userItems, guestItems);
                 await AsyncStorage.setItem(userStorageKey, JSON.stringify(userItems));
-                await AsyncStorage.removeItem(GUEST_CART_KEY).catch(() => {});
-                await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => {});
+                await AsyncStorage.removeItem(GUEST_CART_KEY).catch(() => { });
+                await AsyncStorage.removeItem(LEGACY_GUEST_CART_KEY).catch(() => { });
               }
             } catch (mergeErr) {
               console.warn('[CartContext] Failed merging guest cart on login:', mergeErr?.message);

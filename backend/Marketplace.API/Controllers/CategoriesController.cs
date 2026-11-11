@@ -74,7 +74,7 @@ public class CategoriesController : ControllerBase
     /// <summary>Delete category if zero active products attached. (Admin only)</summary>
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -83,6 +83,6 @@ public class CategoriesController : ControllerBase
     {
         var adminId = User.GetUserId();
         await _categoryService.DeleteCategoryAsync(id, adminId);
-        return Ok(new { success = true, message = "تم حذف الفئة بنجاح." });
+        return NoContent();
     }
 }

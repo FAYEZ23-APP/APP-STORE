@@ -15,6 +15,8 @@ import { resolveApiBaseUrl, validateApiUrl } from '../utils/networkSecurity';
 
 export const BASE_URL = resolveApiBaseUrl();
 
+export const getBaseUrl = () => BASE_URL;
+
 let onUnauthorizedCallback = null;
 
 export const setOnUnauthorized = (callback) => {

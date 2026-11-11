@@ -194,7 +194,9 @@ export const validateApiUrl = (
 export const resolveApiBaseUrl = ({
   isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : false,
   envApiUrl = process.env.EXPO_PUBLIC_API_URL,
-  allowCleartext = process.env.ALLOW_CLEARTEXT === '1',
+  allowCleartext = process.env.ALLOW_CLEARTEXT === '1' ||
+    process.env.EXPO_PUBLIC_ALLOW_CLEARTEXT === '1' ||
+    Boolean((typeof __DEV__ !== 'undefined' ? __DEV__ : isDev) && (envApiUrl || process.env.EXPO_PUBLIC_API_URL)),
   platformOs = 'android',
 } = {}) => {
   const isProduction = !isDev;

@@ -1,6 +1,4 @@
-import { getAppConfig } from '../../api/configApi';
-import tw from 'twrnc';
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,11 +12,9 @@ import {
   Switch,
   Platform,
   I18nManager,
-  Image,
-  StyleSheet,
   StatusBar,
+  StyleSheet,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
@@ -34,18 +30,33 @@ import {
   updateMyAddress,
   deleteMyAddress,
   getBuyerDashboard,
+  getSellerDashboard,
   exportMyData,
   deleteMyAccount,
   getMyWallet,
 } from '../../api/usersApi';
+import { getMyProducts } from '../../api/productsApi';
+import { getAppConfig } from '../../api/configApi';
 import { changeAppLanguage } from '../../locales/i18n';
 import { linkGoogle } from '../../api/authApi';
 import { useGoogleAuth } from '../../utils/googleAuth';
-import { isValidEgyptianPhone, formatEgyptianPhone } from '../../utils/egyptianPhone';
+import { isValidEgyptianPhone } from '../../utils/egyptianPhone';
 import { formatCurrency } from '../../utils/currency';
+import { openWhatsApp } from '../../utils/whatsapp';
 import { colors } from '../../theme/colors';
 import { checkBiometricSupport, promptBiometricAuth } from '../../utils/biometrics';
 import { isBiometricsEnabled, setBiometricsEnabled, removeRefreshToken } from '../../utils/storage';
+
+import {
+  ProfileHeaderCard,
+  AccountStatistics,
+  OrderTrackingCard,
+  AddressBookCard,
+  SellerDispatchCard,
+  AccountSettingsSection,
+  ProfileSectionHeader,
+  AccountEmptyState,
+} from '../../components/profile';
 
 const cardShadow = Platform.select({
   ios: {
@@ -60,13 +71,6 @@ const cardShadow = Platform.select({
   default: {},
 });
 
-const getInitials = (name) => {
-  if (!name || typeof name !== 'string') return 'U';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-};
-
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   try {
@@ -79,6 +83,8 @@ const formatDate = (dateStr) => {
 export default function ProfileScreen({ navigation }) {
   const { t, i18n } = useTranslation();
   const { logout, reloadUser, userId } = useContext(AuthContext);
+  const scrollViewRef = useRef(null);
+
   const [biometricSupport, setBiometricSupport] = useState({ available: false });
   const [biometricsEnabled, setBiometricsEnabledState] = useState(false);
   const isFocused = useIsFocused();
@@ -109,12 +115,16 @@ export default function ProfileScreen({ navigation }) {
     },
   });
 
-  // Edit Name State
+  // Seller Dashboard State
+  const [sellerDashboard, setSellerDashboard] = useState(null);
+  const [sellerProductsCount, setSellerProductsCount] = useState(0);
+
+  // Edit Name Modal State
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
 
-  // Change Password State
+  // Change Password Modal State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -123,7 +133,6 @@ export default function ProfileScreen({ navigation }) {
 
   // Addresses State
   const [addresses, setAddresses] = useState([]);
-  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
   const [addressForm, setAddressForm] = useState({
@@ -134,6 +143,8 @@ export default function ProfileScreen({ navigation }) {
     city: '',
     area: '',
     streetBuilding: '',
+    latitude: 0,
+    longitude: 0,
     isDefault: false,
   });
   const [savingAddress, setSavingAddress] = useState(false);
@@ -144,8 +155,14 @@ export default function ProfileScreen({ navigation }) {
     dispatchAddress: '',
     contactPhone: '',
   });
+  const [sellerOrdersSummary, setSellerOrdersSummary] = useState(null);
+  const [isEditingSellerDispatch, setIsEditingSellerDispatch] = useState(false);
+  const [showPersonalAddresses, setShowPersonalAddresses] = useState(false);
   const [loadingSellerProfile, setLoadingSellerProfile] = useState(false);
   const [savingSellerProfile, setSavingSellerProfile] = useState(false);
+
+  // Help Center FAQ Modal State
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
 
   // PDPL 151/2020 State
   const [exportingData, setExportingData] = useState(false);
@@ -161,7 +178,7 @@ export default function ProfileScreen({ navigation }) {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletEnabled, setWalletEnabled] = useState(false);
 
-  // Google Account Linking Flow (MOB-013)
+  // Google Account Linking Flow
   const [linkGoogleLoading, setLinkGoogleLoading] = useState(false);
   const { signIn: startGoogleLink, isLoading: googleLinking } = useGoogleAuth({
     onIdToken: async (idToken) => {
@@ -220,6 +237,40 @@ export default function ProfileScreen({ navigation }) {
 
         if (u.role === 'Seller') {
           loadSellerProfile();
+          // Load seller dashboard & product count & orders
+          try {
+            const [sellerDashRes, productsRes, configRes, ordersRes] = await Promise.allSettled([
+              getSellerDashboard(),
+              getMyProducts(),
+              getAppConfig(),
+              client.get('/orders/seller'),
+            ]);
+            if (sellerDashRes.status === 'fulfilled' && sellerDashRes.value?.data) {
+              setSellerDashboard(sellerDashRes.value.data);
+            }
+            if (productsRes.status === 'fulfilled' && Array.isArray(productsRes.value?.data)) {
+              setSellerProductsCount(productsRes.value.data.length);
+            }
+            if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value?.data)) {
+              const orders = ordersRes.value.data;
+              const summary = {
+                processingCount: orders.filter((o) => o.status === 'Processing').length,
+                inTransitCount: orders.filter((o) => o.status === 'InTransit').length,
+                readyForPickupCount: orders.filter((o) => o.status === 'ReadyForPickup').length,
+                deliveredCount: orders.filter((o) => o.status === 'Delivered').length,
+                returnedCount: orders.filter((o) => o.status === 'Returned').length,
+              };
+              setSellerOrdersSummary(summary);
+            }
+            if (configRes.status === 'fulfilled') {
+              if (configRes.value?.data?.googleEnabled) setGoogleEnabled(true);
+              if (configRes.value?.data?.walletEnabled || configRes.value?.data?.vendorPayoutsEnabled) {
+                setWalletEnabled(true);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to load seller dashboard details', e);
+          }
         } else if (u.role !== 'Admin') {
           // Fetch Buyer Dashboard & Config/Wallet
           try {
@@ -232,16 +283,16 @@ export default function ProfileScreen({ navigation }) {
             }
             if (configRes.status === 'fulfilled') {
               if (configRes.value?.data?.googleEnabled) setGoogleEnabled(true);
-            }
-            if (configRes.status === 'fulfilled' && configRes.value?.data?.walletEnabled) {
-              setWalletEnabled(true);
-              try {
-                const walletRes = await getMyWallet();
-                if (walletRes?.data) {
-                  setWalletData(walletRes.data);
+              if (configRes.value?.data?.walletEnabled) {
+                setWalletEnabled(true);
+                try {
+                  const walletRes = await getMyWallet();
+                  if (walletRes?.data) {
+                    setWalletData(walletRes.data);
+                  }
+                } catch (we) {
+                  console.warn('Failed to load wallet data', we);
                 }
-              } catch (we) {
-                console.warn('Failed to load wallet data', we);
               }
             }
           } catch (e) {
@@ -259,8 +310,7 @@ export default function ProfileScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [loadSellerProfile]);
-
+  }, [loadSellerProfile, userId]);
 
   useEffect(() => {
     if (isFocused) {
@@ -316,7 +366,10 @@ export default function ProfileScreen({ navigation }) {
   const handleSaveName = async () => {
     const trimmed = nameInput.trim();
     if (trimmed.length < 2 || trimmed.length > 100) {
-      Alert.alert(t('common.error'), isRTL ? 'الاسم يجب أن يكون بين حرفين و 100 حرف' : 'Name must be between 2 and 100 characters');
+      Alert.alert(
+        t('common.error'),
+        isRTL ? 'الاسم يجب أن يكون بين حرفين و 100 حرف' : 'Name must be between 2 and 100 characters'
+      );
       return;
     }
 
@@ -344,7 +397,10 @@ export default function ProfileScreen({ navigation }) {
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert(t('common.error'), isRTL ? 'كلمة المرور يجب ألا تقل عن 6 أحرف' : 'Password must be at least 6 characters');
+      Alert.alert(
+        t('common.error'),
+        isRTL ? 'كلمة المرور يجب ألا تقل عن 6 أحرف' : 'Password must be at least 6 characters'
+      );
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -363,7 +419,7 @@ export default function ProfileScreen({ navigation }) {
         await removeRefreshToken(userId);
       }
       Alert.alert(t('common.success', 'تم بنجاح'), t('profile.passwordChanged'), [
-        { text: t('common.ok', 'حسناً'), onPress: () => logout() }
+        { text: t('common.ok', 'حسناً'), onPress: () => logout() },
       ]);
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || t('common.error');
@@ -375,7 +431,10 @@ export default function ProfileScreen({ navigation }) {
 
   const handleSaveSellerProfile = async () => {
     if (!sellerProfile.dispatchCity?.trim()) {
-      Alert.alert(t('common.error'), isRTL ? 'يرجى تحديد محافظة أو مدينة الشحن للتاجر' : 'Please select dispatch city for seller');
+      Alert.alert(
+        t('common.error'),
+        isRTL ? 'يرجى تحديد محافظة أو مدينة الشحن للتاجر' : 'Please select dispatch city for seller'
+      );
       return;
     }
 
@@ -406,6 +465,8 @@ export default function ProfileScreen({ navigation }) {
         city: address.city || '',
         area: address.area || '',
         streetBuilding: address.streetBuilding || '',
+        latitude: address.latitude || 0,
+        longitude: address.longitude || 0,
         isDefault: Boolean(address.isDefault),
       });
     } else {
@@ -418,6 +479,8 @@ export default function ProfileScreen({ navigation }) {
         city: '',
         area: '',
         streetBuilding: '',
+        latitude: 0,
+        longitude: 0,
         isDefault: addresses.length === 0,
       });
     }
@@ -452,6 +515,8 @@ export default function ProfileScreen({ navigation }) {
         city: addressForm.city.trim(),
         area: addressForm.area.trim(),
         streetBuilding: addressForm.streetBuilding.trim(),
+        latitude: addressForm.latitude || 0,
+        longitude: addressForm.longitude || 0,
         isDefault: addressForm.isDefault,
       };
 
@@ -501,12 +566,51 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const handleOpenMapPicker = () => {
+    try {
+      navigation?.navigate('LocationPicker', {
+        onConfirmLocation: (loc) => {
+          if (loc?.latitude && loc?.longitude) {
+            setAddressForm((p) => ({
+              ...p,
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              governorate: loc.governorate || p.governorate,
+              city: loc.city || p.city,
+              area: loc.area || p.area,
+              streetBuilding: loc.streetBuilding || p.streetBuilding,
+            }));
+          }
+        },
+      });
+    } catch (e) {
+      console.warn('Map picker launch fallback', e);
+    }
+  };
+
+  const handleOpenSellerMapPicker = () => {
+    try {
+      navigation?.navigate('LocationPicker', {
+        onConfirmLocation: (loc) => {
+          if (loc?.city || loc?.governorate) {
+            setSellerProfile((p) => ({
+              ...p,
+              dispatchCity: loc.city || loc.governorate || p.dispatchCity,
+              dispatchAddress: loc.address ? `${p.dispatchAddress ? p.dispatchAddress + ' - ' : ''}${loc.address}` : p.dispatchAddress,
+            }));
+          }
+        },
+      });
+    } catch (e) {
+      console.warn('Seller map picker launch fallback', e);
+    }
+  };
+
   const handleLanguageChange = async (lang) => {
     if (i18n.language === lang) return;
     await changeAppLanguage(lang);
   };
 
-  // ─── PDPL 151/2020 Data Rights Handlers ───
   const handleExportData = async () => {
     try {
       setExportingData(true);
@@ -530,12 +634,18 @@ export default function ProfileScreen({ navigation }) {
   const handleDeleteAccountConfirm = async () => {
     if (deleteAuthMethod === 'password') {
       if (!deletePasswordInput) {
-        Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال كلمة المرور لتأكيد حذف الحساب' : 'Please enter your password to confirm account deletion');
+        Alert.alert(
+          t('common.error'),
+          isRTL ? 'يرجى إدخال كلمة المرور لتأكيد حذف الحساب' : 'Please enter your password to confirm account deletion'
+        );
         return;
       }
     } else {
       if (!deleteGoogleTokenInput.trim()) {
-        Alert.alert(t('common.error'), isRTL ? 'يرجى إدخال رمز Google ID Token لتأكيد حذف الحساب' : 'Please enter your Google ID token to confirm account deletion');
+        Alert.alert(
+          t('common.error'),
+          isRTL ? 'يرجى إدخال رمز Google ID Token لتأكيد حذف الحساب' : 'Please enter your Google ID token to confirm account deletion'
+        );
         return;
       }
     }
@@ -553,11 +663,14 @@ export default function ProfileScreen({ navigation }) {
       setDeleteAccountModalVisible(false);
       Alert.alert(
         isRTL ? 'تم حذف الحساب' : 'Account Deleted',
-        isRTL ? 'تم محو بياناتك الشخصية بنجاح وفقاً للقانون 151 لسنة 2020.' : 'Your personal data has been erased in accordance with Law 151/2020.',
+        isRTL
+          ? 'تم محو بياناتك الشخصية بنجاح وفقاً للقانون 151 لسنة 2020.'
+          : 'Your personal data has been erased in accordance with Law 151/2020.',
         [{ text: isRTL ? 'حسناً' : 'OK', onPress: () => logout() }]
       );
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || (isRTL ? 'تعذر حذف الحساب' : 'Failed to delete account');
+      const msg =
+        err?.response?.data?.error || err?.message || (isRTL ? 'تعذر حذف الحساب' : 'Failed to delete account');
       Alert.alert(isRTL ? 'خطأ في الحذف' : 'Deletion Error', msg);
     } finally {
       setDeletingAccount(false);
@@ -571,238 +684,62 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
+  const handleSupportWhatsApp = async () => {
+    const defaultSupportPhone = '01000000000';
+    const message = isRTL
+      ? `مرحباً، أود الاستفسار بخصوص حسابي في سوق مصر (${profile?.email || ''})`
+      : `Hello, I have an inquiry regarding my Egypt Shop account (${profile?.email || ''})`;
+    const opened = await openWhatsApp(defaultSupportPhone, message);
+    if (!opened) {
+      Alert.alert(
+        t('profile.customerSupport'),
+        isRTL
+          ? 'تواصل معنا مباشرة عبر البريد support@marketplace.com أو عبر واتساب: 01000000000'
+          : 'Contact us directly at support@marketplace.com or on WhatsApp: +201000000000'
+      );
+    }
+  };
+
+  // Guest State Render
   if (!userId) {
     return (
-      <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
-        <StatusBar barStyle="light-content" />
-        <LinearGradient
-          colors={['#14171B', '#1F2329', '#14171B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
+      <View style={[styles.root, { backgroundColor: colors.screenBg }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#1F2329" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1 }}
         >
-          <View style={tw`flex-row items-center mb-2`}>
-            <View style={[styles.avatarCircle, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
-              <MaterialCommunityIcons name="account-outline" size={32} color={colors.white} />
-            </View>
-            <View style={tw`ml-3 flex-1`}>
-              <Text style={styles.userNameText}>
-                {isRTL ? 'مرحباً بك في سوق مصر' : 'Welcome to Souq Masr'}
-              </Text>
-              <Text style={styles.userEmailText}>
-                {isRTL ? 'سجل الدخول للوصول لحسابك وطلباتك' : 'Sign in to access your orders & account'}
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <ScrollView contentContainerStyle={tw`p-4`} showsVerticalScrollIndicator={false}>
-          {/* Sign In & Register CTA Card */}
-          <View style={[styles.card, cardShadow, tw`p-6 items-center mb-4`]}>
-            <View style={[tw`w-16 h-16 rounded-full items-center justify-center mb-3`, { backgroundColor: colors.primarySoft }]}>
-              <MaterialCommunityIcons name="shield-account-outline" size={32} color={colors.primary} />
-            </View>
-            <Text style={[tw`text-lg font-bold text-center mb-1`, { color: colors.textPrimary }]}>
-              {isRTL ? 'تسجيل الدخول إلى حسابك' : 'Sign in to your account'}
-            </Text>
-            <Text style={[tw`text-xs text-center mb-5`, { color: colors.textSecondary }]}>
-              {isRTL
-                ? 'تابع شحناتك، احفظ عناوين التوصيل، وتمتع بمزايا الدفع عند الاستلام وضمان الاسترجاع 14 يوماً.'
-                : 'Track shipments, save delivery addresses, and enjoy Cash on Delivery with 14-day returns.'}
-            </Text>
-
-            <TouchableOpacity
-              accessible={true}
-              accessibilityRole="button"
-              style={[tw`w-full py-3.5 rounded-xl items-center justify-center mb-3`, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('Login')}
-            >
-              <Text style={tw`text-white font-bold text-base`}>
-                {isRTL ? 'تسجيل الدخول' : 'Sign In'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              accessible={true}
-              accessibilityRole="button"
-              style={[tw`w-full py-3.5 rounded-xl items-center justify-center border`, { borderColor: colors.border, backgroundColor: colors.cardBg }]}
-              onPress={() => navigation.navigate('Register')}
-            >
-              <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
-                {isRTL ? 'إنشاء حساب جديد' : 'Create New Account'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Benefits Card */}
-          <View style={[styles.card, cardShadow, tw`p-4 mb-4`]}>
-            <Text style={[tw`font-bold text-sm mb-3`, { color: colors.textPrimary }]}>
-              {isRTL ? 'مميزات التسوق مع سوق مصر' : 'Benefits of Shopping with Souq Masr'}
-            </Text>
-            
-            <View style={tw`flex-row items-center mb-2.5`}>
-              <MaterialCommunityIcons name="truck-fast-outline" size={20} color={colors.primary} style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
-              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
-                {isRTL ? 'شحن سريع وموثوق في جميع محافظات مصر' : 'Fast and reliable shipping across Egypt'}
-              </Text>
-            </View>
-
-            <View style={tw`flex-row items-center mb-2.5`}>
-              <MaterialCommunityIcons name="cash-multiple" size={20} color={colors.gold || '#D6A33A'} style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
-              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
-                {isRTL ? 'الدفع الآمن عند الاستلام (COD)' : 'Safe Cash on Delivery (COD)'}
-              </Text>
-            </View>
-
-            <View style={tw`flex-row items-center`}>
-              <MaterialCommunityIcons name="shield-check-outline" size={20} color="#16A34A" style={isRTL ? tw`ml-2.5` : tw`mr-2.5`} />
-              <Text style={[tw`text-xs flex-1`, { color: colors.textSecondary }]}>
-                {isRTL ? 'حماية بياناتك الشخصية (قانون 151 لسنة 2020)' : 'Personal data protection under Law 151/2020'}
-              </Text>
-            </View>
-          </View>
+          <AccountEmptyState
+            navigation={navigation}
+            onLanguageChange={handleLanguageChange}
+            isArabicActive={isArabicActive}
+          />
         </ScrollView>
       </View>
     );
   }
 
+  // Initial Loading State
   if (loading && !profile) {
     return (
-      <View style={[tw`flex-1 justify-center items-center`, { backgroundColor: colors.screenBg }]}>
+      <View style={[styles.centerLoading, { backgroundColor: colors.screenBg }]}>
+        <StatusBar barStyle="dark-content" />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const isSeller = profile?.role === 'Seller';
-  const isBuyer = profile?.role !== 'Seller' && profile?.role !== 'Admin';
-  const activeShipment = buyerDashboard.activeShipment;
+  const role = profile?.role || 'Buyer';
+  const isSeller = role === 'Seller';
 
   return (
-    <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.root, { backgroundColor: colors.screenBg }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#1F2329" />
 
-      {/* ─── 1. Personalized Header & Trust Badges (Executive Amazon/Noon Hub) ─── */}
-      <LinearGradient
-        colors={['#14171B', '#1F2329', '#14171B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={tw`flex-row items-center justify-between mb-3`}>
-          <View style={tw`flex-row items-center flex-1`}>
-            {/* Avatar Circle */}
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{getInitials(profile?.name)}</Text>
-            </View>
-
-            <View style={tw`ml-3 flex-1`}>
-              <View style={tw`flex-row items-center flex-wrap`}>
-                <Text style={styles.userNameText} numberOfLines={1}>
-                  {profile?.name || (isRTL ? 'مرحباً بك' : 'Welcome')}
-                </Text>
-                <View style={styles.trustBadge}>
-                  <MaterialCommunityIcons name="check-decagram" size={13} color="#4ADE80" />
-                  <Text style={styles.trustBadgeText}>{t('profile.verifiedEgypt')}</Text>
-                </View>
-              </View>
-              <Text style={styles.userEmailText} numberOfLines={1}>
-                {profile?.email}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            onPress={() => setIsEditingName((p) => !p)}
-            style={styles.editProfileBtn}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="account-edit-outline" size={20} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Edit Name Inline Bar */}
-        {isEditingName && (
-          <View style={styles.nameEditBox}>
-            <TextInput
-              style={styles.nameTextInput}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder={t('profile.namePlaceholder')}
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-            <View style={tw`flex-row justify-end mt-2`}>
-              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsEditingName(false)} style={styles.nameCancelBtn}>
-                <Text style={styles.nameCancelText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={handleSaveName} disabled={savingName} style={styles.nameSaveBtn}>
-                {savingName ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.nameSaveText}>{t('common.save')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Sleek Summary Bar (Orders, Addresses, Account Status) */}
-        {isBuyer && (
-          <View style={styles.summaryBar}>
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              style={styles.summaryCol}
-              onPress={() => navigation?.navigate('MyOrders')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.summaryNumber}>{buyerDashboard.totalOrdersPlaced}</Text>
-              <Text style={styles.summaryLabel}>{t('profile.myOrdersCount')}</Text>
-            </TouchableOpacity>
-
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryNumber}>{addresses.length}</Text>
-              <Text style={styles.summaryLabel}>{t('profile.addressesCountLabel')}</Text>
-            </View>
-
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryCol}>
-              <View style={tw`flex-row items-center justify-center`}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: buyerDashboard.codEligibilityStatus.isCodBlocked
-                        ? '#DC2626'
-                        : '#22C55E',
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.summaryStatusText,
-                    {
-                      color: buyerDashboard.codEligibilityStatus.isCodBlocked
-                        ? '#FCA5A5'
-                        : '#86EFAC',
-                    },
-                  ]}
-                >
-                  {buyerDashboard.codEligibilityStatus.isCodBlocked ? t('profile.codSuspended') : t('profile.codAvailable')}
-                </Text>
-              </View>
-              <Text style={styles.summaryLabel}>{t('profile.codMethod')}</Text>
-            </View>
-          </View>
-        )}
-      </LinearGradient>
-
-      {/* ─── Scrollable Body ─── */}
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -811,466 +748,246 @@ export default function ProfileScreen({ navigation }) {
           />
         }
       >
-        {isBuyer && (
+        {/* ─── 1. Profile Header Identity Card ─── */}
+        <ProfileHeaderCard
+          profile={profile}
+          sellerDashboard={sellerDashboard}
+          onEditProfile={() => setIsEditingName(true)}
+          onOpenSettings={() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }}
+        />
+
+        {/* ─── 2. Account Statistics Cards ─── */}
+        <AccountStatistics
+          role={role}
+          buyerDashboard={buyerDashboard}
+          sellerDashboard={sellerDashboard}
+          sellerProductsCount={sellerProductsCount}
+          addressesCount={addresses.length}
+          loading={loading}
+          navigation={navigation}
+          onAddressPress={() => openAddressModal()}
+        />
+
+        {/* ─── 3. Order Tracking Hub (Buyers Only) ─── */}
+        {!isSeller && (
           <>
-            {/* ─── 2. "My Orders" Visual Status Bar (Shein/Noon Style) ─── */}
-            <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
-              <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
-                {t('profile.buyerHubTitle')}
-              </Text>
-              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}>
-                <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>{t('profile.viewAllOrders')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.orderStatusBarCard, cardShadow]}>
-              {/* 1. Processing */}
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                style={styles.statusTile}
-                onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Processing' })}
-                activeOpacity={0.75}
-              >
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="clock-outline" size={24} color="#D97706" />
-                  {buyerDashboard.processingCount > 0 && (
-                    <View style={styles.badgeCount}>
-                      <Text style={styles.badgeText}>{buyerDashboard.processingCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.statusTileLabel}>{t('profile.statusProcessing')}</Text>
-              </TouchableOpacity>
-
-              {/* 2. In Transit */}
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                style={styles.statusTile}
-                onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'InTransit' })}
-                activeOpacity={0.75}
-              >
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="truck-delivery-outline" size={24} color="#2563EB" />
-                  {buyerDashboard.inTransitCount > 0 && (
-                    <View style={styles.badgeCount}>
-                      <Text style={styles.badgeText}>{buyerDashboard.inTransitCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.statusTileLabel}>{t('profile.statusInTransit')}</Text>
-              </TouchableOpacity>
-
-              {/* 3. Ready For Pickup */}
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                style={styles.statusTile}
-                onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'ReadyForPickup' })}
-                activeOpacity={0.75}
-              >
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="storefront-outline" size={24} color="#7C3AED" />
-                  {buyerDashboard.readyForPickupCount > 0 && (
-                    <View style={styles.badgeCount}>
-                      <Text style={styles.badgeText}>{buyerDashboard.readyForPickupCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.statusTileLabel}>{t('profile.statusReadyPickup')}</Text>
-              </TouchableOpacity>
-
-              {/* 4. Delivered */}
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                style={styles.statusTile}
-                onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Delivered' })}
-                activeOpacity={0.75}
-              >
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="package-variant-closed-check" size={24} color="#16A34A" />
-                  {buyerDashboard.deliveredCount > 0 && (
-                    <View style={[styles.badgeCount, { backgroundColor: '#16A34A' }]}>
-                      <Text style={styles.badgeText}>{buyerDashboard.deliveredCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.statusTileLabel}>{t('profile.statusDelivered')}</Text>
-              </TouchableOpacity>
-
-              {/* 5. Returned */}
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                style={styles.statusTile}
-                onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Returned' })}
-                activeOpacity={0.75}
-              >
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="keyboard-return" size={24} color="#DC2626" />
-                  {buyerDashboard.returnedCount > 0 && (
-                    <View style={[styles.badgeCount, { backgroundColor: '#DC2626' }]}>
-                      <Text style={styles.badgeText}>{buyerDashboard.returnedCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.statusTileLabel}>{t('profile.statusReturned')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ─── 2.5 Buyer Wallet (Store Credit) Balance Card ─── */}
-            {walletEnabled && (
-            <View
-              style={[
-                tw`rounded-2xl p-4 mb-3 border`,
-                cardShadow,
-                { backgroundColor: colors.cardBg, borderColor: colors.border },
-              ]}
-            >
-              <View style={tw`flex-row items-center justify-between mb-2`}>
-                <View style={tw`flex-row items-center`}>
-                  <View style={[tw`w-10 h-10 rounded-xl items-center justify-center`, { backgroundColor: colors.goldSoft }]}>
-                    <MaterialCommunityIcons name="wallet" size={24} color={colors.gold} />
-                  </View>
-                  <View style={isRTL ? tw`mr-3` : tw`ml-3`}>
-                    <Text style={[tw`text-xs font-semibold`, { color: colors.textSecondary }]}>
-                      {t('profile.buyerWalletTitle')}
-                    </Text>
-                    <Text style={[tw`font-bold text-xl`, { color: colors.textPrimary }]}>
-                      {formatCurrency(walletData?.balance || 0)}
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity accessible={true} accessibilityRole="button"
-                  activeOpacity={0.8}
-                  onPress={() => setShowWalletModal(true)}
-                  style={[tw`px-3 py-1.5 rounded-lg border`, { borderColor: colors.accent, backgroundColor: colors.goldSoft }]}
-                >
-                  <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
-                    {t('profile.txHistory')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={[tw`text-[11px]`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.buyerWalletNotice')}
-              </Text>
-            </View>
-            )}
-
-            {/* ─── 3. Live Active Shipment Pin ─── */}
-            {activeShipment && (
-              <View style={[styles.activeShipmentCard, cardShadow]}>
-                {/* Active Shipment Header */}
-                <View style={tw`flex-row justify-between items-center mb-2`}>
-                  <View style={tw`flex-row items-center`}>
-                    <View style={styles.livePulseDot} />
-                    <Text style={[tw`font-bold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
-                      {t('profile.liveShipmentTitle')}
-                    </Text>
-                  </View>
-                  <View style={styles.carrierTag}>
-                    <Text style={styles.carrierTagText}>{t('profile.bostaCarrierTag')}</Text>
-                  </View>
-                </View>
-
-                {/* Tracking & ETA */}
-                <View style={tw`flex-row justify-between items-center mb-3 bg-gray-50 p-2.5 rounded-xl`}>
-                  <Text style={[tw`text-xs font-mono`, { color: colors.textSecondary }]}>
-                    {t('profile.trackingAirway', { number: activeShipment.trackingNumber || activeShipment.shipmentId })}
-                  </Text>
-                  <Text style={[tw`text-xs font-bold`, { color: colors.gold }]}>
-                    {t('profile.etaDeliveryDays', { min: activeShipment.etaMinDays, max: activeShipment.etaMaxDays })}
-                  </Text>
-                </View>
-
-                {/* 5-Step Stepper Progress Bar */}
-                <View style={styles.stepperContainer}>
-                  <View style={styles.stepperLine} />
-                  <View
-                    style={[
-                      styles.stepperProgress,
-                      { width: `${((activeShipment.currentStep - 1) / 4) * 100}%` },
-                    ]}
-                  />
-
-                  {/* Step 1: Created */}
-                  <View style={styles.stepNodeWrap}>
-                    <View style={[styles.stepCircle, activeShipment.currentStep >= 1 && styles.stepCircleActive]}>
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={12}
-                        color={activeShipment.currentStep >= 1 ? colors.white : '#94A3B8'}
-                      />
-                    </View>
-                    <Text style={[styles.stepLabel, activeShipment.currentStep >= 1 && styles.stepLabelActive]}>
-                      {t('profile.stepOrderConfirmed')}
-                    </Text>
-                  </View>
-
-                  {/* Step 2: HandedToCarrier */}
-                  <View style={styles.stepNodeWrap}>
-                    <View style={[styles.stepCircle, activeShipment.currentStep >= 2 && styles.stepCircleActive]}>
-                      <MaterialCommunityIcons
-                        name="package-variant"
-                        size={12}
-                        color={activeShipment.currentStep >= 2 ? colors.white : '#94A3B8'}
-                      />
-                    </View>
-                    <Text style={[styles.stepLabel, activeShipment.currentStep >= 2 && styles.stepLabelActive]}>
-                      {t('profile.stepHandedBosta')}
-                    </Text>
-                  </View>
-
-                  {/* Step 3: InTransit */}
-                  <View style={styles.stepNodeWrap}>
-                    <View style={[styles.stepCircle, activeShipment.currentStep >= 3 && styles.stepCircleActive]}>
-                      <MaterialCommunityIcons
-                        name="truck-fast"
-                        size={12}
-                        color={activeShipment.currentStep >= 3 ? colors.white : '#94A3B8'}
-                      />
-                    </View>
-                    <Text style={[styles.stepLabel, activeShipment.currentStep >= 3 && styles.stepLabelActive]}>
-                      {t('profile.stepInTransit')}
-                    </Text>
-                  </View>
-
-                  {/* Step 4: ReadyForPickup */}
-                  <View style={styles.stepNodeWrap}>
-                    <View style={[styles.stepCircle, activeShipment.currentStep >= 4 && styles.stepCircleActive]}>
-                      <MaterialCommunityIcons
-                        name="storefront"
-                        size={12}
-                        color={activeShipment.currentStep >= 4 ? colors.white : '#94A3B8'}
-                      />
-                    </View>
-                    <Text style={[styles.stepLabel, activeShipment.currentStep >= 4 && styles.stepLabelActive]}>
-                      {t('profile.stepPickup')}
-                    </Text>
-                  </View>
-
-                  {/* Step 5: Delivered */}
-                  <View style={styles.stepNodeWrap}>
-                    <View style={[styles.stepCircle, activeShipment.currentStep >= 5 && styles.stepCircleActive]}>
-                      <MaterialCommunityIcons
-                        name="check-all"
-                        size={12}
-                        color={activeShipment.currentStep >= 5 ? colors.white : '#94A3B8'}
-                      />
-                    </View>
-                    <Text style={[styles.stepLabel, activeShipment.currentStep >= 5 && styles.stepLabelActive]}>
-                      {t('profile.stepDelivered')}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* COD Amount Banner */}
-                {activeShipment.codAmount > 0 && (
-                  <View style={styles.codAlertBanner}>
-                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#EA580C" />
-                    <View style={tw`ml-2.5 flex-1`}>
-                      <Text style={styles.codAlertTitle}>{t('profile.codAmountNeeded')}</Text>
-                      <Text style={styles.codAlertAmount}>{formatCurrency(activeShipment.codAmount)}</Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* Action Link to Orders */}
-                <TouchableOpacity accessible={true} accessibilityRole="button"
-                  style={styles.trackDetailsBtn}
-                  onPress={() => navigation?.navigate('MyOrders')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.trackDetailsBtnText}>{t('profile.trackDetails')}</Text>
-                  <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.gold} />
-                </TouchableOpacity>
-              </View>
-            )}
+            <ProfileSectionHeader
+              title={t('profile.buyerHubTitle')}
+              actionLabel={t('profile.viewAllOrders')}
+              onActionPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}
+              icon="clipboard-pulse-outline"
+            />
+            <OrderTrackingCard
+              buyerDashboard={buyerDashboard}
+              navigation={navigation}
+            />
           </>
         )}
 
-        {/* ─── 4. Quick Services & Management Grid ─── */}
-        <Text style={[tw`font-bold text-base mt-4 mb-2.5 px-1`, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-          {t('profile.servicesSettings')}
-        </Text>
+        {/* ─── 4. Egyptian Address Book ─── */}
+        <ProfileSectionHeader
+          title={t('profile.addressesSection')}
+          actionLabel={t('profile.addAddress')}
+          onActionPress={() => openAddressModal()}
+          icon="map-marker-radius-outline"
+        />
+        <AddressBookCard
+          addresses={addresses}
+          onAddNewAddress={() => openAddressModal()}
+          onEditAddress={(addr) => openAddressModal(addr)}
+          onDeleteAddress={(id) => handleDeleteAddress(id)}
+          onSetDefault={(addr) => handleSetDefaultAddress(addr)}
+          onLocateOnMap={handleOpenMapPicker}
+        />
 
-        {/* 1. Address Book Manager */}
-        <View style={[styles.serviceCard, cardShadow]}>
-          <View style={tw`flex-row items-center justify-between mb-3`}>
-            <View style={tw`flex-row items-center`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                <MaterialCommunityIcons name="map-marker-radius-outline" size={22} color="#2563EB" />
-              </View>
-              <View style={isRTL ? tw`mr-2.5` : tw`ml-2.5`}>
-                <Text style={styles.serviceTitle}>{t('profile.egyptianAddressBook')}</Text>
-                <Text style={styles.serviceSubtitle}>
-                  {t('profile.addressesCount', { count: addresses.length })}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              onPress={() => openAddressModal()}
-              style={styles.addSmallBtn}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="plus" size={16} color={colors.primary} />
-              <Text style={styles.addSmallBtnText}>{t('profile.addAddress')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {addresses.length === 0 ? (
-            <Text style={[tw`text-xs py-2`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t('profile.noAddresses')}
-            </Text>
-          ) : (
-            addresses.slice(0, 3).map((addr) => (
-              <View key={`addr-tile-${addr.id}`} style={styles.addressItemRow}>
-                <View style={tw`flex-1 mr-2`}>
-                  <View style={tw`flex-row items-center`}>
-                    <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
-                      {addr.label || t('profile.defaultDelivery')}
-                    </Text>
-                    {addr.isDefault && (
-                      <View style={styles.defaultBadge}>
-                        <Text style={styles.defaultBadgeText}>{t('profile.defaultBadge')}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {addr.governorate}، {addr.city}، {addr.streetBuilding}
-                  </Text>
-                </View>
-
-                <View style={tw`flex-row items-center`}>
-                  <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => openAddressModal(addr)} style={tw`p-1 mr-1`}>
-                    <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => handleDeleteAddress(addr.id)} style={tw`p-1`}>
-                    <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.discount} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* 3. Seller Dispatch Settings (Only if Seller) */}
+        {/* ─── 5. Seller Dispatch & Warehouse Settings (Sellers Only) ─── */}
         {isSeller && (
-          <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
-            <View style={tw`flex-row items-center mb-3`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: colors.goldSoft }]}>
-                <MaterialCommunityIcons name="store-outline" size={22} color={colors.gold} />
-              </View>
-              <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`]}>{t('profile.sellerDispatchSettings')}</Text>
+          <View style={styles.sellerDispatchContainer}>
+            <ProfileSectionHeader
+              title={t('profile.sellerDispatchSettings')}
+              icon="storefront-outline"
+            />
+            <View style={[styles.sellerDispatchCard, cardShadow]}>
+              {loadingSellerProfile ? (
+                <ActivityIndicator size="small" color={colors.gold} />
+              ) : (
+                <View>
+                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t('profile.mainDispatchCity')}
+                  </Text>
+                  <TextInput
+                    accessible={true}
+                    accessibilityLabel={t('profile.mainDispatchCity')}
+                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    value={sellerProfile.dispatchCity}
+                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchCity: text }))}
+                    placeholder={isRTL ? 'مثال: القاهرة، الجيزة، الإسكندرية' : 'e.g. Cairo, Giza'}
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t('profile.detailedDispatchAddress')}
+                  </Text>
+                  <TextInput
+                    accessible={true}
+                    accessibilityLabel={t('profile.detailedDispatchAddress')}
+                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    value={sellerProfile.dispatchAddress}
+                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchAddress: text }))}
+                    placeholder={isRTL ? 'عنوان المخزن أو المتجر بالتفصيل' : 'Detailed warehouse/store address'}
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t('profile.contactPhoneRepresentative')}
+                  </Text>
+                  <TextInput
+                    accessible={true}
+                    accessibilityLabel={t('profile.contactPhoneRepresentative')}
+                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    keyboardType="phone-pad"
+                    value={sellerProfile.contactPhone}
+                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, contactPhone: text }))}
+                    placeholder="010xxxxxxxx"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <TouchableOpacity
+                    accessible={true}
+                    accessibilityRole="button"
+                    onPress={handleSaveSellerProfile}
+                    disabled={savingSellerProfile}
+                    style={[styles.sellerSaveBtn, { backgroundColor: colors.accent }]}
+                    activeOpacity={0.85}
+                  >
+                    {savingSellerProfile ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Text style={styles.sellerSaveBtnText}>{t('profile.saveSellerSettings')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-
-            {loadingSellerProfile ? (
-              <ActivityIndicator size="small" color={colors.gold} />
-            ) : (
-              <View>
-                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.mainDispatchCity')}</Text>
-                <TextInput accessibilityLabel="Input" accessible={true}
-                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                  value={sellerProfile.dispatchCity}
-                  onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchCity: text }))}
-                  placeholder={isRTL ? 'مثال: القاهرة' : 'e.g. Cairo'}
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.detailedDispatchAddress')}</Text>
-                <TextInput accessibilityLabel="Input" accessible={true}
-                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                  value={sellerProfile.dispatchAddress}
-                  onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchAddress: text }))}
-                  placeholder={isRTL ? 'الشارع والحي ورقم المبنى' : 'Street, district & building'}
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.contactPhoneRepresentative')}</Text>
-                <TextInput accessibilityLabel="Input" accessible={true}
-                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                  keyboardType="phone-pad"
-                  value={sellerProfile.contactPhone}
-                  onChangeText={(text) => setSellerProfile((p) => ({ ...p, contactPhone: text }))}
-                  placeholder="010xxxxxxxx"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <TouchableOpacity accessible={true} accessibilityRole="button"
-                  onPress={handleSaveSellerProfile}
-                  disabled={savingSellerProfile}
-                  style={[styles.saveBtn, { backgroundColor: colors.accent }]}
-                >
-                  {savingSellerProfile ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>{t('profile.saveSellerSettings')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         )}
 
-        {/* 4. Password & Biometric Security Accordion */}
-        <View style={[styles.serviceCard, cardShadow, tw`mt-3`]}>
-          {/* Biometrics Toggle / Unavailable Notice */}
-          <View style={tw`mb-3 pb-3 border-b border-gray-100`}>
-            <View style={tw`flex-row items-center mb-2.5`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: '#F1F5F9' }]}>
-                <MaterialCommunityIcons name="shield-lock-outline" size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`]}>
-                {t('biometrics.securitySection', 'الأمان والدخول البيومتري')}
-              </Text>
+        {/* ─── 6. Account Services & Settings Groups ─── */}
+        <AccountSettingsSection
+          role={role}
+          navigation={navigation}
+          walletEnabled={walletEnabled}
+          walletBalance={walletData?.balance || 0}
+          onOpenWalletModal={() => setShowWalletModal(true)}
+          isChangingPassword={isChangingPassword}
+          onToggleChangePassword={() => setIsChangingPassword(true)}
+          biometricSupport={biometricSupport}
+          biometricsEnabled={biometricsEnabled}
+          onToggleBiometrics={handleToggleBiometrics}
+          onEditName={() => setIsEditingName(true)}
+          googleEnabled={googleEnabled}
+          onLinkGoogle={startGoogleLink}
+          linkGoogleLoading={linkGoogleLoading || googleLinking}
+          isArabicActive={isArabicActive}
+          onLanguageChange={handleLanguageChange}
+          onOpenSupportWhatsApp={handleSupportWhatsApp}
+          onOpenHelpCenter={() => setHelpModalVisible(true)}
+          onExportData={handleExportData}
+          exportingData={exportingData}
+          onDeleteAccount={() => setDeleteAccountModalVisible(true)}
+          onLogout={handleLogout}
+        />
+      </ScrollView>
+
+      {/* ─── MODAL 1: Edit Name ─── */}
+      <Modal
+        visible={isEditingName}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditingName(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.dialogBox, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.dialogTitle}>{t('profile.editName')}</Text>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsEditingName(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
 
-            {biometricSupport.available ? (
-              <View style={tw`flex-row items-center justify-between py-1`}>
-                <View style={tw`flex-1 ${isRTL ? 'ml-3' : 'mr-3'}`}>
-                  <Text style={[styles.fieldLabel, { marginBottom: 2, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('biometrics.biometricToggleTitle', 'تسجيل الدخول بالبصمة')}
-                  </Text>
-                  <Text style={[tw`text-xs text-gray-500`, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('biometrics.biometricToggleSubtitle', 'استخدم بصمة الإصبع أو الوجه لفتح التطبيق وتسجيل الدخول')}
-                  </Text>
-                </View>
-                <Switch
-                  value={biometricsEnabled}
-                  onValueChange={handleToggleBiometrics}
-                  trackColor={{ false: '#CBD5E1', true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            ) : (
-              <View style={tw`p-2.5 bg-gray-50 rounded-lg flex-row items-center`}>
-                <MaterialCommunityIcons name="fingerprint-off" size={20} color="#94A3B8" />
-                <Text style={[tw`text-xs text-gray-500 flex-1`, isRTL ? tw`mr-2` : tw`ml-2`, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t(biometricSupport.messageKey || 'biometrics.hardwareUnavailable')}
+            <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {t('profile.namePlaceholder')}
+            </Text>
+            <TextInput
+              accessible={true}
+              accessibilityLabel={t('profile.namePlaceholder')}
+              style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder={t('profile.namePlaceholder')}
+              placeholderTextColor="#94A3B8"
+              autoFocus
+            />
+
+            <View style={[styles.dialogBtnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setIsEditingName(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={handleSaveName}
+                disabled={savingName}
+                style={[styles.saveActionBtn, { backgroundColor: colors.primary }]}
+              >
+                {savingName ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.saveActionBtnText}>{t('common.save')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── MODAL 2: Change Password ─── */}
+      <Modal
+        visible={isChangingPassword}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsChangingPassword(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.sheetBox, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <MaterialCommunityIcons name="lock-reset" size={22} color={colors.primary} />
+                <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
+                  {t('profile.changePassword')}
                 </Text>
               </View>
-            )}
-          </View>
-
-          {/* Change Password Accordion Header */}
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            style={tw`flex-row items-center justify-between`}
-            onPress={() => setIsChangingPassword((p) => !p)}
-            activeOpacity={0.8}
-          >
-            <View style={tw`flex-row items-center`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: '#F8FAFC' }]}>
-                <MaterialCommunityIcons name="lock-outline" size={20} color={colors.primary} />
-              </View>
-              <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`]}>{t('profile.changePassword')}</Text>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsChangingPassword(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-            <MaterialCommunityIcons
-              name={isChangingPassword ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
 
-          {isChangingPassword && (
-            <View style={tw`mt-3 pt-3 border-t border-gray-100`}>
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.currentPassword')} *</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.currentPassword')} *
+              </Text>
               <TextInput
                 secureTextEntry
+                accessible={true}
+                accessibilityLabel={t('profile.currentPassword')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
@@ -1278,9 +995,13 @@ export default function ProfileScreen({ navigation }) {
                 placeholderTextColor="#94A3B8"
               />
 
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.newPassword')} *</Text>
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.newPassword')} *
+              </Text>
               <TextInput
                 secureTextEntry
+                accessible={true}
+                accessibilityLabel={t('profile.newPassword')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -1288,9 +1009,13 @@ export default function ProfileScreen({ navigation }) {
                 placeholderTextColor="#94A3B8"
               />
 
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.confirmNewPassword')} *</Text>
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.confirmNewPassword')} *
+              </Text>
               <TextInput
                 secureTextEntry
+                accessible={true}
+                accessibilityLabel={t('profile.confirmNewPassword')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -1298,121 +1023,26 @@ export default function ProfileScreen({ navigation }) {
                 placeholderTextColor="#94A3B8"
               />
 
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 onPress={handleSavePassword}
                 disabled={savingPassword}
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                style={[styles.fullWidthSaveBtn, { backgroundColor: colors.primary, marginTop: 16 }]}
+                activeOpacity={0.85}
               >
                 {savingPassword ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.saveBtnText}>{t('profile.updatePassword')}</Text>
+                  <Text style={styles.fullWidthSaveText}>{t('profile.updatePassword')}</Text>
                 )}
               </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Google SSO Linking Card */}
-        {googleEnabled && (
-          <View style={[styles.serviceCard, cardShadow, tw`mt-3 p-4`]}>
-            <View style={tw`flex-row items-center mb-2`}>
-              <View style={[styles.serviceIconWrap, { backgroundColor: '#EFF6FF', width: 36, height: 36 }]}>
-                <MaterialCommunityIcons name="google" size={18} color="#2563EB" />
-              </View>
-              <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`, { fontSize: 14 }]}>
-                {t('profile.googleLinkingTitle')}
-              </Text>
-            </View>
-            <Text style={[tw`text-xs text-gray-500 mb-3 leading-5`, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t('profile.googleLinkingDesc')}
-            </Text>
-
-            <TouchableOpacity
-              onPress={startGoogleLink}
-              disabled={linkGoogleLoading || googleLinking}
-              style={[styles.saveBtn, { backgroundColor: '#2563EB', marginTop: 8 }]}
-              accessibilityRole="button"
-              accessibilityLabel={t('profile.linkGoogleBtn')}
-              activeOpacity={0.85}
-            >
-              {linkGoogleLoading || googleLinking ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <View style={tw`flex-row items-center justify-center`}>
-                  <MaterialCommunityIcons name="google" size={18} color={colors.white} style={isRTL ? tw`ml-2` : tw`mr-2`} />
-                  <Text style={styles.saveBtnText}>
-                    {t('profile.linkGoogleBtn')}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 5. Language Switcher (Compact Segmented Pill) */}
-        <View style={[styles.serviceCard, cardShadow, tw`mt-3 flex-row items-center justify-between py-3.5 px-4`]}>
-          <View style={tw`flex-row items-center flex-1`}>
-            <View style={[styles.serviceIconWrap, { backgroundColor: '#F3E8FF', width: 36, height: 36 }]}>
-              <MaterialCommunityIcons name="translate" size={18} color="#7C3AED" />
-            </View>
-            <Text style={[styles.serviceTitle, isRTL ? tw`mr-2.5` : tw`ml-2.5`, { fontSize: 14 }]}>
-              {t('profile.appLanguageAndDir')}
-            </Text>
-          </View>
-
-          <View style={[tw`flex-row p-1 rounded-xl`, { backgroundColor: '#F1F5F9' }]}>
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              onPress={() => handleLanguageChange('ar')}
-              style={[
-                tw`px-3 py-1.5 rounded-lg`,
-                isArabicActive ? { backgroundColor: colors.primary } : tw`bg-transparent`
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text style={[tw`text-xs font-bold`, isArabicActive ? { color: colors.white } : { color: colors.textSecondary }]}>
-                العربية 🇪🇬
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              onPress={() => handleLanguageChange('en')}
-              style={[
-                tw`px-3 py-1.5 rounded-lg`,
-                !isArabicActive ? { backgroundColor: colors.primary } : tw`bg-transparent`
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text style={[tw`text-xs font-bold`, !isArabicActive ? { color: colors.white } : { color: colors.textSecondary }]}>
-                English
-              </Text>
-            </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
+      </Modal>
 
-        {/* 6. Logout Button */}
-        <TouchableOpacity accessible={true} accessibilityRole="button"
-          style={[styles.logoutBtn, cardShadow, tw`mt-4`]}
-          onPress={handleLogout}
-          activeOpacity={0.85}
-        >
-          <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
-          <Text style={[styles.logoutBtnText, isRTL ? tw`mr-2` : tw`ml-2`]}>{t('profile.logoutAccount')}</Text>
-        </TouchableOpacity>
-
-        {/* 7. Discreet Delete Account Action */}
-        <TouchableOpacity accessible={true} accessibilityRole="button"
-          onPress={() => setDeleteAccountModalVisible(true)}
-          style={tw`items-center py-3 mt-1 mb-6`}
-          activeOpacity={0.7}
-        >
-          <Text style={[tw`text-xs font-semibold text-red-500`, { opacity: 0.85 }]}>
-            {t('profile.deleteAccountTitle')}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* ─── Address Modal (4 Egyptian Fields) ─── */}
+      {/* ─── MODAL 3: Egyptian Address Book Create / Edit ─── */}
       <Modal
         visible={addressModalVisible}
         transparent
@@ -1420,9 +1050,9 @@ export default function ProfileScreen({ navigation }) {
         onRequestClose={() => setAddressModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, cardShadow]}>
-            <View style={tw`flex-row items-center justify-between pb-3 border-b border-gray-100`}>
-              <Text style={styles.modalTitle}>
+          <View style={[styles.sheetBox, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.sheetTitle}>
                 {editingAddressId ? t('profile.addressModal.titleEdit') : t('profile.addressModal.titleNew')}
               </Text>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setAddressModalVisible(false)}>
@@ -1430,27 +1060,56 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={tw`mt-3`}>
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.label')}</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 6 }}>
+              {/* Optional Locate on Map Nudge */}
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => {
+                  setAddressModalVisible(false);
+                  setTimeout(() => {
+                    handleOpenMapPicker();
+                  }, 300);
+                }}
+                style={[styles.mapPickerNudge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.primary} />
+                <Text style={styles.mapPickerNudgeText}>{t('profile.locateOnMap')}</Text>
+              </TouchableOpacity>
+
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.label')}
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.label')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.label}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, label: text }))}
-                placeholder={isRTL ? 'مثال: المنزل' : 'e.g. Home'}
+                placeholder={isRTL ? 'مثال: المنزل، العمل' : 'e.g. Home, Office'}
                 placeholderTextColor="#94A3B8"
               />
 
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.recipientName')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.recipientName')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.recipientName')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.recipientName}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, recipientName: text }))}
-                placeholder={isRTL ? 'الاسم الكامل كما بالبطاقة' : 'Full Name'}
+                placeholder={isRTL ? 'الاسم الكامل كما بالبطاقة' : 'Full recipient name'}
                 placeholderTextColor="#94A3B8"
               />
 
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.recipientPhone')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.recipientPhone')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.recipientPhone')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 keyboardType="phone-pad"
                 value={addressForm.recipientPhone}
@@ -1460,18 +1119,26 @@ export default function ProfileScreen({ navigation }) {
               />
 
               {/* 1. Governorate */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.governorate')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.governorate')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.governorate')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.governorate}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, governorate: text }))}
-                placeholder={isRTL ? 'القاهرة، الإسكندرية، الجيزة...' : 'Cairo, Alexandria, Giza...'}
+                placeholder={isRTL ? 'القاهرة، الإسكندرية، الجيزة...' : 'Cairo, Giza, Alexandria...'}
                 placeholderTextColor="#94A3B8"
               />
 
               {/* 2. City / Center */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.city')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.city')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.city')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.city}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, city: text }))}
@@ -1480,8 +1147,12 @@ export default function ProfileScreen({ navigation }) {
               />
 
               {/* 3. Area / District */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.area')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.area')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.area')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.area}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, area: text }))}
@@ -1489,18 +1160,23 @@ export default function ProfileScreen({ navigation }) {
                 placeholderTextColor="#94A3B8"
               />
 
-              {/* 4. Street & Building / Apartment */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.addressModal.streetBuilding')} *</Text>
-              <TextInput accessibilityLabel="Input" accessible={true}
+              {/* 4. Street & Building */}
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.addressModal.streetBuilding')} *
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.addressModal.streetBuilding')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.streetBuilding}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, streetBuilding: text }))}
-                placeholder={isRTL ? 'اسم الشارع، رقم العمارة، الدور، رقم الشقة' : 'Street name, building, floor, apt'}
+                placeholder={isRTL ? 'اسم الشارع، رقم العمارة، الدور، رقم الشقة' : 'Street, building, floor, apartment'}
                 placeholderTextColor="#94A3B8"
               />
 
-              <View style={tw`flex-row items-center justify-between py-2 mb-4`}>
-                <Text style={[tw`text-sm font-semibold`, { color: colors.textPrimary }]}>
+              {/* Default Address Switch */}
+              <View style={[styles.switchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={styles.switchLabel}>
                   {t('profile.addressModal.isDefault')}
                 </Text>
                 <Switch
@@ -1511,15 +1187,18 @@ export default function ProfileScreen({ navigation }) {
                 />
               </View>
 
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 onPress={handleSaveAddress}
                 disabled={savingAddress}
-                style={[styles.saveBtn, { backgroundColor: colors.primary, marginBottom: 20 }]}
+                style={[styles.fullWidthSaveBtn, { backgroundColor: colors.primary, marginBottom: 24 }]}
+                activeOpacity={0.85}
               >
                 {savingAddress ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.saveBtnText}>{t('common.save')}</Text>
+                  <Text style={styles.fullWidthSaveText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -1527,108 +1206,87 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* ─── Delete Account Confirmation Modal (PDPL 151/2020) ─── */}
+      {/* ─── MODAL 4: Help Center & FAQs ─── */}
       <Modal
-        visible={deleteAccountModalVisible}
+        visible={helpModalVisible}
         transparent
-        animationType="fade"
-        onRequestClose={() => setDeleteAccountModalVisible(false)}
+        animationType="slide"
+        onRequestClose={() => setHelpModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.deleteModalBox, cardShadow]}>
-            <View style={styles.deleteIconBox}>
-              <MaterialCommunityIcons name="alert-octagon" size={32} color="#DC2626" />
-            </View>
-
-            <Text style={styles.deleteModalTitle}>{t('profile.deleteAccountTitle')}</Text>
-            <Text style={styles.deleteModalDesc}>
-              {t('profile.deleteWarning')}
-            </Text>
-
-            {googleEnabled && (
-              <View style={tw`flex-row gap-2 mt-3 mb-2`}>
-                <TouchableOpacity accessible={true} accessibilityRole="button"
-                  onPress={() => setDeleteAuthMethod('password')}
-                  style={[
-                    tw`flex-1 py-2 rounded-xl items-center border`,
-                    deleteAuthMethod === 'password'
-                      ? tw`bg-slate-900 border-slate-900`
-                      : tw`bg-slate-100 border-slate-200`,
-                  ]}
-                >
-                  <Text style={[tw`text-xs font-bold`, deleteAuthMethod === 'password' ? tw`text-white` : tw`text-slate-700`]}>
-                    {isRTL ? 'كلمة المرور' : 'Password'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity accessible={true} accessibilityRole="button"
-                  onPress={() => setDeleteAuthMethod('google')}
-                  style={[
-                    tw`flex-1 py-2 rounded-xl items-center border`,
-                    deleteAuthMethod === 'google'
-                      ? tw`bg-slate-900 border-slate-900`
-                      : tw`bg-slate-100 border-slate-200`,
-                  ]}
-                >
-                  <Text style={[tw`text-xs font-bold`, deleteAuthMethod === 'google' ? tw`text-white` : tw`text-slate-700`]}>
-                    {isRTL ? 'حساب Google' : 'Google Token'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {deleteAuthMethod === 'password' ? (
-              <>
-                <Text style={[styles.fieldLabel, tw`mt-2`, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.deleteConfirmText')}</Text>
-                <TextInput
-                  secureTextEntry
-                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                  value={deletePasswordInput}
-                  onChangeText={setDeletePasswordInput}
-                  placeholder={isRTL ? 'أدخل كلمة المرور الحالية' : 'Enter current password'}
-                  placeholderTextColor="#94A3B8"
-                />
-              </>
-            ) : (
-              <>
-                <Text style={[styles.fieldLabel, tw`mt-2`, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {isRTL ? 'رمز Google ID Token لتأكيد الهوية' : 'Google ID Token for Verification'}
+          <View style={[styles.sheetBox, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <MaterialCommunityIcons name="frequently-asked-questions" size={24} color={colors.primary} />
+                <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
+                  {t('profile.helpCenter')}
                 </Text>
-                <TextInput
-                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }, tw`font-mono text-xs`]}
-                  value={deleteGoogleTokenInput}
-                  onChangeText={setDeleteGoogleTokenInput}
-                  placeholder={isRTL ? 'ألصق رمز Google ID Token' : 'Paste Google ID Token'}
-                  placeholderTextColor="#94A3B8"
-                />
-              </>
-            )}
-
-            <View style={tw`flex-row justify-end mt-4`}>
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={() => setDeleteAccountModalVisible(false)}
-                style={[styles.nameCancelBtn, isRTL ? tw`ml-2` : tw`mr-2`]}
-              >
-                <Text style={styles.nameCancelText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={handleDeleteAccountConfirm}
-                disabled={deletingAccount}
-                style={[styles.saveBtn, { backgroundColor: '#DC2626', minWidth: 100 }]}
-              >
-                {deletingAccount ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.saveBtnText}>{t('common.delete')}</Text>
-                )}
+              </View>
+              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setHelpModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 10 }}>
+              {/* FAQ 1 */}
+              <View style={styles.faqCard}>
+                <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <MaterialCommunityIcons name="truck-fast-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
+                    {t('profile.faqShipping')}
+                  </Text>
+                </View>
+                <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('profile.faqShippingAnswer')}
+                </Text>
+              </View>
+
+              {/* FAQ 2 */}
+              <View style={styles.faqCard}>
+                <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <MaterialCommunityIcons name="keyboard-return" size={18} color="#D97706" />
+                  <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
+                    {t('profile.faqReturns')}
+                  </Text>
+                </View>
+                <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('profile.faqReturnsAnswer')}
+                </Text>
+              </View>
+
+              {/* FAQ 3 */}
+              <View style={styles.faqCard}>
+                <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <MaterialCommunityIcons name="cash-multiple" size={18} color="#16A34A" />
+                  <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
+                    {t('profile.faqCod')}
+                  </Text>
+                </View>
+                <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('profile.faqCodAnswer')}
+                </Text>
+              </View>
+
+              {/* Direct Support WhatsApp CTA */}
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => {
+                  setHelpModalVisible(false);
+                  handleSupportWhatsApp();
+                }}
+                style={[styles.whatsappSupportBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                activeOpacity={0.85}
+              >
+                <MaterialCommunityIcons name="whatsapp" size={20} color={colors.white} />
+                <Text style={styles.whatsappSupportBtnText}>{t('profile.customerSupport')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* ─── Buyer Wallet Transactions History Modal ─── */}
+      {/* ─── MODAL 5: Buyer Wallet Transaction History ─── */}
       <Modal
         visible={showWalletModal}
         transparent
@@ -1636,11 +1294,11 @@ export default function ProfileScreen({ navigation }) {
         onRequestClose={() => setShowWalletModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
-            <View style={tw`flex-row justify-between items-center mb-4 pb-3 border-b border-gray-100`}>
-              <View style={tw`flex-row items-center`}>
+          <View style={[styles.sheetBox, { maxHeight: '80%' }, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <MaterialCommunityIcons name="wallet" size={24} color={colors.gold} />
-                <Text style={[styles.modalTitle, isRTL ? tw`mr-2` : tw`ml-2`]}>
+                <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
                   {t('profile.walletTxModalTitle')}
                 </Text>
               </View>
@@ -1650,29 +1308,22 @@ export default function ProfileScreen({ navigation }) {
             </View>
 
             {/* Current Balance Banner */}
-            <View
-              style={[
-                tw`p-4 rounded-2xl mb-4 border flex-row items-center justify-between`,
-                { backgroundColor: colors.goldSoft, borderColor: colors.accent },
-              ]}
-            >
-              <Text style={[tw`font-bold text-sm`, { color: colors.textPrimary }]}>{t('profile.availableBalanceLabel')}</Text>
-              <Text style={[tw`font-black text-2xl`, { color: colors.gold }]}>
+            <View style={[styles.walletBalanceBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.walletBalanceLabel}>{t('profile.availableBalanceLabel')}</Text>
+              <Text style={styles.walletBalanceAmount}>
                 {formatCurrency(walletData?.balance || 0)}
               </Text>
             </View>
 
-            <Text style={[tw`font-bold text-xs mb-2`, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+            <Text style={[styles.txListHeader, { textAlign: isRTL ? 'right' : 'left' }]}>
               {t('profile.previousTxLabel', { count: walletData?.transactions?.length || 0 })}
             </Text>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {!walletData?.transactions || walletData.transactions.length === 0 ? (
-                <View style={tw`py-8 items-center justify-center`}>
+                <View style={styles.noTxContainer}>
                   <MaterialCommunityIcons name="history" size={36} color={colors.textSecondary} />
-                  <Text style={[tw`text-xs mt-2`, { color: colors.textSecondary }]}>
-                    {t('profile.noPreviousTx')}
-                  </Text>
+                  <Text style={styles.noTxText}>{t('profile.noPreviousTx')}</Text>
                 </View>
               ) : (
                 walletData.transactions.map((tx, idx) => {
@@ -1680,16 +1331,14 @@ export default function ProfileScreen({ navigation }) {
                   return (
                     <View
                       key={`wallet-tx-${tx.id || idx}`}
-                      style={[
-                        tw`p-3 rounded-xl border mb-2 flex-row items-center justify-between`,
-                        { borderColor: colors.border, backgroundColor: colors.screenBg },
-                      ]}
+                      style={[styles.txItemRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                     >
-                      <View style={tw`flex-row items-center flex-1`}>
+                      <View style={[styles.txInfoGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View
                           style={[
-                            tw`w-8 h-8 rounded-full items-center justify-center ${isRTL ? 'ml-2.5' : 'mr-2.5'}`,
+                            styles.txIconWrap,
                             { backgroundColor: isCredit ? colors.newBadgeSoft : colors.primarySoft },
+                            isRTL ? { marginLeft: 10 } : { marginRight: 10 },
                           ]}
                         >
                           <MaterialCommunityIcons
@@ -1698,15 +1347,15 @@ export default function ProfileScreen({ navigation }) {
                             color={isCredit ? colors.newBadge : colors.primary}
                           />
                         </View>
-                        <View style={tw`flex-1`}>
-                          <Text style={[tw`font-bold text-xs`, { color: colors.textPrimary }]}>
+                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                          <Text style={styles.txTitle}>
                             {tx.type === 'RefundCredit'
                               ? t('profile.refundCredit')
                               : tx.type === 'OrderRedemption'
                               ? t('profile.orderRedemption')
                               : tx.type || t('profile.balanceTx')}
                           </Text>
-                          <Text style={[tw`text-[10px] mt-0.5`, { color: colors.textSecondary }]}>
+                          <Text style={styles.txDate}>
                             {tx.description || formatDate(tx.createdAt)}
                           </Text>
                         </View>
@@ -1714,7 +1363,7 @@ export default function ProfileScreen({ navigation }) {
 
                       <Text
                         style={[
-                          tw`font-bold text-sm`,
+                          styles.txAmount,
                           { color: isCredit ? colors.newBadge : colors.discount },
                         ]}
                       >
@@ -1728,392 +1377,158 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* ─── MODAL 6: Delete Account Confirmation (PDPL 151/2020) ─── */}
+      <Modal
+        visible={deleteAccountModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteAccountModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.dialogBox, cardShadow]}>
+            <View style={styles.deleteIconBox}>
+              <MaterialCommunityIcons name="alert-octagon" size={32} color="#DC2626" />
+            </View>
+
+            <Text style={styles.deleteModalTitle}>{t('profile.deleteAccountTitle')}</Text>
+            <Text style={styles.deleteModalDesc}>{t('profile.deleteWarning')}</Text>
+
+            {googleEnabled && (
+              <View style={[styles.authSwitchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity
+                  accessible={true}
+                  accessibilityRole="button"
+                  onPress={() => setDeleteAuthMethod('password')}
+                  style={[
+                    styles.authMethodBtn,
+                    deleteAuthMethod === 'password' && styles.authMethodBtnActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.authMethodBtnText,
+                      deleteAuthMethod === 'password' && styles.authMethodBtnTextActive,
+                    ]}
+                  >
+                    {isRTL ? 'كلمة المرور' : 'Password'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessible={true}
+                  accessibilityRole="button"
+                  onPress={() => setDeleteAuthMethod('google')}
+                  style={[
+                    styles.authMethodBtn,
+                    deleteAuthMethod === 'google' && styles.authMethodBtnActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.authMethodBtnText,
+                      deleteAuthMethod === 'google' && styles.authMethodBtnTextActive,
+                    ]}
+                  >
+                    {isRTL ? 'حساب Google' : 'Google Token'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {deleteAuthMethod === 'password' ? (
+              <>
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('profile.deleteConfirmText')}
+                </Text>
+                <TextInput
+                  secureTextEntry
+                  accessible={true}
+                  accessibilityLabel={t('profile.deleteConfirmText')}
+                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                  value={deletePasswordInput}
+                  onChangeText={setDeletePasswordInput}
+                  placeholder={isRTL ? 'أدخل كلمة المرور الحالية' : 'Enter current password'}
+                  placeholderTextColor="#94A3B8"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {isRTL ? 'رمز Google ID Token لتأكيد الهوية' : 'Google ID Token for Verification'}
+                </Text>
+                <TextInput
+                  accessible={true}
+                  accessibilityLabel="Google ID Token"
+                  style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }, styles.monoFont]}
+                  value={deleteGoogleTokenInput}
+                  onChangeText={setDeleteGoogleTokenInput}
+                  placeholder={isRTL ? 'ألصق رمز Google ID Token' : 'Paste Google ID Token'}
+                  placeholderTextColor="#94A3B8"
+                />
+              </>
+            )}
+
+            <View style={[styles.dialogBtnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setDeleteAccountModalVisible(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={handleDeleteAccountConfirm}
+                disabled={deletingAccount}
+                style={[styles.saveActionBtn, { backgroundColor: '#DC2626', minWidth: 100 }]}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.saveActionBtnText}>{t('common.delete')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 54 : 44,
-    paddingBottom: 18,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  avatarCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  avatarText: {
-    color: colors.white,
-    fontWeight: '900',
-    fontSize: 18,
-  },
-  userNameText: {
-    color: colors.white,
-    fontWeight: '800',
-    fontSize: 17,
-  },
-  userEmailText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 1,
-  },
-  trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    marginLeft: 6,
-  },
-  trustBadgeText: {
-    color: '#86EFAC',
-    fontSize: 10,
-    fontWeight: '800',
-    marginLeft: 2,
-  },
-  editProfileBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nameEditBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  nameTextInput: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: colors.textPrimary,
-    textAlign: I18nManager.isRTL ? 'right' : 'left',
-  },
-  nameCancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginRight: 8,
-  },
-  nameCancelText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  nameSaveBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
-  },
-  nameSaveText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  summaryBar: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  summaryCol: {
+  root: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  summaryDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignSelf: 'center',
-  },
-  summaryNumber: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: colors.white,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 4,
-  },
-  summaryStatusText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  scrollContainer: {
-    padding: 14,
+  scrollContent: {
     paddingBottom: 36,
   },
-  orderStatusBarCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-  },
-  statusTile: {
+  centerLoading: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  statusIconWrap: {
-    position: 'relative',
-    marginBottom: 4,
-  },
-  badgeCount: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    backgroundColor: colors.accent,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 10,
-    minWidth: 18,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  badgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: '800',
+  sellerDispatchContainer: {
+    marginBottom: 6,
   },
-  statusTileLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  activeShipmentCard: {
+  sellerDispatchCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#EA580C',
-    marginBottom: 12,
-  },
-  livePulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EA580C',
-  },
-  carrierTag: {
-    backgroundColor: colors.goldSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-  carrierTagText: {
-    color: '#EA580C',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginVertical: 14,
-    position: 'relative',
-  },
-  stepperLine: {
-    position: 'absolute',
-    top: 11,
-    left: 20,
-    right: 20,
-    height: 3,
-    backgroundColor: '#E2E8F0',
-    zIndex: 1,
-  },
-  stepperProgress: {
-    position: 'absolute',
-    top: 11,
-    left: 20,
-    height: 3,
-    backgroundColor: '#16A34A',
-    zIndex: 2,
-  },
-  stepNodeWrap: {
-    alignItems: 'center',
-    zIndex: 3,
-    width: 60,
-  },
-  stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  stepCircleActive: {
-    backgroundColor: '#16A34A',
-    borderColor: '#16A34A',
-  },
-  stepLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#94A3B8',
-    textAlign: 'center',
-  },
-  stepLabelActive: {
-    color: colors.textPrimary,
-    fontWeight: '800',
-  },
-  codAlertBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.goldSoft,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    marginTop: 4,
-  },
-  codAlertTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#9A3412',
-  },
-  codAlertAmount: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#EA580C',
-  },
-  trackDetailsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    paddingVertical: 6,
-  },
-  trackDetailsBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.accent,
-  },
-  serviceCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: 18,
+    borderRadius: 16,
+    marginHorizontal: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  serviceIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  serviceTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  serviceSubtitle: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  addSmallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  addSmallBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    marginLeft: 2,
-  },
-  addressItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  defaultBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 6,
-  },
-  defaultBadgeText: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  pdplActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  pdplDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 4,
-  },
-  pdplRowTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  pdplRowSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 4,
-    marginTop: 6,
+    marginTop: 8,
   },
   fieldInput: {
     backgroundColor: '#F8FAFC',
@@ -2121,112 +1536,289 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     fontSize: 13,
     color: colors.textPrimary,
-    textAlign: I18nManager.isRTL ? 'right' : 'left',
   },
-  saveBtn: {
-    paddingVertical: 10,
+  monoFont: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 11,
+  },
+  sellerSaveBtn: {
+    paddingVertical: 11,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
-  saveBtnText: {
+  sellerSaveBtnText: {
     color: colors.white,
     fontWeight: '800',
     fontSize: 13,
-  },
-  langBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginHorizontal: 4,
-  },
-  langBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  langBtnInactive: {
-    backgroundColor: colors.screenBg,
-    borderColor: colors.border,
-  },
-  langBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  langBtnTextActive: {
-    color: colors.white,
-    fontWeight: '800',
-  },
-  logoutBtn: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutBtnText: {
-    color: '#DC2626',
-    fontWeight: '800',
-    fontSize: 14,
-    marginLeft: 6,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
-  modalSheet: {
+  sheetBox: {
     backgroundColor: colors.cardBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 18,
     maxHeight: '85%',
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  deleteModalBox: {
+  dialogBox: {
     width: '90%',
     backgroundColor: colors.cardBg,
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     alignSelf: 'center',
     marginBottom: 'auto',
     marginTop: 'auto',
+  },
+  modalHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitleGroup: {
+    alignItems: 'center',
+  },
+  sheetTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  dialogTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  dialogBtnRow: {
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 8,
+  },
+  cancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  cancelBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  saveActionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveActionBtnText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fullWidthSaveBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullWidthSaveText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  switchRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginVertical: 4,
+  },
+  switchLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  mapPickerNudge: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  mapPickerNudgeText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  faqCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  faqHeader: {
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  faqQuestion: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  faqAnswer: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  whatsappSupportBtn: {
+    backgroundColor: '#25D366',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+    gap: 8,
+  },
+  whatsappSupportBtnText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  walletBalanceBanner: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(214, 163, 58, 0.15)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(214, 163, 58, 0.3)',
+    marginVertical: 10,
+  },
+  walletBalanceLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  walletBalanceAmount: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.goldText,
+  },
+  txListHeader: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  noTxContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  noTxText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 6,
+  },
+  txItemRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  txInfoGroup: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  txIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  txTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  txDate: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   deleteIconBox: {
     width: 48,
     height: 48,
     borderRadius: 24,
     backgroundColor: '#FEE2E2',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   deleteModalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#DC2626',
     textAlign: 'center',
   },
   deleteModalDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  authSwitchRow: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  authMethodBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  authMethodBtnActive: {
+    backgroundColor: '#1F2329',
+    borderColor: '#1F2329',
+  },
+  authMethodBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  authMethodBtnTextActive: {
+    color: colors.white,
+    fontWeight: '800',
   },
 });

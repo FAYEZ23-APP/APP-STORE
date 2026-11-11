@@ -3,7 +3,9 @@ const isProduction =
   process.env.APP_ENV === 'production' ||
   process.env.EAS_BUILD_PROFILE === 'production';
 
-const allowCleartext = process.env.ALLOW_CLEARTEXT === '1';
+const allowCleartext =
+  process.env.ALLOW_CLEARTEXT === '1' ||
+  process.env.EXPO_PUBLIC_ALLOW_CLEARTEXT === '1';
 
 // ─── Production Build Guard (Security MOB-013) ───────────────
 if (isProduction) {

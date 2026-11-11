@@ -1,41 +1,18 @@
-Verification Report: Mobile Guest User Redirection to Login
-Date: 2026-11-03
+Verification Report: CartContext Duplicate Declaration & Syntax Fix
+Date: 2026-11-08
 Environment: Local Mobile (React Native / Expo Go SDK 58 / Android)
 
-Summary of Implementation:
-1. Product Details Screen (mobile/src/screens/buyer/ProductDetailsScreen.js):
-   - Added AuthContext gating to handleAddToCart: navigates to Login if !userId.
-   - Added AuthContext gating to handleBuyNow: navigates to Login if !userId.
-   - Added AuthContext gating to handleToggleWishlist: navigates to Login if !userId.
-   - Added AuthContext gating to handleQtyIncrease & handleQtyDecrease stepper controls: navigates to Login if !userId.
+Root Cause:
+- File: mobile/src/context/CartContext.js
+- Issue: Identifier 'sanitizeCartItems' has already been declared at line 32.
+- Explanation: sanitizeCartItems was already imported from ../utils/cartHelpers on line 6, but a legacy copy of `const sanitizeCartItems = ...` remained declared in CartContext.js. This caused Metro/Babel bundler failure.
 
-2. Product Card Component (mobile/src/components/ProductCard.js):
-   - Added AuthContext gating to handleAddToCart quick-add button: navigates to Login if !userId.
-   - Added AuthContext gating to handleFavoritePress heart button: navigates to Login if !userId.
-   - Added AuthContext gating to handleOpenCart in-cart button: navigates to Login if !userId.
-
-3. Bottom Tab Navigator (mobile/src/navigation/BuyerTabs.js):
-   - Added tabPress listener to MyOrders tab: intercepts tab switch if !userId and redirects to Login screen immediately.
-
-4. My Orders Screen (mobile/src/screens/buyer/MyOrdersScreen.js):
-   - Aborts getMyOrders/getBuyerReturns network calls when !userId.
-   - Renders a polished Guest Orders Gate with "تسجيل الدخول" and "إنشاء حساب" buttons when unauthenticated.
-
-5. Shopping Cart Screen (mobile/src/screens/buyer/CartScreen.js):
-   - Added AuthContext gating to handleProceedToCheckout: navigates to Login if !userId.
-   - Dynamic Sticky Footer button text: displays "تسجيل الدخول لإتمام الشراء" when !userId.
-   - Added Login CTA to Empty Cart view for guest users.
-
-6. Catalog & Header Icons (mobile/src/screens/buyer/CatalogScreen.js):
-   - Wishlist header button redirects to Login if !userId.
-   - Notifications header button redirects to Login if !userId.
-
-7. Wishlist & Notifications Screens (mobile/src/screens/buyer/WishlistScreen.js & NotificationsScreen.js):
-   - Both screens abort unauthenticated API calls when !userId and render polished Guest Gates with Login & Register CTAs.
+Fix Applied:
+- Removed the redundant duplicate `sanitizeCartItems` declaration in CartContext.js, relying cleanly on the centralized helper in ../utils/cartHelpers.
 
 Automated Verification Results:
-- Unit Test Suite (tests/test_guest_auth_redirections.js): 7/7 PASSED (100%)
-- i18n Translation Sync (npm run i18n:check): 1100/1100 keys in sync (100% parity)
-- Biometric Lock State Machine (npm run test:biometrics): 14/14 PASSED
+- Babel AST Scan: 91/91 mobile files parsed, 0 syntax errors
+- Guest Auth Redirections Suite (tests/test_guest_auth_redirections.js): 7/7 PASSED (100%)
+- i18n Translation Sync (npm run i18n:check): 1137/1137 keys in sync (100% parity)
+- Biometric Lock State Machine & Cold Start (npm run test:biometrics): 17/17 PASSED
 - Mobile Smart Search Suite (npm run test:search): 31/31 PASSED
-- Babel AST Scan: 86 files parsed, 0 syntax errors

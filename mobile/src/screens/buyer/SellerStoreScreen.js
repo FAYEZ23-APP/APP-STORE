@@ -35,6 +35,7 @@ export default function SellerStoreScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [isStoreClosed, setIsStoreClosed] = useState(false);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +51,7 @@ export default function SellerStoreScreen({ route, navigation }) {
           setLoading(true);
         }
         setError(false);
+        setIsStoreClosed(false);
 
         const res = await getSellerStore(sellerId, {
           categoryId: selectedCategoryId || undefined,
@@ -61,6 +63,11 @@ export default function SellerStoreScreen({ route, navigation }) {
       } catch (err) {
         console.error('Failed to load seller storefront', err);
         setError(true);
+        if (err?.response?.status === 404) {
+          setIsStoreClosed(true);
+        } else {
+          setIsStoreClosed(false);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -337,9 +344,9 @@ export default function SellerStoreScreen({ route, navigation }) {
         ]}
       >
         <MaterialCommunityIcons
-          name="alert-circle-outline"
+          name={isStoreClosed ? "store-off-outline" : "alert-circle-outline"}
           size={52}
-          color={colors.discount}
+          color={isStoreClosed ? colors.accent : colors.discount}
         />
         <Text
           style={[
@@ -347,8 +354,18 @@ export default function SellerStoreScreen({ route, navigation }) {
             { color: colors.textPrimary },
           ]}
         >
-          {t('store.notFound')}
+          {isStoreClosed ? t('store.closedTitle') : t('store.notFound')}
         </Text>
+        {isStoreClosed && (
+          <Text
+            style={[
+              tw`text-xs text-center mb-4 px-4 leading-5`,
+              { color: colors.textSecondary },
+            ]}
+          >
+            {t('store.closedDesc')}
+          </Text>
+        )}
         <TouchableOpacity accessible={true} accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={[

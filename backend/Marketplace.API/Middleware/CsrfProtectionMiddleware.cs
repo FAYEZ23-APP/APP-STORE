@@ -77,14 +77,15 @@ public class CsrfProtectionMiddleware
         }
 
         // 2. Cookie Authentication Check
-        // If the request carries access or CSRF cookies on state-changing endpoints, CSRF token validation is strictly enforced.
+        // If the request carries an access cookie (and no Authorization header) on state-changing endpoints, CSRF token validation is strictly enforced.
         var isRefreshEndpoint = context.Request.Path.StartsWithSegments("/api/auth/refresh", StringComparison.OrdinalIgnoreCase);
+        var hasAuthorizationHeader = context.Request.Headers.TryGetValue("Authorization", out var authHeader) &&
+                                     !string.IsNullOrWhiteSpace(authHeader) &&
+                                     authHeader.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase);
         var hasAccessCookie = context.Request.Cookies.ContainsKey("__Host-access_token") ||
                               context.Request.Cookies.ContainsKey("access_token");
-        var hasCsrfCookie = context.Request.Cookies.ContainsKey("__Host-XSRF-TOKEN") ||
-                            context.Request.Cookies.ContainsKey("XSRF-TOKEN");
 
-        if (!isRefreshEndpoint && (hasAccessCookie || hasCsrfCookie))
+        if (!isRefreshEndpoint && hasAccessCookie && !hasAuthorizationHeader)
         {
             // Extract CSRF token from header (X-CSRF-TOKEN or X-XSRF-TOKEN)
             string? headerToken = null;

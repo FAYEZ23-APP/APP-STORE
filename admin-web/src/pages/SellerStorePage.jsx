@@ -25,6 +25,7 @@ export default function SellerStorePage() {
   const [storeData, setStoreData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isStoreClosed, setIsStoreClosed] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +34,7 @@ export default function SellerStorePage() {
   const fetchStore = () => {
     setLoading(true);
     setError(null);
+    setIsStoreClosed(false);
     getSellerStore(sellerId, {
       categoryId: selectedCategory || undefined,
       search: searchQuery.trim() || undefined,
@@ -43,7 +45,13 @@ export default function SellerStorePage() {
       })
       .catch((err) => {
         console.error('Failed to load seller store', err);
-        setError(err.response?.status === 404 ? t('store.notFound') : t('common.error'));
+        if (err.response?.status === 404) {
+          setIsStoreClosed(true);
+          setError(t('store.closedTitle'));
+        } else {
+          setIsStoreClosed(false);
+          setError(t('common.error'));
+        }
       })
       .finally(() => {
         setLoading(false);
@@ -70,8 +78,19 @@ export default function SellerStorePage() {
   if (error || !storeData) {
     return (
       <div className="bg-white rounded-3xl p-12 text-center max-w-lg mx-auto my-12 border border-slate-200 shadow-sm space-y-4">
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-900">{error || t('store.notFound')}</h2>
+        {isStoreClosed ? (
+          <Store className="w-16 h-16 text-amber-500 mx-auto" />
+        ) : (
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
+        )}
+        <h2 className="text-xl font-bold text-slate-900">
+          {isStoreClosed ? t('store.closedTitle') : (error || t('store.notFound'))}
+        </h2>
+        {isStoreClosed && (
+          <p className="text-sm text-slate-600 max-w-sm mx-auto">
+            {t('store.closedDesc')}
+          </p>
+        )}
         <Link
           to="/"
           className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm shadow-md hover:bg-orange-600 transition-colors"

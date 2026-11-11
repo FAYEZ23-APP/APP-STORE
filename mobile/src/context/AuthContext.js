@@ -520,16 +520,19 @@ export const AuthProvider = ({ children }) => {
     name,
     email,
     phone,
+    phoneNumber,
     password,
     role,
     acceptedTermsAndPrivacy = true,
     marketingConsent = false,
   }) => {
     const deviceId = await getDeviceId();
+    // Backend RegisterRequest expects `phone`; accept `phoneNumber` from callers as an alias.
+    const resolvedPhone = phone || phoneNumber || null;
     const response = await registerApi({
       name,
       email: email || null,
-      phone: phone || null,
+      phone: resolvedPhone,
       password,
       role,
       acceptedTermsAndPrivacy,

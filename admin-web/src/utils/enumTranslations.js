@@ -76,9 +76,11 @@ export const getRoleLabel = (role, customT) => {
  * Translates delivery method enum (Courier, Pickup) to localized label
  */
 export const getDeliveryMethodLabel = (method, customT) => {
-  if (!method) return '';
   const translate = customT || i18n.t.bind(i18n);
-  return translate(`deliveryMethod.${method}`, { defaultValue: method });
+  if (!method) return translate('deliveryMethod.DoorDelivery', { defaultValue: 'توصيل للمنزل' });
+  return translate(`deliveryMethod.${method}`, {
+    defaultValue: translate('deliveryMethod.DoorDelivery', { defaultValue: 'توصيل للمنزل' }),
+  });
 };
 
 /**

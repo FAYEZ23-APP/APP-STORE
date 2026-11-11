@@ -15,6 +15,7 @@ import {
   TextInput,
   Alert,
   I18nManager,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -28,15 +29,18 @@ import OrderStatusBadge from '../../components/OrderStatusBadge';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
 
+const { width: screenWidth } = Dimensions.get('window');
+const isSmallDevice = screenWidth < 375;
+
 const cardShadow = Platform.select({
   ios: {
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
   android: {
-    elevation: 3,
+    elevation: 2,
   },
   default: {},
 });
@@ -66,8 +70,8 @@ export default function DashboardScreen({ navigation }) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState('today');
-  const [features, setFeatures] = useState({ wallet: false, coupons: false }); // 'today' | 'month'
+  const [period, setPeriod] = useState('today'); // 'today' | 'month'
+  const [features, setFeatures] = useState({ wallet: false, coupons: false });
 
   const [dashboard, setDashboard] = useState({
     storeName: '',
@@ -100,7 +104,10 @@ export default function DashboardScreen({ navigation }) {
       else setLoading(true);
 
       const [res, cfg] = await Promise.all([getSellerDashboard(), fetchSafeAppConfig()]);
-      setFeatures({ wallet: Boolean(cfg.walletEnabled || cfg.vendorPayoutsEnabled), coupons: Boolean(cfg.couponsEnabled) });
+      setFeatures({
+        wallet: Boolean(cfg?.walletEnabled || cfg?.vendorPayoutsEnabled),
+        coupons: Boolean(cfg?.couponsEnabled),
+      });
       if (res?.data) {
         setDashboard(res.data);
       }
@@ -176,119 +183,49 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  const revenueDisplay = period === 'today' ? dashboard.todayRevenue : dashboard.monthRevenue;
-  const revenueLabel = period === 'today'
-    ? (isRTL ? 'إيرادات المبيعات المسلمة (اليوم)' : 'Delivered Sales Revenue (Today)')
-    : (isRTL ? 'إيرادات المبيعات المسلمة (هذا الشهر)' : 'Delivered Sales Revenue (This Month)');
-
   return (
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* ─── 1. Executive Financial Header (Amazon/Noon Partner Central) ─── */}
-      <LinearGradient
-        colors={['#14171B', '#1F2329', '#14171B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        {/* Top Bar: Store info & profile icon */}
-        <View style={tw`flex-row items-center justify-between mb-4`}>
+      {/* ─── 1. Executive Top Header (Aligned with Web Design System) ─── */}
+      <View style={[styles.headerContainer, cardShadow]}>
+        <View style={tw`flex-row items-center justify-between`}>
           <View style={tw`flex-row items-center flex-1`}>
             <View style={styles.storeLogoBox}>
-              <MaterialCommunityIcons name="storefront" size={26} color={colors.accent} />
+              <MaterialCommunityIcons name="storefront" size={24} color={colors.primary} />
             </View>
-            <View style={[isRTL ? tw`mr-3` : tw`ml-3`, tw`flex-1`]}>
+            <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
               <Text style={styles.storeGreeting} numberOfLines={1}>
                 {dashboard.storeName || userName || (isRTL ? 'متجر التاجر' : 'Seller Store')}
               </Text>
-              <View style={tw`flex-row items-center mt-1 flex-wrap`}>
+              <View style={tw`flex-row items-center mt-0.5 flex-wrap`}>
                 <View style={styles.verifiedBadge}>
                   <Text style={styles.verifiedText}>{t('seller.verifiedSeller')}</Text>
                 </View>
                 {dashboard.dispatchCity ? (
-                  <View style={[styles.verifiedBadge, { backgroundColor: 'rgba(255, 107, 0, 0.15)' }]}>
-                    <Text style={[styles.verifiedText, { color: colors.accent }]}>
-                      {isRTL ? `يشحن من ${dashboard.dispatchCity}` : `Ships from ${dashboard.dispatchCity}`}
+                  <View style={[styles.verifiedBadge, styles.originBadge]}>
+                    <Text style={styles.originText}>
+                      {isRTL ? `المستودع: ${dashboard.dispatchCity}` : `Origin: ${dashboard.dispatchCity}`}
                     </Text>
                   </View>
                 ) : null}
               </View>
             </View>
           </View>
-          <TouchableOpacity accessible={true} accessibilityRole="button"
+
+          {/* Settings / Profile Button */}
+          <TouchableOpacity
+            accessible={true}
+            accessibilityRole="button"
             onPress={() => navigation.navigate('Profile')}
             style={styles.headerIconButton}
             activeOpacity={0.8}
+            accessibilityLabel={isRTL ? 'إعدادات المتجر' : 'Store Settings'}
           >
-            <MaterialCommunityIcons name="cog-outline" size={22} color={colors.white} />
+            <MaterialCommunityIcons name="cog-outline" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
-
-        {/* Financial KPI Card */}
-        <View style={styles.financialCard}>
-          {/* Period Toggle */}
-          <View style={tw`flex-row justify-between items-center mb-2`}>
-            <Text style={styles.financialSubtext}>{revenueLabel}</Text>
-            <View style={styles.periodPillContainer}>
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={() => setPeriod('today')}
-                style={[styles.periodPill, period === 'today' && styles.periodPillActive]}
-              >
-                <Text style={[styles.periodPillText, period === 'today' && styles.periodPillTextActive]}>
-                  {isRTL ? 'اليوم' : 'Today'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={() => setPeriod('month')}
-                style={[styles.periodPill, period === 'month' && styles.periodPillActive]}
-              >
-                <Text style={[styles.periodPillText, period === 'month' && styles.periodPillTextActive]}>
-                  {isRTL ? 'هذا الشهر' : 'This Month'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Revenue Amount */}
-          <View style={tw`flex-row items-baseline justify-between mb-3`}>
-            <Text style={styles.financialBigAmount}>{formatCurrency(revenueDisplay)}</Text>
-            {features.wallet && (
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={() => navigation.navigate('SellerWallet')}
-                style={[tw`px-3 py-1.5 rounded-xl flex-row items-center border`, { backgroundColor: colors.goldSoft, borderColor: colors.goldBorder }]}
-              >
-                <MaterialCommunityIcons name="wallet-outline" size={16} color={colors.gold} style={isRTL ? tw`ml-1` : tw`mr-1`} />
-                <Text style={[tw`font-bold text-xs`, { color: colors.gold }]}>{t('seller.wallet')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Metrics Row: Pending Clearance & Delivery Success Rate */}
-          <View style={styles.financialDivider} />
-          <View style={tw`flex-row justify-between items-center pt-2`}>
-            <View style={tw`flex-1`}>
-              <View style={tw`flex-row items-center`}>
-                <MaterialCommunityIcons name="clock-outline" size={14} color="#FBBF24" />
-                <Text style={styles.metricLabel}>{isRTL ? 'قيد التحصيل (COD):' : 'Pending COD Collection:'}</Text>
-              </View>
-              <Text style={styles.metricValue}>{formatCurrency(dashboard.pendingClearanceAmount)}</Text>
-            </View>
-
-            <View style={styles.metricSeparator} />
-
-            <View style={tw`flex-1 items-end`}>
-              <View style={tw`flex-row items-center`}>
-                <MaterialCommunityIcons name="check-decagram" size={14} color="#34D399" />
-                <Text style={styles.metricLabel}>{isRTL ? 'نسبة نجاح التوصيل:' : 'Delivery Success Rate:'}</Text>
-              </View>
-              <Text style={[styles.metricValue, { color: '#34D399' }]}>
-                {dashboard.deliverySuccessRate}% ({dashboard.deliveredOrdersCount} {isRTL ? 'تم تسليمها' : 'delivered'})
-              </Text>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
+      </View>
 
       {/* ─── Scrollable Dashboard Body ─── */}
       <ScrollView
@@ -303,88 +240,232 @@ export default function DashboardScreen({ navigation }) {
           />
         }
       >
-        {/* ─── 2. "Action Required" To-Do Hub ─── */}
-        <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
-          <Text style={[tw`font-bold text-base`, { color: colors.textPrimary }]}>
-            {isRTL ? 'مهام وإجراءات مطلوبة فوراً' : 'Immediate Actions Required'}
-          </Text>
-          {loading && !refreshing && <ActivityIndicator size="small" color={colors.accent} />}
-        </View>
+        {/* ─── 2. Responsive 4 Executive KPI Cards (Aligned with Web) ─── */}
+        <View style={tw`mb-4`}>
+          {/* Section Subheading & Period Toggle */}
+          <View style={tw`flex-row justify-between items-center mb-3 px-1`}>
+            <Text style={[tw`font-extrabold text-sm`, { color: colors.textPrimary }]}>
+              {isRTL ? 'المؤشرات المالية والتشغيلية' : 'Financial & Operational KPIs'}
+            </Text>
 
-        <View style={tw`flex-row flex-wrap justify-between mb-4`}>
-          {/* Action 1: Ready to Handover */}
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            style={[styles.todoCard, cardShadow, dashboard.pendingHandoverCount > 0 && styles.todoCardAlert]}
-            onPress={() => navigation.navigate('SellerOrders', { initialFilter: 'Created' })}
-            activeOpacity={0.8}
-          >
-            <View style={tw`flex-row items-center justify-between mb-2`}>
-              <View style={[styles.todoIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                <MaterialCommunityIcons name="truck-fast-outline" size={22} color="#D97706" />
-              </View>
-              <View style={[styles.todoBadge, { backgroundColor: dashboard.pendingHandoverCount > 0 ? '#EA580C' : '#64748B' }]}>
-                <Text style={styles.todoBadgeText}>{dashboard.pendingHandoverCount}</Text>
-              </View>
+            {/* Today / Month Toggle */}
+            <View style={styles.periodPillContainer}>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setPeriod('today')}
+                style={[styles.periodPill, period === 'today' && styles.periodPillActive]}
+              >
+                <Text style={[styles.periodPillText, period === 'today' && styles.periodPillTextActive]}>
+                  {isRTL ? 'اليوم' : 'Today'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setPeriod('month')}
+                style={[styles.periodPill, period === 'month' && styles.periodPillActive]}
+              >
+                <Text style={[styles.periodPillText, period === 'month' && styles.periodPillTextActive]}>
+                  {isRTL ? 'هذا الشهر' : 'This Month'}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.todoTitle}>{isRTL ? 'جاهز للتسليم للمندوب' : 'Ready for Courier Handover'}</Text>
-            <Text style={styles.todoSubtext}>{isRTL ? 'شحنات بانتظار استلام بوسطة' : 'Parcels awaiting Bosta pickup'}</Text>
-          </TouchableOpacity>
+          </View>
 
-          {/* Action 2: Low Stock Alert */}
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            style={[styles.todoCard, cardShadow, dashboard.lowStockProductsCount > 0 && styles.todoCardWarning]}
-            onPress={() => {
-              // Scroll to quick restock widget
-              scrollViewRef.current?.scrollTo({ y: 340, animated: true });
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={tw`flex-row items-center justify-between mb-2`}>
-              <View style={[styles.todoIconWrap, { backgroundColor: '#FEE2E2' }]}>
-                <MaterialCommunityIcons name="alert-outline" size={22} color="#DC2626" />
-              </View>
-              <View style={[styles.todoBadge, { backgroundColor: dashboard.lowStockProductsCount > 0 ? '#DC2626' : '#64748B' }]}>
-                <Text style={styles.todoBadgeText}>{dashboard.lowStockProductsCount}</Text>
-              </View>
-            </View>
-            <Text style={styles.todoTitle}>{isRTL ? 'أوشكت على النفاد' : 'Low Stock Alert'}</Text>
-            <Text style={styles.todoSubtext}>{isRTL ? 'مخزون أقل من 5 قطع' : 'Stock below 5 units'}</Text>
-          </TouchableOpacity>
-
-          {/* Action 3: Out of Stock */}
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            style={[styles.todoCard, cardShadow, { width: '100%', marginTop: 8 }]}
-            onPress={() => navigation.navigate('MyProducts')}
-            activeOpacity={0.8}
-          >
-            <View style={tw`flex-row items-center justify-between`}>
-              <View style={tw`flex-row items-center flex-1`}>
-                <View style={[styles.todoIconWrap, { backgroundColor: '#F1F5F9' }]}>
-                  <MaterialCommunityIcons name="package-variant-closed-remove" size={22} color="#475569" />
-                </View>
-                <View style={[isRTL ? tw`mr-3` : tw`ml-3`, tw`flex-1`]}>
-                  <Text style={styles.todoTitle}>{isRTL ? 'منتجات نفدت من المخزون' : 'Out of Stock Products'}</Text>
-                  <Text style={styles.todoSubtext}>{isRTL ? 'غير معروضة للبيع حالياً حتى إعادة التوريد' : 'Hidden from buyers until restocked'}</Text>
+          {/* 4 Cards Responsive 2x2 Grid */}
+          <View style={tw`flex-row flex-wrap justify-between`}>
+            {/* KPI 1: Today Revenue */}
+            <View style={[styles.kpiCard, cardShadow]}>
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <Text style={styles.kpiCardTitle} numberOfLines={1}>
+                  {isRTL ? 'مبيعات اليوم' : 'Today Revenue'}
+                </Text>
+                <View style={[styles.kpiIconBox, { backgroundColor: '#ECFDF5' }]}>
+                  <MaterialCommunityIcons name="trending-up" size={16} color="#059669" />
                 </View>
               </View>
-              <View style={[styles.todoBadge, { backgroundColor: dashboard.outOfStockProductsCount > 0 ? '#DC2626' : '#94A3B8' }]}>
-                <Text style={styles.todoBadgeText}>{dashboard.outOfStockProductsCount}</Text>
-              </View>
+              <Text style={styles.kpiValue} numberOfLines={1}>
+                {formatCurrency(dashboard.todayRevenue)}
+              </Text>
+              <Text style={styles.kpiSubtext} numberOfLines={1}>
+                {isRTL ? 'صافي المبيعات المسجلة' : 'Recorded net sales'}
+              </Text>
             </View>
-          </TouchableOpacity>
+
+            {/* KPI 2: Month Revenue */}
+            <View style={[styles.kpiCard, cardShadow]}>
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <Text style={styles.kpiCardTitle} numberOfLines={1}>
+                  {isRTL ? 'مبيعات الشهر' : 'Month Revenue'}
+                </Text>
+                <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
+                  <MaterialCommunityIcons name="cash-multiple" size={16} color="#2563EB" />
+                </View>
+              </View>
+              <Text style={styles.kpiValue} numberOfLines={1}>
+                {formatCurrency(dashboard.monthRevenue)}
+              </Text>
+              <Text style={styles.kpiSubtext} numberOfLines={1}>
+                {isRTL ? 'إجمالي الطلبات المؤكدة' : 'Confirmed monthly total'}
+              </Text>
+            </View>
+
+            {/* KPI 3: Pending Clearance (COD) */}
+            <View style={[styles.kpiCard, cardShadow, tw`mt-3`]}>
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <Text style={styles.kpiCardTitle} numberOfLines={1}>
+                  {isRTL ? 'قيد التحصيل (COD)' : 'Pending COD'}
+                </Text>
+                <View style={[styles.kpiIconBox, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name="truck-fast-outline" size={16} color="#D97706" />
+                </View>
+              </View>
+              <Text style={[styles.kpiValue, { color: '#D97706' }]} numberOfLines={1}>
+                {formatCurrency(dashboard.pendingClearanceAmount)}
+              </Text>
+              <Text style={styles.kpiSubtext} numberOfLines={1}>
+                {isRTL ? 'توريد بوسطة للحساب' : 'Bosta COD clearance'}
+              </Text>
+            </View>
+
+            {/* KPI 4: Delivery Success Rate */}
+            <View style={[styles.kpiCard, cardShadow, tw`mt-3`]}>
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <Text style={styles.kpiCardTitle} numberOfLines={1}>
+                  {isRTL ? 'نجاح التسليم' : 'Success Rate'}
+                </Text>
+                <View style={[styles.kpiIconBox, { backgroundColor: '#FAF5FF' }]}>
+                  <MaterialCommunityIcons name="check-decagram" size={16} color="#9333EA" />
+                </View>
+              </View>
+              <Text style={[styles.kpiValue, { color: '#059669' }]} numberOfLines={1}>
+                {Number(dashboard.deliverySuccessRate || 100).toFixed(1)}%
+              </Text>
+              <Text style={styles.kpiSubtext} numberOfLines={1}>
+                {dashboard.deliveredOrdersCount} {isRTL ? 'ناجحة' : 'delivered'} • {dashboard.returnedShipmentsCount} {isRTL ? 'مرتجع' : 'returns'}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Quick Tools: Wallet & Coupons */}
+        {/* ─── 3. Action-Required Operational Center (To-Do Hub) ─── */}
+        <View style={tw`mb-4`}>
+          <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="lightning-bolt" size={18} color={colors.primary} />
+              <Text style={[tw`font-extrabold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                {isRTL ? 'مركز المهام التشغيلية الفورية' : 'Operational Action Center'}
+              </Text>
+            </View>
+            {loading && !refreshing && <ActivityIndicator size="small" color={colors.primary} />}
+          </View>
+
+          <View style={tw`flex-row flex-wrap justify-between`}>
+            {/* Action 1: Ready to Handover */}
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              style={[
+                styles.todoCard,
+                cardShadow,
+                dashboard.pendingHandoverCount > 0 && styles.todoCardAlert,
+              ]}
+              onPress={() => navigation.navigate('SellerOrders', { initialFilter: 'Created' })}
+              activeOpacity={0.8}
+            >
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <View style={[styles.todoIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name="truck-fast-outline" size={20} color="#D97706" />
+                </View>
+                <View
+                  style={[
+                    styles.todoBadge,
+                    { backgroundColor: dashboard.pendingHandoverCount > 0 ? '#EA580C' : '#64748B' },
+                  ]}
+                >
+                  <Text style={styles.todoBadgeText}>{dashboard.pendingHandoverCount}</Text>
+                </View>
+              </View>
+              <Text style={styles.todoTitle}>{isRTL ? 'جاهز للتسليم للناقل' : 'Courier Handover'}</Text>
+              <Text style={styles.todoSubtext}>{isRTL ? 'شحنات بانتظار استلام بوسطة' : 'Awaiting Bosta pickup'}</Text>
+            </TouchableOpacity>
+
+            {/* Action 2: Low Stock Alert */}
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              style={[
+                styles.todoCard,
+                cardShadow,
+                dashboard.lowStockProductsCount > 0 && styles.todoCardWarning,
+              ]}
+              onPress={() => {
+                scrollViewRef.current?.scrollTo({ y: 440, animated: true });
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={tw`flex-row items-center justify-between mb-2`}>
+                <View style={[styles.todoIconWrap, { backgroundColor: '#FEE2E2' }]}>
+                  <MaterialCommunityIcons name="alert-outline" size={20} color="#DC2626" />
+                </View>
+                <View
+                  style={[
+                    styles.todoBadge,
+                    { backgroundColor: dashboard.lowStockProductsCount > 0 ? '#DC2626' : '#64748B' },
+                  ]}
+                >
+                  <Text style={styles.todoBadgeText}>{dashboard.lowStockProductsCount}</Text>
+                </View>
+              </View>
+              <Text style={styles.todoTitle}>{isRTL ? 'أوشكت على النفاد' : 'Low Stock Alert'}</Text>
+              <Text style={styles.todoSubtext}>{isRTL ? 'مخزون أقل من 5 قطع' : 'Stock under 5 units'}</Text>
+            </TouchableOpacity>
+
+            {/* Action 3: Out of Stock */}
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              style={[styles.todoCard, cardShadow, { width: '100%', marginTop: 8 }]}
+              onPress={() => navigation.navigate('MyProducts')}
+              activeOpacity={0.8}
+            >
+              <View style={tw`flex-row items-center justify-between`}>
+                <View style={tw`flex-row items-center flex-1`}>
+                  <View style={[styles.todoIconWrap, { backgroundColor: '#FDF2F4' }]}>
+                    <MaterialCommunityIcons name="package-variant-closed-remove" size={20} color={colors.primary} />
+                  </View>
+                  <View style={[isRTL ? tw`mr-3` : tw`ml-3`, tw`flex-1`]}>
+                    <Text style={styles.todoTitle}>{isRTL ? 'منتجات نفدت بالكامل' : 'Out of Stock Products'}</Text>
+                    <Text style={styles.todoSubtext}>{isRTL ? 'مخفية تلقائياً لحماية المتجر' : 'Temporarily hidden from buyers'}</Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.todoBadge,
+                    { backgroundColor: dashboard.outOfStockProductsCount > 0 ? colors.primary : '#94A3B8' },
+                  ]}
+                >
+                  <Text style={styles.todoBadgeText}>{dashboard.outOfStockProductsCount}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ─── 4. Quick Tools: Wallet & Coupons (Feature Gated) ─── */}
         {(features.wallet || features.coupons) && (
           <View style={tw`flex-row gap-3 mb-4`}>
             {features.wallet && (
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
                 onPress={() => navigation.navigate('SellerWallet')}
                 activeOpacity={0.8}
               >
-                <View style={[styles.todoIconWrap, { backgroundColor: '#FFEDD5' }]}>
-                  <MaterialCommunityIcons name="wallet-outline" size={20} color={colors.primary} />
+                <View style={[styles.todoIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                  <MaterialCommunityIcons name="wallet-outline" size={20} color="#059669" />
                 </View>
                 <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
                   <Text style={tw`font-bold text-xs text-slate-900`}>{t('seller.wallet')}</Text>
@@ -393,7 +474,9 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             )}
             {features.coupons && (
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 style={[tw`flex-1 bg-white p-3.5 rounded-2xl border border-slate-200 flex-row items-center`, cardShadow]}
                 onPress={() => navigation.navigate('SellerCoupons')}
                 activeOpacity={0.8}
@@ -403,227 +486,294 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
                   <Text style={tw`font-bold text-xs text-slate-900`}>{t('coupons.title')}</Text>
-                  <Text style={tw`text-[10px] text-slate-500`}>{isRTL ? 'كوبونات الخصم' : 'Discounts & Codes'}</Text>
+                  <Text style={tw`text-[10px] text-slate-500`}>{isRTL ? 'كوبونات الخصم' : 'Promo Coupons'}</Text>
                 </View>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* ─── 3. Quick Stock & Price Manager Widget (Low Stock Alerts) ─── */}
-        <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
-          <View style={tw`flex-row items-center`}>
-            <MaterialCommunityIcons name="flash-outline" size={20} color={colors.accent} />
-            <Text style={[tw`font-bold text-base ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
-              {isRTL ? 'إدارة المخزون السريع' : 'Quick Stock Manager'}
-            </Text>
+        {/* ─── 5. Recent Shipments & Parcels Feed ─── */}
+        <View style={tw`mb-4`}>
+          <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="truck-outline" size={18} color={colors.primary} />
+              <Text style={[tw`font-extrabold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                {isRTL ? 'أحدث الشحنات والطرود' : 'Recent Shipments & Parcels'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('SellerOrders')}
+            >
+              <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>
+                {t('common.viewAll') || (isRTL ? 'عرض الكل' : 'View All')}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation.navigate('MyProducts')}>
-            <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('seller.viewAllProducts')}</Text>
-          </TouchableOpacity>
+
+          {dashboard.recentShipments && dashboard.recentShipments.length > 0 ? (
+            <View style={[styles.sectionCard, cardShadow]}>
+              {dashboard.recentShipments.map((s, idx) => (
+                <TouchableOpacity
+                  accessible={true}
+                  accessibilityRole="button"
+                  key={`recent-ship-${s.shipmentId}`}
+                  style={[
+                    styles.recentShipmentRow,
+                    idx < dashboard.recentShipments.length - 1 && styles.rowBorderBottom,
+                  ]}
+                  onPress={() => navigation.navigate('SellerOrders')}
+                  activeOpacity={0.7}
+                >
+                  <View style={tw`flex-row justify-between items-center mb-1.5`}>
+                    <View style={tw`flex-row items-center`}>
+                      <MaterialCommunityIcons name="package-variant" size={16} color={colors.primary} />
+                      <Text style={[tw`font-bold text-xs ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                        {isRTL ? `شحنة #${s.shipmentId} (طلب #${s.orderId})` : `Shipment #${s.shipmentId} (Order #${s.orderId})`}
+                      </Text>
+                    </View>
+                    <OrderStatusBadge status={s.status} />
+                  </View>
+
+                  <View style={tw`flex-row justify-between items-center`}>
+                    <View style={tw`flex-1`}>
+                      <Text style={[tw`text-[11px] font-mono`, { color: colors.textSecondary }]}>
+                        {s.trackingNumber
+                          ? `${isRTL ? 'تتبع:' : 'Track:'} ${s.trackingNumber}`
+                          : isRTL ? 'بانتظار التسليم للشحن' : 'Awaiting carrier handover'}
+                      </Text>
+                      <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
+                        {isRTL ? `الوجهة: ${s.recipientCity || 'مصر'}` : `Destination: ${s.recipientCity || 'Egypt'}`} • {formatDate(s.createdAt, isRTL)}
+                      </Text>
+                    </View>
+                    <View style={tw`items-end ms-2`}>
+                      <Text style={[tw`text-xs font-black`, { color: colors.primary }]}>
+                        {formatCurrency(s.codAmount)}
+                      </Text>
+                      <Text style={[tw`text-[10px]`, { color: colors.textSecondary }]}>
+                        {s.itemsCount} {isRTL ? 'قطع' : 'items'}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.emptySafeCard, cardShadow]}>
+              <MaterialCommunityIcons name="truck-outline" size={28} color="#94A3B8" />
+              <Text style={styles.emptySafeTitle}>
+                {isRTL ? 'لا توجد شحنات حديثة مسجلة بعد' : 'No recent shipments recorded yet'}
+              </Text>
+              <Text style={styles.emptySafeSub}>
+                {isRTL ? 'ستظهر الشحنات هنا فور استلام وتأكيد طلبات المشترين' : 'Shipments will appear here once orders are confirmed'}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {dashboard.lowStockAlerts && dashboard.lowStockAlerts.length > 0 ? (
-          <View style={[styles.sectionCard, cardShadow]}>
-            {dashboard.lowStockAlerts.map((prod, index) => {
-              const isUpdating = inlineLoadingId === prod.productId;
-              return (
-                <View
-                  key={`alert-prod-${prod.productId}`}
-                  style={[
-                    styles.lowStockRow,
-                    index < dashboard.lowStockAlerts.length - 1 && styles.rowBorderBottom,
-                  ]}
-                >
-                  {/* Product Image & Info */}
-                  <View style={tw`flex-row items-center flex-1 mr-2`}>
-                    {prod.imageUrl ? (
-                      <Image source={{ uri: prod.imageUrl }} style={styles.productThumb} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.productThumb, styles.placeholderThumb]}>
-                        <MaterialCommunityIcons name="image-outline" size={20} color="#94A3B8" />
-                      </View>
-                    )}
-                    <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
-                      <Text style={styles.productTitle} numberOfLines={1}>
-                        {prod.name}
-                      </Text>
-                      <View style={tw`flex-row items-center mt-0.5`}>
-                        <View style={[styles.stockBadge, { backgroundColor: prod.currentStock === 0 ? '#FEE2E2' : '#FEF3C7' }]}>
-                          <Text style={[styles.stockBadgeText, { color: prod.currentStock === 0 ? '#DC2626' : '#D97706' }]}>
-                            {prod.currentStock === 0 ? (isRTL ? 'نفد المخزون' : 'Out of Stock') : (isRTL ? `متبقي ${prod.currentStock} قطع` : `${prod.currentStock} units left`)}
+        {/* ─── 6. 2-Second Quick Restock Widget ─── */}
+        <View style={tw`mb-4`}>
+          <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="flash-outline" size={18} color={colors.accent} />
+              <Text style={[tw`font-extrabold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                {isRTL ? 'أداة التجديد السريع للمخزون' : '2-Second Quick Restock Tool'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              accessible={true}
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('MyProducts')}
+            >
+              <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>
+                {t('seller.viewAllProducts')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {dashboard.lowStockAlerts && dashboard.lowStockAlerts.length > 0 ? (
+            <View style={[styles.sectionCard, cardShadow]}>
+              {dashboard.lowStockAlerts.map((prod, index) => {
+                const isUpdating = inlineLoadingId === prod.productId;
+                return (
+                  <View
+                    key={`alert-prod-${prod.productId}`}
+                    style={[
+                      styles.lowStockRow,
+                      index < dashboard.lowStockAlerts.length - 1 && styles.rowBorderBottom,
+                    ]}
+                  >
+                    {/* Product Image & Info */}
+                    <View style={tw`flex-row items-center flex-1 mr-2`}>
+                      {prod.imageUrl ? (
+                        <Image source={{ uri: prod.imageUrl }} style={styles.productThumb} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.productThumb, styles.placeholderThumb]}>
+                          <MaterialCommunityIcons name="image-outline" size={20} color="#94A3B8" />
+                        </View>
+                      )}
+                      <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
+                        <Text style={styles.productTitle} numberOfLines={1}>
+                          {prod.name}
+                        </Text>
+                        <View style={tw`flex-row items-center mt-0.5`}>
+                          <View
+                            style={[
+                              styles.stockBadge,
+                              { backgroundColor: prod.currentStock === 0 ? '#FEE2E2' : '#FEF3C7' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.stockBadgeText,
+                                { color: prod.currentStock === 0 ? '#DC2626' : '#D97706' },
+                              ]}
+                            >
+                              {prod.currentStock === 0
+                                ? isRTL ? 'نفد المخزون' : 'Out of Stock'
+                                : isRTL ? `متبقي ${prod.currentStock} قطع` : `${prod.currentStock} left`}
+                            </Text>
+                          </View>
+                          <Text style={[tw`text-xs ${isRTL ? 'mr-2' : 'ml-2'} font-bold`, { color: colors.textPrimary }]}>
+                            {formatCurrency(prod.price)}
                           </Text>
                         </View>
-                        <Text style={[tw`text-xs ${isRTL ? 'mr-2' : 'ml-2'} font-bold`, { color: colors.textPrimary }]}>
-                          {formatCurrency(prod.price)}
+                      </View>
+                    </View>
+
+                    {/* Inline Quick Action Buttons (+5, +10, Custom) */}
+                    <View style={tw`flex-row items-center`}>
+                      {isUpdating ? (
+                        <ActivityIndicator size="small" color={colors.primary} style={tw`px-3`} />
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            accessible={true}
+                            accessibilityRole="button"
+                            style={styles.quickAddPill}
+                            onPress={() => handleInlineStockAdd(prod.productId, 5)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.quickAddText}>+5</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            accessible={true}
+                            accessibilityRole="button"
+                            style={styles.quickAddPill}
+                            onPress={() => handleInlineStockAdd(prod.productId, 10)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.quickAddText}>+10</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            accessible={true}
+                            accessibilityRole="button"
+                            style={styles.editPill}
+                            onPress={() => openRestockModal(prod)}
+                            activeOpacity={0.8}
+                          >
+                            <MaterialCommunityIcons name="pencil-outline" size={14} color={colors.textPrimary} />
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={[styles.emptySafeCard, cardShadow]}>
+              <MaterialCommunityIcons name="check-circle" size={30} color="#16A34A" />
+              <Text style={styles.emptySafeTitle}>
+                {isRTL ? 'حالة المخزون ممتازة' : 'Stock Levels Healthy'}
+              </Text>
+              <Text style={styles.emptySafeSub}>
+                {isRTL ? 'لا توجد منتجات أوشكت على النفاد حالياً 👍' : 'No low stock products right now 👍'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ─── 7. Top Selling Products Leaderboard ─── */}
+        <View style={tw`mb-4`}>
+          <View style={tw`flex-row items-center justify-between mb-2.5 px-1`}>
+            <View style={tw`flex-row items-center`}>
+              <MaterialCommunityIcons name="trophy-outline" size={18} color="#F59E0B" />
+              <Text style={[tw`font-extrabold text-sm ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
+                {isRTL ? 'المنتجات الأكثر مبيعاً' : 'Top Selling Products'}
+              </Text>
+            </View>
+          </View>
+
+          {dashboard.topSellingProducts && dashboard.topSellingProducts.length > 0 ? (
+            <View style={[styles.sectionCard, cardShadow]}>
+              {dashboard.topSellingProducts.map((item, idx) => (
+                <View
+                  key={`top-prod-${item.productId}`}
+                  style={[
+                    styles.topSellingRow,
+                    idx < dashboard.topSellingProducts.length - 1 && styles.rowBorderBottom,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.rankBadge,
+                      idx === 0
+                        ? styles.rankBadgeGold
+                        : idx === 1 ? styles.rankBadgeSilver : styles.rankBadgeBronze,
+                    ]}
+                  >
+                    <Text style={styles.rankBadgeText}>#{idx + 1}</Text>
+                  </View>
+
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.productThumb} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.productThumb, styles.placeholderThumb]}>
+                      <MaterialCommunityIcons name="package-variant" size={20} color="#94A3B8" />
+                    </View>
+                  )}
+
+                  <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
+                    <Text style={styles.productTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <View style={tw`flex-row items-center justify-between mt-1`}>
+                      <Text style={[tw`text-xs font-black`, { color: colors.primary }]}>
+                        {formatCurrency(item.revenue)}
+                      </Text>
+                      <View style={styles.soldBadge}>
+                        <Text style={styles.soldBadgeText}>
+                          {isRTL ? `تم بيع ${item.unitsSold} قطعة` : `${item.unitsSold} units sold`}
                         </Text>
                       </View>
                     </View>
                   </View>
-
-                  {/* Inline Quick Action Buttons */}
-                  <View style={tw`flex-row items-center`}>
-                    {isUpdating ? (
-                      <ActivityIndicator size="small" color={colors.accent} style={tw`px-3`} />
-                    ) : (
-                      <>
-                        <TouchableOpacity accessible={true} accessibilityRole="button"
-                          style={styles.quickAddPill}
-                          onPress={() => handleInlineStockAdd(prod.productId, 5)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.quickAddText}>+5</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity accessible={true} accessibilityRole="button"
-                          style={styles.quickAddPill}
-                          onPress={() => handleInlineStockAdd(prod.productId, 10)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.quickAddText}>+10</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity accessible={true} accessibilityRole="button"
-                          style={styles.editPill}
-                          onPress={() => openRestockModal(prod)}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons name="pencil-outline" size={14} color={colors.textPrimary} />
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
                 </View>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={[styles.emptySafeCard, cardShadow]}>
-            <MaterialCommunityIcons name="check-circle" size={32} color="#16A34A" />
-            <Text style={styles.emptySafeTitle}>{isRTL ? 'حالة المخزون آمنة وممتازة' : 'Stock Levels Healthy'}</Text>
-            <Text style={styles.emptySafeSub}>{isRTL ? 'لا توجد منتجات أوشكت على النفاد حالياً 👍' : 'No low stock products right now 👍'}</Text>
-          </View>
-        )}
-
-        {/* ─── 4. Top Selling Products Leaderboard ─── */}
-        <View style={tw`flex-row items-center justify-between mt-5 mb-2.5 px-1`}>
-          <View style={tw`flex-row items-center`}>
-            <MaterialCommunityIcons name="trophy-outline" size={20} color="#F59E0B" />
-            <Text style={[tw`font-bold text-base ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
-              {isRTL ? 'المنتجات الأكثر مبيعاً' : 'Top Selling Products'}
-            </Text>
-          </View>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.emptySafeCard, cardShadow]}>
+              <MaterialCommunityIcons name="chart-line" size={28} color="#94A3B8" />
+              <Text style={styles.emptySafeTitle}>
+                {isRTL ? 'لا توجد مبيعات مكتملة حتى الآن' : 'No completed sales yet'}
+              </Text>
+              <Text style={styles.emptySafeSub}>
+                {isRTL ? 'سيظهر ترتيب المنتجات فور تسليم الشحنات' : 'Top products will appear once orders are delivered'}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {dashboard.topSellingProducts && dashboard.topSellingProducts.length > 0 ? (
-          <View style={[styles.sectionCard, cardShadow]}>
-            {dashboard.topSellingProducts.map((item, idx) => (
-              <View
-                key={`top-prod-${item.productId}`}
-                style={[
-                  styles.topSellingRow,
-                  idx < dashboard.topSellingProducts.length - 1 && styles.rowBorderBottom,
-                ]}
-              >
-                <View style={[styles.rankBadge, idx === 0 ? styles.rankBadgeGold : idx === 1 ? styles.rankBadgeSilver : styles.rankBadgeBronze]}>
-                  <Text style={styles.rankBadgeText}>#{idx + 1}</Text>
-                </View>
-
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.productThumb} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.productThumb, styles.placeholderThumb]}>
-                    <MaterialCommunityIcons name="package-variant" size={20} color="#94A3B8" />
-                  </View>
-                )}
-
-                <View style={[isRTL ? tw`mr-2.5` : tw`ml-2.5`, tw`flex-1`]}>
-                  <Text style={styles.productTitle} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <View style={tw`flex-row items-center justify-between mt-1`}>
-                    <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
-                      {formatCurrency(item.revenue)}
-                    </Text>
-                    <View style={styles.soldBadge}>
-                      <Text style={styles.soldBadgeText}>
-                        {isRTL ? `تم بيع ${item.unitsSold} قطعة` : `${item.unitsSold} units sold`}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptySafeCard, cardShadow]}>
-            <MaterialCommunityIcons name="chart-line" size={32} color="#94A3B8" />
-            <Text style={styles.emptySafeTitle}>{isRTL ? 'لا توجد مبيعات مكتملة حتى الآن' : 'No completed sales yet'}</Text>
-            <Text style={styles.emptySafeSub}>{isRTL ? 'سيظهر ترتيب المنتجات الأعلى مبيعاً فور تسليم الشحنات' : 'Top selling products will appear once orders are delivered'}</Text>
-          </View>
-        )}
-
-        {/* ─── 5. Recent Shipments Feed ─── */}
-        <View style={tw`flex-row items-center justify-between mt-5 mb-2.5 px-1`}>
-          <View style={tw`flex-row items-center`}>
-            <MaterialCommunityIcons name="timeline-clock-outline" size={20} color={colors.primary} />
-            <Text style={[tw`font-bold text-base ${isRTL ? 'mr-1.5' : 'ml-1.5'}`, { color: colors.textPrimary }]}>
-              {isRTL ? 'آخر الشحنات والطرود' : 'Recent Shipments & Parcels'}
-            </Text>
-          </View>
-          <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => navigation.navigate('SellerOrders')}>
-            <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>{t('common.viewAll') || (isRTL ? 'عرض الكل' : 'View All')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {dashboard.recentShipments && dashboard.recentShipments.length > 0 ? (
-          <View style={[styles.sectionCard, cardShadow]}>
-            {dashboard.recentShipments.map((s, idx) => (
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                key={`recent-ship-${s.shipmentId}`}
-                style={[
-                  styles.recentShipmentRow,
-                  idx < dashboard.recentShipments.length - 1 && styles.rowBorderBottom,
-                ]}
-                onPress={() => navigation.navigate('SellerOrders')}
-                activeOpacity={0.7}
-              >
-                <View style={tw`flex-row justify-between items-center mb-1.5`}>
-                  <View style={tw`flex-row items-center`}>
-                    <MaterialCommunityIcons name="package-variant" size={16} color={colors.primary} />
-                    <Text style={[tw`font-bold text-xs ${isRTL ? 'mr-1' : 'ml-1'}`, { color: colors.textPrimary }]}>
-                      {isRTL ? `شحنة #${s.shipmentId} (طلب #${s.orderId})` : `Shipment #${s.shipmentId} (Order #${s.orderId})`}
-                    </Text>
-                  </View>
-                  <OrderStatusBadge status={s.status} />
-                </View>
-
-                <View style={tw`flex-row justify-between items-center`}>
-                  <View>
-                    <Text style={[tw`text-[11px] font-mono`, { color: colors.textSecondary }]}>
-                      {s.trackingNumber ? `${isRTL ? 'تتبع:' : 'Track:'} ${s.trackingNumber}` : (isRTL ? 'بانتظار التسليم للشحن' : 'Awaiting carrier handover')}
-                    </Text>
-                    <Text style={[tw`text-[11px] mt-0.5`, { color: colors.textSecondary }]}>
-                      {isRTL ? `وجهة التوصيل: ${s.recipientCity || 'مصر'}` : `Destination: ${s.recipientCity || 'Egypt'}`} • {formatDate(s.createdAt, isRTL)}
-                    </Text>
-                  </View>
-                  <View style={tw`items-end`}>
-                    <Text style={[tw`text-xs font-bold`, { color: colors.accent }]}>
-                      {formatCurrency(s.codAmount)}
-                    </Text>
-                    <Text style={[tw`text-[10px]`, { color: colors.textSecondary }]}>
-                      {s.itemsCount} {isRTL ? 'قطع' : 'items'}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-
-        {/* ─── 6. Quick Action: Add New Product ─── */}
-        <TouchableOpacity accessible={true} accessibilityRole="button"
+        {/* ─── 8. Quick Action: Add New Product Banner ─── */}
+        <TouchableOpacity
+          accessible={true}
+          accessibilityRole="button"
           activeOpacity={0.85}
           onPress={() => navigation.navigate('AddEditProduct')}
-          style={[styles.addBanner, cardShadow, tw`mt-5`]}
+          style={[styles.addBanner, cardShadow, tw`mb-4`]}
         >
           <LinearGradient
             colors={[colors.primary, colors.primaryHover]}
@@ -633,32 +783,40 @@ export default function DashboardScreen({ navigation }) {
           >
             <View style={tw`flex-row items-center flex-1`}>
               <View style={styles.addBannerIconWrap}>
-                <MaterialCommunityIcons name="plus" size={24} color={colors.accent} />
+                <MaterialCommunityIcons name="plus" size={22} color={colors.primary} />
               </View>
               <View style={[isRTL ? tw`mr-3` : tw`ml-3`, tw`flex-1`]}>
                 <Text style={styles.addBannerTitle}>{t('seller.addProduct')}</Text>
-                <Text style={styles.addBannerSub}>{isRTL ? 'اعرض منتجاتك للبيع لملايين المشترين في مصر' : 'List your products for buyers across Egypt'}</Text>
+                <Text style={styles.addBannerSub}>
+                  {isRTL ? 'اعرض منتجاتك للبيع لملايين المشترين في مصر' : 'List your products for buyers across Egypt'}
+                </Text>
               </View>
             </View>
-            <MaterialCommunityIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color={colors.white} />
+            <MaterialCommunityIcons
+              name={isRTL ? 'chevron-left' : 'chevron-right'}
+              size={22}
+              color={colors.white}
+            />
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* ─── 7. Egyptian Bosta Carrier Info Banner ─── */}
-        <View style={[styles.noticeCard, cardShadow, tw`mt-4`]}>
+        {/* ─── 9. Egyptian Bosta Carrier Compliance Notice ─── */}
+        <View style={[styles.noticeCard, cardShadow]}>
           <View style={tw`flex-row items-center mb-1.5`}>
-            <MaterialCommunityIcons name="truck-fast-outline" size={20} color={colors.accent} />
-            <Text style={[styles.noticeTitle, isRTL ? tw`mr-1.5` : tw`ml-1.5`]}>{t('seller.carrierNoticeTitle')}</Text>
+            <MaterialCommunityIcons name="truck-fast-outline" size={18} color="#9A3412" />
+            <Text style={[styles.noticeTitle, isRTL ? tw`mr-1.5` : tw`ml-1.5`]}>
+              {t('seller.carrierNoticeTitle')}
+            </Text>
           </View>
           <Text style={[styles.noticeDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
             {isRTL
               ? 'يتم التوصيل لكافة المحافظات المصرية مع تحصيل مبالغ الدفع عند الاستلام (COD) وإيداعها في محفظتك فور التسليم.'
-              : 'Delivery across all Egyptian governorates with cash on delivery (COD) collected and credited directly to your wallet upon delivery.'}
+              : 'Delivery across all Egyptian governorates with cash on delivery (COD) collected and credited directly upon delivery.'}
           </Text>
         </View>
       </ScrollView>
 
-      {/* ─── Modal: Detailed Quick Restock & Price Edit ─── */}
+      {/* ─── 10. Quick Stock & Price Modal ─── */}
       <Modal
         visible={restockModalVisible}
         transparent
@@ -667,59 +825,79 @@ export default function DashboardScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, cardShadow]}>
-            <View style={tw`flex-row items-center justify-between mb-4`}>
-              <Text style={styles.modalTitle}>{isRTL ? 'تحديث المخزون والسعر' : 'Update Stock & Price'}</Text>
-              <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setRestockModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            <View style={tw`flex-row justify-between items-center pb-3 border-b border-slate-100 mb-3`}>
+              <Text style={styles.modalTitle}>
+                {isRTL ? 'تعديل سريع للمخزون والسعر' : 'Quick Stock & Price Edit'}
+              </Text>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setRestockModalVisible(false)}
+                style={tw`p-1`}
+              >
+                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             {selectedProduct && (
-              <View style={tw`mb-4 p-3 bg-gray-50 rounded-xl`}>
-                <Text style={[tw`font-bold text-sm`, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {selectedProduct.name}
-                </Text>
-                <Text style={[tw`text-xs mt-1`, { color: colors.textSecondary }]}>
-                  {isRTL ? `المخزون الحالي: ${selectedProduct.currentStock} قطعة` : `Current Stock: ${selectedProduct.currentStock} units`}
-                </Text>
-              </View>
+              <Text style={tw`text-xs font-bold text-slate-800 mb-3`} numberOfLines={1}>
+                {selectedProduct.name}
+              </Text>
             )}
 
-            <Text style={[styles.inputLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'كمية المخزون الجديدة:' : 'New Stock Quantity:'}</Text>
-            <TextInput
-              keyboardType="number-pad"
-              value={newStockInput}
-              onChangeText={setNewStockInput}
-              placeholder={isRTL ? 'مثال: 25' : 'e.g. 25'}
-              style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
-            />
+            <View style={tw`mb-3`}>
+              <Text style={styles.inputLabel}>
+                {isRTL ? 'الكمية في المخزن *' : 'Stock Quantity *'}
+              </Text>
+              <TextInput
+                value={newStockInput}
+                onChangeText={setNewStockInput}
+                keyboardType="numeric"
+                style={styles.textInput}
+                placeholder="0"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
 
-            <Text style={[styles.inputLabel, tw`mt-3`, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'سعر البيع الجديد (ج.م):' : 'New Price (EGP):'}</Text>
-            <TextInput
-              keyboardType="decimal-pad"
-              value={newPriceInput}
-              onChangeText={setNewPriceInput}
-              placeholder={isRTL ? 'مثال: 350' : 'e.g. 350'}
-              style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
-            />
+            <View style={tw`mb-4`}>
+              <Text style={styles.inputLabel}>
+                {isRTL ? 'سعر البيع (ج.م) *' : 'Selling Price (EGP) *'}
+              </Text>
+              <TextInput
+                value={newPriceInput}
+                onChangeText={setNewPriceInput}
+                keyboardType="decimal-pad"
+                style={styles.textInput}
+                placeholder="0.00"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
 
-            <View style={tw`flex-row justify-end mt-5`}>
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+            <View style={tw`flex-row justify-end gap-2 pt-2 border-t border-slate-100`}>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 onPress={() => setRestockModalVisible(false)}
                 style={[styles.modalBtn, { backgroundColor: '#F1F5F9' }]}
               >
-                <Text style={[styles.modalBtnText, { color: colors.textPrimary }]}>{t('common.cancel')}</Text>
+                <Text style={[styles.modalBtnText, { color: '#475569' }]}>
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity accessible={true} accessibilityRole="button"
-                onPress={handleModalSave}
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
                 disabled={updatingStock}
-                style={[styles.modalBtn, { backgroundColor: colors.accent, marginLeft: 10 }]}
+                onPress={handleModalSave}
+                style={[styles.modalBtn, { backgroundColor: colors.primary }]}
               >
                 {updatingStock ? (
-                  <ActivityIndicator size="small" color={colors.accentContrast} />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={[styles.modalBtnText, { color: colors.accentContrast }]}>{t('common.save')}</Text>
+                  <Text style={[styles.modalBtnText, { color: colors.white }]}>
+                    {isRTL ? 'حفظ التعديلات' : 'Save Changes'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -731,119 +909,133 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 54 : 44,
-    paddingBottom: 22,
+  headerContainer: {
+    backgroundColor: colors.white,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   storeLogoBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FDF2F4',
+    borderWidth: 1,
+    borderColor: '#F8CAD1',
     justifyContent: 'center',
     alignItems: 'center',
   },
   storeGreeting: {
-    fontSize: 18,
+    fontSize: isSmallDevice ? 14 : 16,
     fontWeight: '800',
-    color: colors.white,
+    color: colors.textPrimary,
   },
   verifiedBadge: {
-    backgroundColor: 'rgba(22, 163, 74, 0.2)',
+    backgroundColor: '#FBF6EC',
+    borderWidth: 1,
+    borderColor: '#EBD6A7',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 10,
     marginRight: 6,
   },
   verifiedText: {
-    fontSize: 11,
+    color: colors.accentText,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  originBadge: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  originText: {
+    color: '#475569',
+    fontSize: 10,
     fontWeight: '700',
-    color: '#4ADE80',
   },
   headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  financialCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    marginTop: 6,
-  },
-  financialSubtext: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  financialBigAmount: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.white,
-    letterSpacing: 0.5,
+  scrollContainer: {
+    padding: 14,
+    paddingBottom: 36,
   },
   periodPillContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 20,
-    padding: 2,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 2.5,
   },
   periodPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 18,
+    borderRadius: 8,
   },
   periodPillActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.white,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   periodPillText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#CBD5E1',
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   periodPillTextActive: {
-    color: colors.white,
+    color: colors.primary,
     fontWeight: '800',
   },
-  financialDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    marginVertical: 4,
+  kpiCard: {
+    width: '48.5%',
+    backgroundColor: colors.cardBg,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  metricLabel: {
+  kpiCardTitle: {
     fontSize: 11,
-    color: '#94A3B8',
-    marginLeft: 4,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    flex: 1,
   },
-  metricValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.white,
+  kpiIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kpiValue: {
+    fontSize: isSmallDevice ? 15 : 18,
+    fontWeight: '900',
+    color: colors.textPrimary,
     marginTop: 2,
   },
-  metricSeparator: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    marginHorizontal: 12,
-  },
-  scrollContainer: {
-    padding: 14,
-    paddingBottom: 32,
+  kpiSubtext: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 3,
   },
   todoCard: {
     width: '48.5%',
     backgroundColor: colors.cardBg,
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -856,36 +1048,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   todoIconWrap: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   todoBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 10,
   },
   todoBadgeText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   todoTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: colors.textPrimary,
     marginTop: 4,
   },
   todoSubtext: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
     marginTop: 2,
   },
   sectionCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -906,11 +1098,11 @@ const styles = StyleSheet.create({
   },
   rowBorderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F8FAFC',
   },
   productThumb: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 10,
     backgroundColor: '#F8FAFC',
   },
@@ -921,7 +1113,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   productTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -932,53 +1124,55 @@ const styles = StyleSheet.create({
   },
   stockBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   quickAddPill: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: '#FDF2F4',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 8,
-    marginLeft: 6,
+    marginLeft: 5,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#F8CAD1',
   },
   quickAddText: {
-    color: '#2563EB',
-    fontWeight: '800',
-    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '900',
+    fontSize: 11,
   },
   editPill: {
-    backgroundColor: '#F1F5F9',
-    padding: 7,
+    backgroundColor: '#FAF8F5',
+    padding: 6,
     borderRadius: 8,
-    marginLeft: 6,
+    marginLeft: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   emptySafeCard: {
     backgroundColor: colors.cardBg,
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
   emptySafeTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginTop: 8,
+    marginTop: 6,
   },
   emptySafeSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
     textAlign: 'center',
   },
   rankBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -1004,7 +1198,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   soldBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#16A34A',
   },
@@ -1016,12 +1210,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
   },
   addBannerIconWrap: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     backgroundColor: colors.white,
     justifyContent: 'center',
@@ -1029,12 +1223,12 @@ const styles = StyleSheet.create({
   },
   addBannerTitle: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   addBannerSub: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 1,
   },
   noticeCard: {
@@ -1045,15 +1239,15 @@ const styles = StyleSheet.create({
     borderColor: '#FFEDD5',
   },
   noticeTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#9A3412',
-    marginLeft: 6,
   },
   noticeDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#C2410C',
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
@@ -1066,39 +1260,40 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: colors.cardBg,
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
+    color: colors.textSecondary,
+    marginBottom: 5,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.textPrimary,
     textAlign: I18nManager.isRTL ? 'right' : 'left',
   },
   modalBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     borderRadius: 10,
-    minWidth: 80,
+    minWidth: 75,
     alignItems: 'center',
   },
   modalBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
 });

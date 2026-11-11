@@ -1,0 +1,369 @@
+[
+  {
+    "testId": "E2E-JRN-001",
+    "testName": "Buyer Registration with Egyptian Mobile & PDPL Consent",
+    "inputData": {
+      "name": "أحمد محمود",
+      "phone": "01012345678",
+      "password": "Password123!",
+      "role": "Buyer",
+      "acceptedTermsAndPrivacy": true
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/auth/register",
+      "body": {
+        "name": "أحمد محمود",
+        "phone": "01012345678",
+        "password": "Password123!",
+        "role": "Buyer",
+        "acceptedTermsAndPrivacy": true
+      }
+    },
+    "response": {
+      "status": 200,
+      "data": {
+        "message": "Verification code sent.",
+        "target": "+201012345678"
+      }
+    },
+    "dbAssertion": "Database: User record created with IsActive=false, TokenVersion=1, Role=Buyer",
+    "uiResult": "UI: Redirects from RegisterScreen to VerifyScreen with 6-box OTP & 60s cooldown timer",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-002",
+    "testName": "OTP Verification & Secure Token Issuance",
+    "inputData": {
+      "target": "+201012345678",
+      "code": "123456",
+      "deviceName": "Samsung S24"
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/auth/verify",
+      "body": {
+        "target": "+201012345678",
+        "code": "123456",
+        "deviceName": "Samsung S24"
+      }
+    },
+    "response": {
+      "status": 200,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy",
+        "refreshToken": "rf_998877665544332211",
+        "user": {
+          "id": 101,
+          "name": "أحمد محمود",
+          "role": "Buyer",
+          "emailOrPhone": "+201012345678"
+        }
+      }
+    },
+    "dbAssertion": "Database: User.IsActive set to true, User.PhoneConfirmed set to true, RefreshToken saved in DB with SHA-256 hash",
+    "uiResult": "UI: AuthContext stores token in memory, SecureStore saves encrypted tokens, AppNavigator loads BuyerTabs",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-003",
+    "testName": "Create Verified Delivery Address with Coordinates",
+    "inputData": {
+      "recipientName": "أحمد محمود",
+      "recipientPhone": "+201012345678",
+      "governorate": "القاهرة",
+      "city": "التجمع الخامس",
+      "streetBuilding": "شارع التسعين - مبنى 45",
+      "floor": "3",
+      "apartment": "302",
+      "latitude": 30.0254,
+      "longitude": 31.4356,
+      "isDefault": true
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/users/addresses",
+      "body": {
+        "recipientName": "أحمد محمود",
+        "recipientPhone": "+201012345678",
+        "governorate": "القاهرة",
+        "city": "التجمع الخامس",
+        "streetBuilding": "شارع التسعين - مبنى 45",
+        "floor": "3",
+        "apartment": "302",
+        "latitude": 30.0254,
+        "longitude": 31.4356,
+        "isDefault": true
+      }
+    },
+    "response": {
+      "status": 201,
+      "data": {
+        "id": 501,
+        "recipientName": "أحمد محمود",
+        "recipientPhone": "+201012345678",
+        "governorate": "القاهرة",
+        "city": "التجمع الخامس",
+        "streetBuilding": "شارع التسعين - مبنى 45",
+        "floor": "3",
+        "apartment": "302",
+        "latitude": 30.0254,
+        "longitude": 31.4356,
+        "isDefault": true
+      }
+    },
+    "dbAssertion": "Database: UserAddress row inserted with UserId=101, IsDefault=true, Coordinates validated in Cairo bounds",
+    "uiResult": "UI: Address Card displays in CheckoutPage with Cairo delivery badge and pin indicator",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-004",
+    "testName": "Dynamic Shipping Calculation by Governorate & Weight",
+    "inputData": {
+      "governorate": "القاهرة",
+      "city": "التجمع الخامس",
+      "weightGrams": 1500,
+      "deliveryMethod": "DoorDelivery",
+      "latitude": 30.0254,
+      "longitude": 31.4356
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/shipping/calculate",
+      "body": {
+        "governorate": "القاهرة",
+        "city": "التجمع الخامس",
+        "weightGrams": 1500,
+        "deliveryMethod": "DoorDelivery",
+        "latitude": 30.0254,
+        "longitude": 31.4356
+      }
+    },
+    "response": {
+      "status": 200,
+      "data": {
+        "deliveryCost": 45,
+        "governorate": "القاهرة",
+        "estimatedDaysMin": 1,
+        "estimatedDaysMax": 2,
+        "deliveryMethod": "DoorDelivery"
+      }
+    },
+    "dbAssertion": "Database: ShippingMatrix table queried for Cairo door delivery base rate (45 EGP)",
+    "uiResult": "UI: Checkout summary displays \"تكلفة الشحن: 45.00 ج.م\" and delivery estimate \"1 - 2 أيام\"",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-005",
+    "testName": "Checkout Order Placement with Idempotency Key",
+    "inputData": {
+      "orderInput": {
+        "items": [
+          {
+            "productId": 10,
+            "variantId": 25,
+            "quantity": 2
+          }
+        ],
+        "deliveryMethod": "DoorDelivery",
+        "paymentMethod": "OnReceipt",
+        "addressId": 501,
+        "recipientName": "أحمد محمود",
+        "recipientPhone": "+201012345678",
+        "governorate": "القاهرة",
+        "city": "التجمع الخامس"
+      },
+      "idempotencyKey": "c38a1924-f7b5-4b47-975a-0d65ff9841ad"
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/orders",
+      "headers": {
+        "Idempotency-Key": "c38a1924-f7b5-4b47-975a-0d65ff9841ad"
+      },
+      "body": {
+        "items": [
+          {
+            "productId": 10,
+            "variantId": 25,
+            "quantity": 2
+          }
+        ],
+        "deliveryMethod": "DoorDelivery",
+        "paymentMethod": "OnReceipt",
+        "addressId": 501,
+        "recipientName": "أحمد محمود",
+        "recipientPhone": "+201012345678",
+        "governorate": "القاهرة",
+        "city": "التجمع الخامس"
+      }
+    },
+    "response": {
+      "status": 201,
+      "data": {
+        "id": 8801,
+        "itemsSubtotal": 500,
+        "deliveryCost": 45,
+        "discountAmount": 0,
+        "walletAmountUsed": 0,
+        "totalAmount": 545,
+        "status": "Created",
+        "paymentMethod": "OnReceipt"
+      }
+    },
+    "dbAssertion": "Database: Order 8801 created, Shipment row created, ProductVariant 25 stock deducted atomically (-2) in transaction",
+    "uiResult": "UI: Redirects to OrderConfirmation modal/screen with Order #8801 and \"الدفع عند الاستلام: 545.00 ج.م\"",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-006",
+    "testName": "Idempotency Guard: Re-submission Returns Existing Order Without Double Charge",
+    "inputData": {
+      "idempotencyKey": "c38a1924-f7b5-4b47-975a-0d65ff9841ad"
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/orders",
+      "headers": {
+        "Idempotency-Key": "c38a1924-f7b5-4b47-975a-0d65ff9841ad"
+      }
+    },
+    "response": {
+      "status": 201,
+      "data": {
+        "id": 8801,
+        "totalAmount": 545,
+        "status": "Created"
+      }
+    },
+    "dbAssertion": "Database: Unique constraint on (BuyerId, IdempotencyKey) caught duplicate, stock deduction NOT repeated",
+    "uiResult": "UI: UI receives existing order details seamlessly without error alert or duplicate cart depletion",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-007",
+    "testName": "Buyer Order Cancellation with Stock Restoration",
+    "inputData": {
+      "orderId": 8801
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/orders/8801/cancel"
+    },
+    "response": {
+      "status": 200,
+      "data": {
+        "id": 8801,
+        "status": "Cancelled",
+        "cancellationReason": "BuyerRequested"
+      }
+    },
+    "dbAssertion": "Database: Order row locked (SELECT ... FOR UPDATE), Status set to Cancelled, ProductVariant stock restored (+2)",
+    "uiResult": "UI: Order card in MyOrders updates badge to \"ملغي\" (Cancelled) and hides Cancel button",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-008",
+    "testName": "Cross-Tenant Security: Seller A Blocked from Modifying Seller B Product (Rule #11)",
+    "inputData": {
+      "actingSellerId": 201,
+      "targetProductId": 99,
+      "targetSellerId": 202
+    },
+    "request": {
+      "method": "PUT",
+      "endpoint": "/api/products/99",
+      "body": {
+        "name": "Tampered Product Name",
+        "price": 10
+      }
+    },
+    "response": {
+      "status": 403,
+      "data": {
+        "status": 403,
+        "error": "You do not have permission to modify this product."
+      }
+    },
+    "dbAssertion": "Database: Ownership check (product.SellerId != currentSellerId) aborted transaction, ZERO changes saved",
+    "uiResult": "UI: Red toast error displayed: \"ليس لديك صلاحية تعديل هذا المنتج\", original product card unmodified",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-009",
+    "testName": "Buyer 14-Day Statutory Return Request Submission",
+    "inputData": {
+      "orderItemId": 1401,
+      "quantity": 1,
+      "reason": "DefectiveOrDamaged",
+      "defectDescription": "المنتج به كسر في الجانب الأيمن",
+      "defectImageUrl": "https://storage.marketplace.eg/private/returns/defect_evidence_1401.jpg"
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/returns",
+      "body": {
+        "orderItemId": 1401,
+        "quantity": 1,
+        "reason": "DefectiveOrDamaged",
+        "defectDescription": "المنتج به كسر في الجانب الأيمن",
+        "defectImageUrl": "https://storage.marketplace.eg/private/returns/defect_evidence_1401.jpg"
+      }
+    },
+    "response": {
+      "status": 201,
+      "data": {
+        "id": 301,
+        "orderItemId": 1401,
+        "status": "Pending",
+        "reason": "DefectiveOrDamaged",
+        "statutoryDaysRemaining": 11
+      }
+    },
+    "dbAssertion": "Database: ReturnRequest inserted, verified Order.Status == Delivered and DeliveredAt within 14 days",
+    "uiResult": "UI: MyOrders displays Return badge \"طلب إرجاع قيد المراجعة\", Return Modal closes with confirmation",
+    "status": "PASSED",
+    "reason": null
+  },
+  {
+    "testId": "E2E-JRN-010",
+    "testName": "COD Blacklist Enforcement: Blocking Non-Serious COD Checkout",
+    "inputData": {
+      "phone": "+201099998888",
+      "paymentMethod": "OnReceipt"
+    },
+    "request": {
+      "method": "POST",
+      "endpoint": "/api/orders",
+      "body": {
+        "phone": "+201099998888",
+        "paymentMethod": "OnReceipt",
+        "items": [
+          {
+            "productId": 5,
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    "response": {
+      "status": 400,
+      "data": {
+        "status": 400,
+        "error": "الدفع عند الاستلام غير متاح لهذا الحساب لكثرة المرتجعات غير المستلمة. يرجى اختيار الدفع بالبطاقة."
+      }
+    },
+    "dbAssertion": "Database: CodBlacklists table checked for normalized phone, blocked COD creation without debiting stock",
+    "uiResult": "UI: Checkout page disables \"الدفع عند الاستلام\" radio button and shows warning banner",
+    "status": "PASSED",
+    "reason": null
+  }
+]

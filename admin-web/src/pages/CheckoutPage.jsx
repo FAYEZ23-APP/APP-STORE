@@ -31,6 +31,7 @@ import { getMyAddresses, createMyAddress, getMyWallet } from '../api/usersApi';
 import { getDeliveryCities, getPickupPoints, calculateDeliveryQuote } from '../api/deliveryApi';
 import { createOrder } from '../api/ordersApi';
 import { validateCoupon } from '../api/couponsApi';
+import { fetchSafeAppConfig } from '../api/configApi';
 import { formatCurrency } from '../utils/currency';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../utils/egyptianPhone';
 import { getImageUrl, handleImageError } from '../utils/imageUrl';
@@ -155,12 +156,18 @@ export default function CheckoutPage() {
         })
         .catch((err) => console.warn('Failed to load saved addresses', err));
 
-      getMyWallet()
-        .then((res) => {
-          const bal = Number(res?.data?.balance) || 0;
-          setWalletBalance(bal);
-        })
-        .catch((err) => console.warn('Failed to load wallet balance', err));
+      fetchSafeAppConfig().then((cfg) => {
+        if (cfg?.walletEnabled) {
+          getMyWallet()
+            .then((res) => {
+              const bal = Number(res?.data?.balance) || 0;
+              setWalletBalance(bal);
+            })
+            .catch(() => setWalletBalance(0));
+        } else {
+          setWalletBalance(0);
+        }
+      });
     }
   }, [isAuthenticated]);
 

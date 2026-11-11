@@ -1,5 +1,5 @@
 import React, { useContext, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +55,14 @@ export default function AppNavigator({
         }
       } else {
         console.warn(`[AppNavigator] Blocked unauthorized navigation attempt to '${screen}' for role '${userRole}'`);
+        try {
+          Alert.alert(
+            t('common.accessDenied', 'عذراً'),
+            t('common.unauthorizedRoleScreen', 'لا تملك الصلاحية الكافية للوصول إلى هذه الشاشة.')
+          );
+        } catch {
+          // Graceful fallback for non-GUI environments / headless test runners
+        }
       }
 
       if (onPendingNavigationConsumed) {

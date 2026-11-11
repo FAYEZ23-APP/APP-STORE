@@ -329,6 +329,7 @@ export default function RegisterPage() {
             <Lock className="w-4 h-4 text-slate-400 absolute top-3 start-3" />
             <input
               type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
               required
               minLength={6}
               value={password}

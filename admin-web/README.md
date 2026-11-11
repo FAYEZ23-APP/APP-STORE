@@ -1,16 +1,89 @@
-# React + Vite
+# Egyptian Marketplace - Admin & Seller Web Portal (React 19 + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+لوحة تحكم الإدارة وبوابة التجار الإلكترونية لمنصة السوق المصري، مبنية بأحدث معايير الويب باستخدام **React 19** و **Vite** و **TailwindCSS**، مع دعم كامل للغة العربية (RTL افتراضياً) والإنجليزية، والتكامل مع أمان التحقق بخطوتين (2FA / TOTP).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🏗️ هيكل المجلدات (Project Structure)
 
-## React Compiler
+```text
+admin-web/
+├── src/
+│   ├── api/             # استدعاءات API والتكامل مع Backend عبر Axios المحمي
+│   ├── components/      # المكونات المشتركة، النوافذ، وعناصر الواجهة
+│   │   ├── dashboard/   # ودجات ومؤشرات أداء لوحة الإدارة والتاجر
+│   │   └── profile/     # شاشات إدارة الملف الشخصي والأمان والـ 2FA
+│   ├── context/         # سياق إدارة حالة الجلسة والمصادقة (AuthContext)
+│   ├── hooks/           # خطافات مخصصة (Custom Hooks) للتنقل وإدارة البيانات
+│   ├── locales/         # ملفات الترجمة (ar.json أساسي RTL، و en.json)
+│   ├── pages/           # صفحات التطبيق
+│   │   ├── admin/       # صفحات المدير (إدارة المستخدمين، الشحنات، المراجعات، المالية)
+│   │   ├── seller/      # صفحات التاجر (المنتجات، الطلبات، المتجر، لوحة التحكم)
+│   │   └── ...          # صفحات تسجيل الدخول، التسجيل، والملف الشخصي
+│   ├── utils/           # دوال المساعدة، الأمان، والتنسيق والترجمة
+│   ├── App.jsx          # خريطة المسارات والتوجيه (React Router 7)
+│   └── main.jsx         # نقطة الإطلاق وتهيئة i18n
+├── public/              # الأصول العامة والشعارات
+├── tests/               # اختبارات أمان الويب والبناء
+├── vite.config.js       # إعدادات Vite
+├── package.json         # التبعيات والسكربتات
+└── Dockerfile           # ملف النشر بالحاويات مع Nginx
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 🛠️ المتطلبات التقنية (Prerequisites)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- **Node.js** (الإصدار `v20.x` أو `v24.x`)
+- مدير الحزم **npm**
+
+---
+
+## ⚙️ التثبيت والتشغيل المحلي (Setup & Run)
+
+### 1. تثبيت الحزم (Install Dependencies):
+```powershell
+cd admin-web
+npm install
+```
+
+### 2. إعداد متغيرات البيئة (Environment Variables):
+أنشئ ملف `.env` بناءً على `.env.example`:
+```env
+VITE_API_URL=http://localhost:5209/api
+```
+
+### 3. تشغيل وضع التطوير (Development Server):
+```powershell
+npm run dev
+```
+- المنفذ الافتراضي للتطوير: `http://localhost:3000` (أو المعروض في مخرجات الطرفية).
+
+### 4. بناء نسخة الإنتاج (Production Build):
+```powershell
+npm run build
+npm run preview
+```
+
+---
+
+## 🧪 الاختبارات والفحص (Testing & Linting)
+
+```powershell
+# تشغيل جميع اختبارات الويب
+npm test
+
+# فحص أمان الواجهة ضد هجمات XSS و CSRF والحقن
+npm run test:security
+
+# فحص جودة الكود
+npm run lint
+```
+
+---
+
+## 🔒 الميزات الأمنية وتجربة المستخدم
+
+1. **التحقق بخطوتين (2FA / TOTP):** إجبار المدراء على تسجيل الدخول برمز المصادقة وتأكيد العمليات الحساسة عبر Step-up Auth.
+2. **عزل الصلاحيات (RBAC):** توجيه مشدد يمنع وصول غير المدراء إلى مسارات `/admin/*` وتخصيص مسارات التجار `/seller/*`.
+3. **دعم كامل للغة العربية والإنجليزية:** تصميم متجاوب يعتمد على التخطيط المنطقي RTL مع دعم كامل لاتجاهات القراءة والخطوط المناسبة.
