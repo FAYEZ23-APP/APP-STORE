@@ -18,18 +18,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import { useGoogleAuth } from '../../utils/googleAuth';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import BrandLogo from '../../components/common/BrandLogo';
 import { getAppConfig } from '../../api/configApi';
+import { fetchCsrfToken } from '../../api/client';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 
 const RoleCard = ({ roleKey, icon, isSelected, onSelect, t }) => (
-  <TouchableOpacity
+  <AnimatedPressable
     onPress={() => onSelect(roleKey)}
-    activeOpacity={0.8}
+    scaleTo={0.95}
     style={[styles.roleCard, isSelected && styles.roleCardSelected]}
     accessibilityRole="button"
     accessibilityLabel={t(`auth.role${roleKey}`)}
@@ -52,11 +56,12 @@ const RoleCard = ({ roleKey, icon, isSelected, onSelect, t }) => (
         <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
       </View>
     )}
-  </TouchableOpacity>
+  </AnimatedPressable>
 );
 
 const RegisterScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language === 'ar';
   const { register } = useContext(AuthContext);
 
@@ -95,6 +100,7 @@ const RegisterScreen = ({ navigation }) => {
   const [logoScale] = useState(() => new Animated.Value(0.8));
 
   useEffect(() => {
+    fetchCsrfToken().catch(() => {});
     getAppConfig()
       .then((res) => {
         if (res?.data?.phoneSignupEnabled != null) {
@@ -495,10 +501,10 @@ const RegisterScreen = ({ navigation }) => {
             </TouchableOpacity>
 
             {/* Register button */}
-            <TouchableOpacity
+            <AnimatedPressable
               onPress={handleRegister}
               disabled={loading}
-              activeOpacity={0.88}
+              scaleTo={0.96}
               style={[styles.primaryButton, loading && styles.disabledButton]}
               accessibilityRole="button"
               accessibilityLabel={t('auth.register')}
@@ -516,7 +522,7 @@ const RegisterScreen = ({ navigation }) => {
                   />
                 </>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
 
             {/* Google Register button */}
             {googleEnabled && (
@@ -628,19 +634,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 26,
     borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   title: {
     fontSize: 24,
@@ -810,27 +805,22 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 50,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   disabledButton: {
     backgroundColor: colors.disabledBg,
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
     shadowOpacity: 0,
     elevation: 0,
   },

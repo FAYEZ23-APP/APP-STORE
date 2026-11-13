@@ -1012,7 +1012,7 @@ export default function MobileSearchScreen({ route, navigation }) {
                 justifyContent: 'space-between',
                 paddingHorizontal: 12,
               }}
-              contentContainerStyle={{ paddingTop: 10, paddingBottom: 30 }}
+              contentContainerStyle={{ paddingTop: 10, paddingBottom: Math.max(insets.bottom, 16) + 32 }}
               keyboardShouldPersistTaps="handled"
               onEndReached={handleLoadMore}
               onEndReachedThreshold={0.5}

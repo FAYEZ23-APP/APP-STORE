@@ -16,10 +16,13 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 
 import { getAdminUsers, updateAdminUserStatus } from '../../api/adminApi';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import {
   AdminHeader,
   FilterChip,
@@ -33,7 +36,9 @@ import {
 
 export default function AdminUsersScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,27 +193,47 @@ export default function AdminUsersScreen() {
         {/* Action Button: Ban or Reactivate */}
         <View style={tw`mt-3 pt-2 border-t border-gray-100 flex-row justify-end`}>
           {isUserActive ? (
-            <TouchableOpacity accessible={true} accessibilityRole="button"
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => openStatusModal(item, false)}
-              activeOpacity={0.8}
-              style={[styles.actionBtn, { borderColor: colors.discount }]}
+              scaleTo={0.92}
+              style={[
+                styles.actionBtn,
+                {
+                  borderColor: colors.discount,
+                  backgroundColor: '#FFF5F5',
+                  borderBottomWidth: 2,
+                  borderBottomColor: '#B91C1C',
+                },
+              ]}
             >
               <MaterialCommunityIcons name="account-cancel-outline" size={16} color={colors.discount} style={tw`mr-1.5`} />
               <Text style={[styles.actionBtnText, { color: colors.discount }]}>
                 {t('admin.suspendAccount')}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ) : (
-            <TouchableOpacity accessible={true} accessibilityRole="button"
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => openStatusModal(item, true)}
-              activeOpacity={0.8}
-              style={[styles.actionBtn, { borderColor: '#16A34A', backgroundColor: '#F0FDF4' }]}
+              scaleTo={0.92}
+              style={[
+                styles.actionBtn,
+                {
+                  borderColor: '#16A34A',
+                  backgroundColor: '#F0FDF4',
+                  borderBottomWidth: 2,
+                  borderBottomColor: '#15803D',
+                },
+              ]}
             >
               <MaterialCommunityIcons name="account-check-outline" size={16} color="#16A34A" style={tw`mr-1.5`} />
               <Text style={[styles.actionBtnText, { color: '#16A34A' }]}>
                 {t('admin.reactivateAccount')}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           )}
         </View>
       </View>
@@ -310,7 +335,7 @@ export default function AdminUsersScreen() {
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: floatingNavClearance }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -419,8 +444,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     marginBottom: 8,
+    ...shadows.tactile,
   },
   searchInput: {
     flex: 1,
@@ -430,11 +456,12 @@ const styles = StyleSheet.create({
   },
   userCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   userName: {
     fontSize: 14,

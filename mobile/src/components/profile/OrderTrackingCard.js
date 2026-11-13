@@ -39,11 +39,11 @@ export default function OrderTrackingCard({
 
   const activeShipment = !isSeller && buyerDashboard?.activeShipment;
 
-  const handleStatusPress = (statusKey) => {
+  const handleStatusPress = (item) => {
     if (isSeller) {
-      navigation?.navigate('SellerOrders', { status: statusKey });
+      navigation?.navigate('SellerOrders', { status: item.key });
     } else {
-      navigation?.navigate('MyOrders', { filterStatus: statusKey });
+      navigation?.navigate('MyOrders', { filterStatus: item.key });
     }
   };
 
@@ -102,7 +102,7 @@ export default function OrderTrackingCard({
               accessibilityRole="button"
               accessibilityLabel={`${item.label}: ${item.count}`}
               style={styles.statusTile}
-              onPress={() => handleStatusPress(item.key)}
+              onPress={() => handleStatusPress(item)}
               activeOpacity={0.75}
             >
               <View style={[styles.iconWrap, { backgroundColor: item.bgColor }]}>

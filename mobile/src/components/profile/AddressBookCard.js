@@ -27,9 +27,12 @@ export default function AddressBookCard({
             <MaterialCommunityIcons name="map-marker-radius-outline" size={20} color="#2563EB" />
           </View>
           <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-            <Text style={styles.cardTitle}>{t('profile.egyptianAddressBook')}</Text>
+            <Text style={styles.cardTitle}>{t('profile.egyptianAddressBook', 'دفتر العناوين المصري')}</Text>
             <Text style={styles.cardSubtitle}>
-              {t('profile.addressesCount', { count: addresses.length })}
+              {t('profile.addressesCount', {
+                count: addresses.length,
+                defaultValue: `${addresses.length} عناوين مسجلة لسرعة التوصيل`,
+              })}
             </Text>
           </View>
         </View>
@@ -42,7 +45,7 @@ export default function AddressBookCard({
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="plus" size={15} color={colors.primary} />
-          <Text style={styles.addBtnText}>{t('profile.addAddress')}</Text>
+          <Text style={styles.addBtnText}>{t('profile.addAddress', 'إضافة عنوان جديد')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -55,7 +58,9 @@ export default function AddressBookCard({
           <Text style={styles.emptyTitle}>
             {isRTL ? 'لم تقم بحفظ أي عنوان بعد' : 'No Saved Addresses Yet'}
           </Text>
-          <Text style={styles.emptySubtitle}>{t('profile.noAddresses')}</Text>
+          <Text style={styles.emptySubtitle}>
+            {t('profile.noAddresses', 'لا توجد عناوين مسجلة. أضف عنوانك لاستخدامه تلقائياً في الشحن والدفع.')}
+          </Text>
 
           <View style={[styles.emptyActionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
@@ -66,7 +71,7 @@ export default function AddressBookCard({
               activeOpacity={0.85}
             >
               <MaterialCommunityIcons name="plus-circle-outline" size={16} color={colors.white} />
-              <Text style={styles.emptyCtaText}>{t('profile.addAddress')}</Text>
+              <Text style={styles.emptyCtaText}>{t('profile.addAddress', 'إضافة عنوان جديد')}</Text>
             </TouchableOpacity>
 
             {onLocateOnMap && (
@@ -78,7 +83,7 @@ export default function AddressBookCard({
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} />
-                <Text style={styles.mapPinCtaText}>{t('profile.locateOnMap')}</Text>
+                <Text style={styles.mapPinCtaText}>{t('profile.locateOnMap', 'تحديد على الخريطة')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -90,11 +95,11 @@ export default function AddressBookCard({
               <View style={[styles.itemHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.labelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={styles.addressLabel}>
-                    {addr.label || t('profile.defaultDelivery')}
+                    {addr.label || t('profile.defaultDelivery', 'عنوان التوصيل')}
                   </Text>
                   {addr.isDefault ? (
                     <View style={[styles.defaultBadge, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
-                      <Text style={styles.defaultBadgeText}>{t('profile.defaultBadge')}</Text>
+                      <Text style={styles.defaultBadgeText}>{t('profile.defaultBadge', 'افتراضي')}</Text>
                     </View>
                   ) : onSetDefault ? (
                     <TouchableOpacity
@@ -103,7 +108,7 @@ export default function AddressBookCard({
                       onPress={() => onSetDefault(addr)}
                       style={[styles.setDefaultBtn, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}
                     >
-                      <Text style={styles.setDefaultText}>{t('profile.setDefault')}</Text>
+                      <Text style={styles.setDefaultText}>{t('profile.setDefault', 'تعيين كافتراضي')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>

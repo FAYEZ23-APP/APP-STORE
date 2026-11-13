@@ -20,40 +20,25 @@ export default function VerificationBadge({ profile, role }) {
   const isSeller = role === 'Seller';
 
   return (
-    <View style={[styles.badgeContainer, isSeller ? styles.sellerBadge : styles.buyerBadge]}>
+    <View
+      accessible={true}
+      accessibilityRole="image"
+      accessibilityLabel={isSeller ? t('profile.sellerBadge', 'تاجر موثق') : t('profile.verifiedAccount', 'حساب موثق')}
+      style={styles.iconContainer}
+    >
       <MaterialCommunityIcons
         name="check-decagram"
-        size={12}
+        size={15}
         color={isSeller ? colors.gold : '#16A34A'}
       />
-      <Text style={[styles.badgeText, { color: isSeller ? colors.gold : '#16A34A' }]}>
-        {isSeller ? t('profile.sellerBadge') : t('profile.verifiedAccount')}
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  badgeContainer: {
-    flexDirection: 'row',
+  iconContainer: {
+    marginHorizontal: 4,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 6,
-    borderWidth: 1,
-  },
-  buyerBadge: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#BBF7D0',
-  },
-  sellerBadge: {
-    backgroundColor: 'rgba(214, 163, 58, 0.15)',
-    borderColor: 'rgba(214, 163, 58, 0.3)',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    marginLeft: 3,
   },
 });

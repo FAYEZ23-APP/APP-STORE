@@ -18,6 +18,8 @@ import { getCategoryIconName } from '../utils/categoryIcons';
 import { CartContext } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { colors } from '../theme/colors';
+import { shadows } from '../theme/shadows';
+import AnimatedPressable from './common/AnimatedPressable';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -175,9 +177,12 @@ export default function ProductCard({
 
         {/* Wishlist Heart Toggle */}
         {!isSeller && (
-          <TouchableOpacity accessible={true} accessibilityRole="button"
+          <AnimatedPressable
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? t('wishlist.removeFromWishlist') : t('wishlist.title')}
             onPress={handleFavoritePress}
-            activeOpacity={0.8}
+            scaleTo={0.88}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={[
               styles.favoriteButton,
@@ -189,7 +194,7 @@ export default function ProductCard({
               size={18}
               color={isFavorite ? colors.white : colors.textSecondary}
             />
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
       </View>
 
@@ -374,9 +379,9 @@ export default function ProductCard({
             </Text>
           </View>
         ) : quantity > 0 ? (
-          <TouchableOpacity
+          <AnimatedPressable
             onPress={handleOpenCart}
-            activeOpacity={0.85}
+            scaleTo={0.96}
             accessibilityRole="button"
             style={styles.inCartButton}
           >
@@ -384,11 +389,11 @@ export default function ProductCard({
             <Text numberOfLines={1} style={styles.inCartButtonText}>
               {t('cart.inCart')} ({quantity})
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         ) : (
-          <TouchableOpacity
+          <AnimatedPressable
             onPress={handleAddToCart}
-            activeOpacity={0.85}
+            scaleTo={0.96}
             accessibilityRole="button"
             style={styles.addToCartButton}
           >
@@ -396,7 +401,7 @@ export default function ProductCard({
             <Text numberOfLines={1} style={styles.addToCartButtonText}>
               {t('product.addToCart')}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
       </View>
     </View>
@@ -406,24 +411,13 @@ export default function ProductCard({
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'space-between',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-      default: {},
-    }),
+    ...shadows.cardElevated,
   },
   topActionsRow: {
     position: 'absolute',
@@ -684,29 +678,32 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     backgroundColor: colors.primary,
-    height: 38,
-    borderRadius: 10,
+    height: 40,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    elevation: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    borderBottomWidth: 2.5,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   addToCartButtonText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '800',
+    letterSpacing: 0.1,
   },
   inCartButton: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primaryBorder,
     borderWidth: 1,
-    height: 38,
-    borderRadius: 10,
+    borderBottomWidth: 2.5,
+    borderBottomColor: '#F8CAD1',
+    height: 40,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -714,8 +711,9 @@ const styles = StyleSheet.create({
   },
   inCartButtonText: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '800',
+    letterSpacing: 0.1,
   },
   outOfStockButton: {
     backgroundColor: colors.disabledBg,

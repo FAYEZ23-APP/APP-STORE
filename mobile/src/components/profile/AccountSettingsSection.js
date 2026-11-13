@@ -47,13 +47,13 @@ export default function AccountSettingsSection({
       {!isSeller && (
         <>
           <ProfileSectionHeader
-            title={t('profile.groupShopping')}
+            title={t('profile.groupShopping', 'التسوق والطلبات')}
             icon="shopping-outline"
           />
           <View style={styles.cardGroup}>
             <AccountQuickAction
               icon="clipboard-list-outline"
-              title={t('profile.myOrdersCount')}
+              title={t('profile.myOrdersCount', 'طلباتي')}
               subtitle={isRTL ? 'متابعة الشحنات وسجل الطلبات' : 'Track shipments & order history'}
               iconColor="#2563EB"
               iconBgColor="#EFF6FF"
@@ -62,8 +62,8 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="heart-outline"
-              title={t('profile.myFavorites')}
-              subtitle={t('profile.myFavoritesDesc')}
+              title={t('profile.myFavorites', 'قائمة المفضلة')}
+              subtitle={t('profile.myFavoritesDesc', 'المنتجات المحفوظة للشراء لاحقاً')}
               iconColor="#E11D48"
               iconBgColor="#FFF1F2"
               onPress={() => navigation?.navigate('Wishlist')}
@@ -71,8 +71,8 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="cart-outline"
-              title={t('profile.myCart')}
-              subtitle={t('profile.myCartDesc')}
+              title={t('profile.myCart', 'عربة التسوق')}
+              subtitle={t('profile.myCartDesc', 'عرض المنتجات الجاهزة للشراء')}
               iconColor="#D97706"
               iconBgColor="#FEF3C7"
               onPress={() => navigation?.navigate('Cart')}
@@ -80,8 +80,8 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="keyboard-return"
-              title={t('profile.returnsExchanges')}
-              subtitle={t('profile.returnsExchangesDesc')}
+              title={t('profile.returnsExchanges', 'المرتجعات والاستبدال')}
+              subtitle={t('profile.returnsExchangesDesc', 'متابعة طلبات المرتجعات وحالتها')}
               iconColor="#DC2626"
               iconBgColor="#FEE2E2"
               onPress={() => navigation?.navigate('MyOrders', { filterStatus: 'Returned' })}
@@ -91,8 +91,8 @@ export default function AccountSettingsSection({
             {walletEnabled && (
               <AccountQuickAction
                 icon="wallet-outline"
-                title={t('profile.buyerWalletTitle')}
-                subtitle={t('profile.availableBalanceLabel')}
+                title={t('profile.buyerWalletTitle', 'محفظة المشتري')}
+                subtitle={t('profile.availableBalanceLabel', 'الرصيد المتاح:')}
                 value={`${walletBalance} EGP`}
                 iconColor={colors.gold}
                 iconBgColor="rgba(214, 163, 58, 0.15)"
@@ -108,13 +108,13 @@ export default function AccountSettingsSection({
       {isSeller && (
         <>
           <ProfileSectionHeader
-            title={t('profile.groupSellerTools')}
+            title={t('profile.groupSellerTools', 'أدوات التاجر وإدارة المتجر')}
             icon="store-outline"
           />
           <View style={styles.cardGroup}>
             <AccountQuickAction
               icon="package-variant-closed"
-              title={t('profile.sellerMyProducts')}
+              title={t('profile.sellerMyProducts', 'كتالوج المنتجات')}
               subtitle={isRTL ? 'إدارة وتحديث مخزون منتجاتك' : 'Manage catalog & stock levels'}
               iconColor="#7C3AED"
               iconBgColor="#F3E8FF"
@@ -123,7 +123,7 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="plus-box-outline"
-              title={t('profile.sellerAddProduct')}
+              title={t('profile.sellerAddProduct', 'إضافة منتج جديد')}
               subtitle={isRTL ? 'إضافة منتج جديد للبيع بالمنصة' : 'List a new item for sale'}
               iconColor="#16A34A"
               iconBgColor="#DCFCE7"
@@ -132,7 +132,7 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="clipboard-check-outline"
-              title={t('profile.sellerOrdersAction')}
+              title={t('profile.sellerOrdersAction', 'طلبات المتجر والشحنات')}
               subtitle={isRTL ? 'تجهيز الشحنات ومتابعة المناديب' : 'Prepare shipments & dispatch'}
               iconColor="#2563EB"
               iconBgColor="#EFF6FF"
@@ -142,7 +142,7 @@ export default function AccountSettingsSection({
             {walletEnabled && (
               <AccountQuickAction
                 icon="wallet-outline"
-                title={t('profile.sellerWalletAction')}
+                title={t('profile.sellerWalletAction', 'محفظة التاجر والأرباح')}
                 subtitle={isRTL ? 'رصيد المبيعات وطلبات السحب' : 'Sales balance & payout requests'}
                 iconColor={colors.gold}
                 iconBgColor="rgba(214, 163, 58, 0.15)"
@@ -152,7 +152,7 @@ export default function AccountSettingsSection({
 
             <AccountQuickAction
               icon="ticket-percent-outline"
-              title={t('profile.sellerCouponsAction')}
+              title={t('profile.sellerCouponsAction', 'كوبونات الخصم والعروض')}
               subtitle={isRTL ? 'إدارة قسائم التخفيض لمتجرك' : 'Create store discount vouchers'}
               iconColor="#EA580C"
               iconBgColor="#FFF7ED"
@@ -165,15 +165,15 @@ export default function AccountSettingsSection({
 
       {/* ─── GROUP: Personal Account & Security ─── */}
       <ProfileSectionHeader
-        title={t('profile.groupPersonal')}
+        title={t('profile.groupPersonal', 'الحساب الشخصي')}
         icon="account-cog-outline"
       />
       <View style={styles.cardGroup}>
         {/* Edit Personal Name */}
         <AccountQuickAction
           icon="account-edit-outline"
-          title={t('profile.editName')}
-          subtitle={t('profile.editProfileDesc')}
+          title={t('profile.editName', 'تعديل الاسم')}
+          subtitle={t('profile.editProfileDesc', 'تعديل الاسم والبيانات الأساسية')}
           iconColor="#2563EB"
           iconBgColor="#EFF6FF"
           onPress={onEditName}
@@ -182,8 +182,8 @@ export default function AccountSettingsSection({
         {/* Change Password */}
         <AccountQuickAction
           icon="lock-reset"
-          title={t('profile.changePassword')}
-          subtitle={t('profile.changePasswordDesc')}
+          title={t('profile.changePassword', 'تغيير كلمة المرور')}
+          subtitle={t('profile.changePasswordDesc', 'تحديث كلمة مرور الحساب')}
           iconColor="#D97706"
           iconBgColor="#FEF3C7"
           onPress={onToggleChangePassword}
@@ -195,8 +195,8 @@ export default function AccountSettingsSection({
           title={t('biometrics.securitySection', 'الأمان والدخول البيومتري')}
           subtitle={
             biometricSupport.available
-              ? t('profile.biometricSecurityDesc')
-              : t(biometricSupport.messageKey || 'biometrics.hardwareUnavailable')
+              ? t('profile.biometricSecurityDesc', 'تأمين التطبيق بالبصمة البيومترية')
+              : t(biometricSupport.messageKey || 'biometrics.hardwareUnavailable', 'البصمة غير متوفرة بهذا الجهاز')
           }
           iconColor={colors.primary}
           iconBgColor="#FDF2F4"
@@ -217,25 +217,25 @@ export default function AccountSettingsSection({
 
       {/* ─── GROUP: Customer Support & Help ─── */}
       <ProfileSectionHeader
-        title={t('profile.groupSupport')}
+        title={t('profile.groupSupport', 'المساعدة والدعم')}
         icon="help-circle-outline"
       />
       <View style={styles.cardGroup}>
-        {/* Customer Support WhatsApp */}
+        {/* Contact Us Support Entry */}
         <AccountQuickAction
-          icon="whatsapp"
-          title={t('profile.customerSupport')}
-          subtitle={t('profile.customerSupportDesc')}
-          iconColor="#25D366"
-          iconBgColor="#DCFCE7"
-          onPress={onOpenSupportWhatsApp}
+          icon="headset"
+          title={t('profile.contactUs', 'تواصل معنا')}
+          subtitle={t('profile.contactUsDesc', 'فريق الدعم الفني وخدمة العملاء في خدمتك')}
+          iconColor="#C8102E"
+          iconBgColor="rgba(200, 16, 46, 0.08)"
+          onPress={onOpenHelpCenter}
         />
 
         {/* Help Center FAQs */}
         <AccountQuickAction
           icon="frequently-asked-questions"
-          title={t('profile.helpCenter')}
-          subtitle={t('profile.helpCenterDesc')}
+          title={t('profile.helpCenter', 'مركز المساعدة والأسئلة الشائعة')}
+          subtitle={t('profile.helpCenterDesc', 'سياسات الشحن والاسترجاع والضمان')}
           iconColor="#7C3AED"
           iconBgColor="#F3E8FF"
           onPress={onOpenHelpCenter}
@@ -244,8 +244,8 @@ export default function AccountSettingsSection({
         {/* App Notifications */}
         <AccountQuickAction
           icon="bell-outline"
-          title={t('profile.notificationsAction')}
-          subtitle={t('profile.notificationsActionDesc')}
+          title={t('profile.notificationsAction', 'إشعارات التطبيق')}
+          subtitle={t('profile.notificationsActionDesc', 'تنبيهات العروض والشحنات والحساب')}
           iconColor="#2563EB"
           iconBgColor="#EFF6FF"
           onPress={() => navigation?.navigate('Notifications')}
@@ -255,7 +255,7 @@ export default function AccountSettingsSection({
 
       {/* ─── GROUP: Preferences, Legal & Session ─── */}
       <ProfileSectionHeader
-        title={t('profile.groupSettings')}
+        title={t('profile.groupSettings', 'الإعدادات والأمان')}
         icon="tune"
       />
       <View style={styles.cardGroup}>
@@ -266,7 +266,7 @@ export default function AccountSettingsSection({
               <MaterialCommunityIcons name="translate" size={18} color="#7C3AED" />
             </View>
             <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.settingTitle}>{t('profile.appLanguageAndDir')}</Text>
+              <Text style={styles.settingTitle}>{t('profile.appLanguageAndDir', 'لغة التطبيق واتجاه الواجهة')}</Text>
               <Text style={styles.settingSubtitle}>
                 {isArabicActive ? 'العربية 🇪🇬 (RTL)' : 'English (LTR)'}
               </Text>
@@ -306,8 +306,8 @@ export default function AccountSettingsSection({
           <>
             <AccountQuickAction
               icon="google"
-              title={t('profile.googleLinkingTitle')}
-              subtitle={t('profile.googleLinkingDesc')}
+              title={t('profile.googleLinkingTitle', 'ربط الحساب بـ Google')}
+              subtitle={t('profile.googleLinkingDesc', 'تسجيل الدخول السريع بأمان')}
               iconColor="#2563EB"
               iconBgColor="#EFF6FF"
               onPress={onLinkGoogle}
@@ -320,25 +320,10 @@ export default function AccountSettingsSection({
           </>
         )}
 
-        {/* PDPL 151/2020 Data Export */}
-        <AccountQuickAction
-          icon="cloud-download-outline"
-          title={t('profile.exportJson')}
-          subtitle={t('profile.exportJsonSub')}
-          iconColor="#16A34A"
-          iconBgColor="#DCFCE7"
-          onPress={onExportData}
-          rightElement={
-            exportingData ? (
-              <ActivityIndicator size="small" color="#16A34A" />
-            ) : null
-          }
-        />
-
         {/* Sign Out */}
         <AccountQuickAction
           icon="logout"
-          title={t('profile.logoutAccount')}
+          title={t('profile.logoutAccount', 'تسجيل الخروج من الحساب')}
           subtitle={isRTL ? 'إنهاء الجلسة الحالية بأمان' : 'Securely end your active session'}
           isDestructive={true}
           onPress={onLogout}
@@ -356,7 +341,7 @@ export default function AccountSettingsSection({
         activeOpacity={0.7}
       >
         <Text style={styles.deleteAccountLinkText}>
-          {t('profile.deleteAccountTitle')}
+          {t('profile.deleteAccountTitle', 'حذف الحساب نهائياً')}
         </Text>
       </TouchableOpacity>
     </View>

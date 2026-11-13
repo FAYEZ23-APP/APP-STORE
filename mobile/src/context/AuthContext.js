@@ -31,7 +31,7 @@ import {
   logout as logoutApi,
   logoutAll as logoutAllApi,
 } from '../api/authApi';
-import { setOnUnauthorized, resetClientSession } from '../api/client';
+import { setOnUnauthorized, resetClientSession, performSingleFlightRefresh, fetchCsrfToken } from '../api/client';
 import { syncPushToken, getDevicePushToken, unregisterCurrentPushToken } from '../utils/notifications';
 import {
   checkBiometricSupport,
@@ -176,18 +176,9 @@ export const AuthProvider = ({ children }) => {
       if (!token && lastUserId) {
         const refreshToken = await getRefreshToken(lastUserId);
         if (refreshToken) {
-          const deviceId = await getDeviceId();
           try {
-            const refreshRes = await refreshApi({ refreshToken, deviceId });
-            const newAccessToken = refreshRes.data?.accessToken || refreshRes.data?.token;
-            const newRefreshToken = refreshRes.data?.refreshToken;
-            if (newAccessToken) {
-              await setToken(newAccessToken);
-              if (newRefreshToken) {
-                await setRefreshToken(lastUserId, newRefreshToken);
-              }
-              token = newAccessToken;
-            }
+            const newAccessToken = await performSingleFlightRefresh();
+            token = newAccessToken;
           } catch {
             await clearAuthTokens(lastUserId);
             await removeLastAuthenticatedUserId();
@@ -255,6 +246,8 @@ export const AuthProvider = ({ children }) => {
     const init = async () => {
       try {
         await loadUserFromToken();
+        // Warm CSRF token in background on startup (MOB-014)
+        fetchCsrfToken().catch(() => {});
       } catch (err) {
         if (__DEV__) {
           console.warn('[AuthContext] init error', err);
@@ -299,7 +292,11 @@ export const AuthProvider = ({ children }) => {
   }, [clearPendingNavigation]);
 
   // ─── Unlock Handlers ────────────────────────────────────────
+  const isUnlockingRef = useRef(false);
+
   const unlockWithBiometrics = async () => {
+    if (isUnlockingRef.current) return;
+    isUnlockingRef.current = true;
     try {
       const currentUserId = userId || (await getLastAuthenticatedUserId());
       if (!currentUserId) {
@@ -325,23 +322,15 @@ export const AuthProvider = ({ children }) => {
       }
 
       const refreshToken = await getRefreshToken(currentUserId);
-      const deviceId = await getDeviceId();
-
       if (!refreshToken) {
         await unlockWithPassword();
         return;
       }
 
-      const res = await refreshApi({ refreshToken, deviceId });
-      const newAccessToken = res.data?.accessToken || res.data?.token;
-      const newRefreshToken = res.data?.refreshToken;
+      // Coordinated single-flight refresh: prevents duplicate token consumption & replay false-alarms
+      const newAccessToken = await performSingleFlightRefresh();
 
       if (newAccessToken) {
-        await setToken(newAccessToken);
-        if (newRefreshToken) {
-          await setRefreshToken(currentUserId, newRefreshToken, true);
-        }
-
         try {
           const decoded = jwtDecode(newAccessToken);
           const role = decoded[ROLE_CLAIM] || decoded.role;
@@ -361,7 +350,13 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Refresh failed on unlock');
       }
     } catch (err) {
-      console.error('Error during biometric unlock refresh', err);
+      if (err?.response?.status === 401) {
+        if (__DEV__) {
+          console.warn('[unlockWithBiometrics] Stored session expired or revoked (401). Falling back to password login.');
+        }
+      } else {
+        console.error('Error during biometric unlock refresh', err);
+      }
       if (isBiometricInvalidatedError(err)) {
         handleBiometricInvalidationAlert(async () => {
           await unlockWithPassword();
@@ -373,6 +368,8 @@ export const AuthProvider = ({ children }) => {
         i18n.t('biometrics.refreshFailed', 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً بكلمة المرور.')
       );
       await unlockWithPassword();
+    } finally {
+      isUnlockingRef.current = false;
     }
   };
 
@@ -404,48 +401,56 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ─── Login Flow ─────────────────────────────────────────────
+  const isLoggingInRef = useRef(false);
+
   const login = useCallback(async (identifier, password) => {
-    const deviceId = await getDeviceId();
-    const response = await loginApi({ identifier, password, deviceId });
-    const data = response.data || {};
-    const requiresTwoFactor = Boolean(data.requiresTwoFactor || data.RequiresTwoFactor);
-    const twoFactorToken = data.twoFactorToken || data.TwoFactorToken;
+    if (isLoggingInRef.current) return;
+    isLoggingInRef.current = true;
+    try {
+      const deviceId = await getDeviceId();
+      const response = await loginApi({ identifier, password, deviceId });
+      const data = response.data || {};
+      const requiresTwoFactor = Boolean(data.requiresTwoFactor || data.RequiresTwoFactor);
+      const twoFactorToken = data.twoFactorToken || data.TwoFactorToken;
 
-    if (requiresTwoFactor && twoFactorToken) {
-      return {
-        requiresTwoFactor: true,
-        twoFactorToken,
-        twoFactorSetupRequired: Boolean(data.twoFactorSetupRequired || data.TwoFactorSetupRequired),
-        manualEntryKey: data.manualEntryKey || data.ManualEntryKey || null,
-        qrCodeUri: data.qrCodeUri || data.QrCodeUri || null,
-        userId: data.userId,
-      };
-    }
-
-    const effectiveToken = data.accessToken || data.token;
-
-    if (effectiveToken) {
-      const decoded = jwtDecode(effectiveToken);
-      const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
-
-      await saveTokens({
-        accessToken: effectiveToken,
-        refreshToken: data.refreshToken,
-        userId: uid,
-        isBiometricBound: true,
-      });
-
-      if (uid) {
-        await setLastAuthenticatedUserId(uid);
+      if (requiresTwoFactor && twoFactorToken) {
+        return {
+          requiresTwoFactor: true,
+          twoFactorToken,
+          twoFactorSetupRequired: Boolean(data.twoFactorSetupRequired || data.TwoFactorSetupRequired),
+          manualEntryKey: data.manualEntryKey || data.ManualEntryKey || null,
+          qrCodeUri: data.qrCodeUri || data.QrCodeUri || null,
+          userId: data.userId,
+        };
       }
 
-      await loadUserFromToken();
+      const effectiveToken = data.accessToken || data.token;
 
-      if (uid) {
-        offerBiometricsIfSupported(uid);
+      if (effectiveToken) {
+        const decoded = jwtDecode(effectiveToken);
+        const uid = String(decoded.sub || decoded.nameid || decoded.id || data.userId);
+
+        await saveTokens({
+          accessToken: effectiveToken,
+          refreshToken: data.refreshToken,
+          userId: uid,
+          isBiometricBound: true,
+        });
+
+        if (uid) {
+          await setLastAuthenticatedUserId(uid);
+        }
+
+        await loadUserFromToken();
+
+        if (uid) {
+          offerBiometricsIfSupported(uid);
+        }
       }
+      return data;
+    } finally {
+      isLoggingInRef.current = false;
     }
-    return data;
   }, []);
 
   // ─── Two-Factor Verification Flow ───────────────────────────

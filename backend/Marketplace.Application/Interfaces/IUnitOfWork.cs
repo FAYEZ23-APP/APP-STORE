@@ -42,6 +42,7 @@ public interface IUnitOfWork : IDisposable
     IRepository<SupportTicketMessage> SupportTicketMessages { get; }
     IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches { get; }
     IRepository<TaxInvoice> TaxInvoices { get; }
+    IRepository<Campaign> Campaigns { get; }
 
     Task<int> SaveChangesAsync();
     Task BeginTransactionAsync();
@@ -52,3 +53,4 @@ public interface IUnitOfWork : IDisposable
     Task<int> ExecuteSqlRawAsync(string sql, params object[] parameters);
     Task RecomputeProductRatingAsync(int productId);
 }
+

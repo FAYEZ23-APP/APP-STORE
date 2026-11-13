@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,17 +15,22 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import { useGoogleAuth } from '../../utils/googleAuth';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import OtpInput from '../../components/OtpInput';
 import BrandLogo from '../../components/common/BrandLogo';
 import { getAppConfig } from '../../api/configApi';
+import { fetchCsrfToken } from '../../api/client';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 
 const LoginScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language === 'ar';
   const { login, completeTwoFactorLogin } = useContext(AuthContext);
   const { signIn: signInWithGoogle, isLoading: googleLoading } = useGoogleAuth({
@@ -54,6 +59,7 @@ const LoginScreen = ({ navigation }) => {
   const [logoScale] = useState(() => new Animated.Value(0.8));
 
   useEffect(() => {
+    fetchCsrfToken().catch(() => {});
     getAppConfig()
       .then((res) => {
         if (res?.data?.googleEnabled != null) {
@@ -84,7 +90,13 @@ const LoginScreen = ({ navigation }) => {
     ]).start();
   }, [fadeAnim, slideAnim, logoScale]);
 
+  const isSubmittingRef = useRef(false);
+
   const handleLogin = async () => {
+    if (isSubmittingRef.current || loading) {
+      return;
+    }
+
     const rawIdentifier = identifier.trim();
     if (!rawIdentifier || !password) {
       Alert.alert(t('common.error'), t('common.fillAllFields'));
@@ -96,6 +108,7 @@ const LoginScreen = ({ navigation }) => {
       cleanIdentifier = normalizeEgyptianPhone(rawIdentifier);
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const res = await login(cleanIdentifier, password);
@@ -121,6 +134,9 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert(t('common.error'), err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        isSubmittingRef.current = false;
+      }, 500);
     }
   };
 
@@ -409,10 +425,10 @@ const LoginScreen = ({ navigation }) => {
                 </View>
 
                 {/* Login button */}
-                <TouchableOpacity
+                <AnimatedPressable
                   onPress={handleLogin}
                   disabled={loading}
-                  activeOpacity={0.88}
+                  scaleTo={0.96}
                   style={[styles.primaryButton, loading && styles.disabledButton]}
                   accessibilityRole="button"
                   accessibilityLabel={t('auth.login')}
@@ -430,7 +446,7 @@ const LoginScreen = ({ navigation }) => {
                       />
                     </>
                   )}
-                </TouchableOpacity>
+                </AnimatedPressable>
 
                 {/* Google Sign In Button */}
                 {googleEnabled && (
@@ -579,19 +595,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 28,
     borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   title: {
     fontSize: 24,
@@ -651,27 +656,22 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 50,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   disabledButton: {
     backgroundColor: colors.disabledBg,
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
     shadowOpacity: 0,
     elevation: 0,
   },

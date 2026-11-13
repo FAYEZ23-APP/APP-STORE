@@ -28,23 +28,17 @@ import {
   getPayoutMethodLabel,
 } from '../../utils/enumTranslations';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  android: {
-    elevation: 3,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 export default function SellerWalletScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language?.startsWith('ar');
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -211,7 +205,7 @@ export default function SellerWalletScreen({ navigation }) {
   return (
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       <ScrollView
-        contentContainerStyle={tw`pb-12`}
+        contentContainerStyle={[tw`pb-12`, { paddingBottom: floatingNavClearance }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         {/* Top Gradient Header */}
@@ -266,19 +260,29 @@ export default function SellerWalletScreen({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity accessible={true} accessibilityRole="button"
+              <AnimatedPressable
+                accessible={true}
+                accessibilityRole="button"
                 onPress={handleOpenPayoutModal}
                 disabled={availableBalance < 50}
+                scaleTo={0.94}
                 style={[
                   tw`px-4 py-2.5 rounded-xl flex-row items-center`,
                   availableBalance >= 50
-                    ? { backgroundColor: colors.accent }
+                    ? {
+                        backgroundColor: colors.primary,
+                        borderBottomWidth: 3,
+                        borderBottomColor: '#960B21',
+                        borderTopWidth: 1,
+                        borderTopColor: 'rgba(255, 255, 255, 0.28)',
+                        ...shadows.tactilePrimary,
+                      }
                     : tw`bg-slate-800 opacity-60`,
                 ]}
               >
                 <MaterialCommunityIcons name="cash-fast" size={18} color="#FFFFFF" style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
                 <Text style={tw`text-white text-xs font-black`}>{t('wallet.requestPayout')}</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             </View>
           </View>
 

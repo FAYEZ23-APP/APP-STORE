@@ -32,13 +32,14 @@ const requiredComponents = [
   'OrderTrackingCard.js',
   'AccountQuickAction.js',
   'AddressBookCard.js',
+  'SellerDispatchCard.js',
   'AccountSettingsSection.js',
   'ProfileSectionHeader.js',
   'AccountEmptyState.js',
   'index.js',
 ];
 
-it('All 11 modular profile components exist in src/components/profile', () => {
+it('All 12 modular profile components exist in src/components/profile', () => {
   for (const comp of requiredComponents) {
     const fullPath = path.join(componentsDir, comp);
     assert.ok(fs.existsSync(fullPath), `Missing component file: ${comp}`);

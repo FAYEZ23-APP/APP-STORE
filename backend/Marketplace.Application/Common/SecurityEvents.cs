@@ -44,6 +44,7 @@ public static class SecurityEventIds
     // Authorization
     public const string AuthzUnauthorized = "SEC_AUTHZ_UNAUTHORIZED";
     public const string AuthzForbidden = "SEC_AUTHZ_FORBIDDEN";
+    public const string AuthzCsrfFailed = "SEC_CSRF_VALIDATION_FAILED";
     public const string AuthzCrossTenantAttempt = "SEC_AUTHZ_CROSS_TENANT_ATTEMPT";
     public const string AuthzPrivilegeEscalation = "SEC_AUTHZ_PRIVILEGE_ESCALATION";
     public const string AuthzAdminRouteBlocked = "SEC_AUTHZ_ADMIN_ROUTE_BLOCKED";

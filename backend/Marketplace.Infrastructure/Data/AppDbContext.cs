@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
     public DbSet<CarrierRemittanceBatch> CarrierRemittanceBatches => Set<CarrierRemittanceBatch>();
     public DbSet<TaxInvoice> TaxInvoices => Set<TaxInvoice>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -1703,6 +1704,101 @@ public class AppDbContext : DbContext
 
             entity.HasOne(b => b.UploadedByAdmin).WithMany().HasForeignKey(b => b.UploadedByAdminId).OnDelete(DeleteBehavior.Restrict);
         });
+
+        // --- Campaign --------------------------------------------
+        modelBuilder.Entity<Campaign>(entity =>
+        {
+            entity.ToTable("campaigns");
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.TitleAr).IsRequired().HasMaxLength(150);
+            entity.Property(c => c.TitleEn).IsRequired().HasMaxLength(150);
+            entity.Property(c => c.SubtitleAr).HasMaxLength(300);
+            entity.Property(c => c.SubtitleEn).HasMaxLength(300);
+            entity.Property(c => c.CtaAr).HasMaxLength(80);
+            entity.Property(c => c.CtaEn).HasMaxLength(80);
+            entity.Property(c => c.BadgeAr).HasMaxLength(50);
+            entity.Property(c => c.BadgeEn).HasMaxLength(50);
+            entity.Property(c => c.ImageUrlMobile).IsRequired().HasMaxLength(1000);
+            entity.Property(c => c.ImageUrlDesktop).HasMaxLength(1000);
+            entity.Property(c => c.TargetUrl).HasMaxLength(1000);
+            entity.Property(c => c.Priority).HasDefaultValue(0);
+            entity.Property(c => c.IsActive).HasDefaultValue(true);
+            entity.Property(c => c.TextAlignment).HasMaxLength(20).HasDefaultValue("center");
+            entity.Property(c => c.OverlayOpacity).HasPrecision(3, 2).HasDefaultValue(0.35m);
+            entity.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+            entity.Property(c => c.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+
+            entity.HasIndex(c => c.IsActive);
+            entity.HasIndex(c => c.Priority);
+            entity.HasIndex(c => new { c.IsActive, c.Priority });
+
+            entity.HasData(
+                new Campaign
+                {
+                    Id = 1,
+                    TitleAr = "مجموعة الموسم الجديد",
+                    TitleEn = "NEW SEASON COLLECTION",
+                    SubtitleAr = "تصاميم راقية وخامات مختارة بعناية تعكس تميزك",
+                    SubtitleEn = "Refined silhouettes and modern craftsmanship for every moment",
+                    CtaAr = "اكتشف التشكيلة",
+                    CtaEn = "EXPLORE COLLECTION",
+                    BadgeAr = "الموسم الجديد",
+                    BadgeEn = "NEW ARRIVALS",
+                    ImageUrlMobile = "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&auto=format&fit=crop&q=85",
+                    ImageUrlDesktop = "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=85",
+                    TargetUrl = "category:clothing",
+                    Priority = 1,
+                    IsActive = true,
+                    TextAlignment = "center",
+                    OverlayOpacity = 0.35m,
+                    CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Campaign
+                {
+                    Id = 2,
+                    TitleAr = "أناقة هادئة وبساطة عصرية",
+                    TitleEn = "THE QUIET LUXURY EDIT",
+                    SubtitleAr = "قصات كلاسيكية تمنحك إطلالة متجددة طوال اليوم",
+                    SubtitleEn = "Timeless tailoring and effortless neutral aesthetics",
+                    CtaAr = "تسوق الإطلالة",
+                    CtaEn = "SHOP THE EDIT",
+                    BadgeAr = "تشكيلة حصرية",
+                    BadgeEn = "EXCLUSIVE",
+                    ImageUrlMobile = "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&auto=format&fit=crop&q=85",
+                    ImageUrlDesktop = "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&auto=format&fit=crop&q=85",
+                    TargetUrl = "category:clothing",
+                    Priority = 2,
+                    IsActive = true,
+                    TextAlignment = "center",
+                    OverlayOpacity = 0.30m,
+                    CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Campaign
+                {
+                    Id = 3,
+                    TitleAr = "أزياء الشارع العصرية",
+                    TitleEn = "URBAN STREETWEAR CAPSULE",
+                    SubtitleAr = "أحدث تصاميم السنيكرز والملابس الرياضية اليومية",
+                    SubtitleEn = "Bold contemporary streetwear and essential statement pieces",
+                    CtaAr = "تصفح العروض",
+                    CtaEn = "VIEW CAPSULE",
+                    BadgeAr = "الأكثر طلباً",
+                    BadgeEn = "TRENDING",
+                    ImageUrlMobile = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=85",
+                    ImageUrlDesktop = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1600&auto=format&fit=crop&q=85",
+                    TargetUrl = "category:shoes",
+                    Priority = 3,
+                    IsActive = true,
+                    TextAlignment = "center",
+                    OverlayOpacity = 0.35m,
+                    CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                }
+            );
+        });
     }
 
     /// <summary>
@@ -1721,3 +1817,5 @@ public class AppDbContext : DbContext
 
     }
 }
+
+

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<ICampaignService, CampaignService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IShipmentService, ShipmentService>();
@@ -35,3 +36,4 @@ public static class DependencyInjection
         return services;
     }
 }
+

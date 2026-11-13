@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,6 +21,12 @@
     <ProjectReference Include="..\Marketplace.Domain\Marketplace.Domain.csproj" />
     <ProjectReference Include="..\Marketplace.Application\Marketplace.Application.csproj" />
     <ProjectReference Include="..\Marketplace.Infrastructure\Marketplace.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Marketplace.API\Middleware\RequestResponseLoggingMiddleware.cs" Link="Middleware\RequestResponseLoggingMiddleware.cs" />
+    <Compile Include="..\Marketplace.API\Middleware\CsrfProtectionMiddleware.cs" Link="Middleware\CsrfProtectionMiddleware.cs" />
+    <Compile Include="..\Marketplace.API\Middleware\SecurityEventLoggingMiddleware.cs" Link="Middleware\SecurityEventLoggingMiddleware.cs" />
   </ItemGroup>
 
   <ItemGroup>

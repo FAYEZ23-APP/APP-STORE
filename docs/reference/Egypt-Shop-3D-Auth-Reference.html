@@ -1,0 +1,2620 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>متجر نُخبة | بوابة التسوق الفاخرة 3D</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Cairo & Tajawal -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+            tajawal: ['Tajawal', 'sans-serif'],
+          },
+          colors: {
+            crimson: '#C8102E',
+            deepcrimson: '#960B21',
+            gold: '#D6A33A',
+            slatex: '#0E1114',
+            offwhite: '#F8F7F4',
+            neutralsoft: '#E9E4DC',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --primary-crimson: #C8102E;
+      --deep-crimson: #960B21;
+      --luxury-gold: #D6A33A;
+      --dark-slate: #0E1114;
+      --warm-offwhite: #F8F7F4;
+      --soft-neutral: #E9E4DC;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Cairo', 'Tajawal', sans-serif;
+    }
+
+    body {
+      background-color: var(--dark-slate);
+      color: var(--warm-offwhite);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* Atmospheric Dark Slate Background with Architectural Grid & Crimson/Gold Glows */
+    .luxury-stage-bg {
+      background-color: #0E1114;
+      background-image:
+        radial-gradient(circle at 82% 16%, rgba(150, 11, 33, 0.34), transparent 46%),
+        radial-gradient(circle at 18% 82%, rgba(214, 163, 58, 0.18), transparent 48%),
+        radial-gradient(circle at 50% 48%, rgba(200, 16, 46, 0.10), transparent 62%),
+        linear-gradient(to right, rgba(214, 163, 58, 0.045) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(214, 163, 58, 0.045) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+    }
+
+    /* 3D Perspective Stage */
+    .perspective-stage {
+      perspective: 1400px;
+      -webkit-perspective: 1400px;
+    }
+
+    /* Interactive Mouse/Touch 3D Tilt Wrapper */
+    .tilt-wrapper {
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      will-change: transform;
+      transition: transform 0.12s ease-out;
+    }
+
+    /* 180-Degree 3D Card Flip Container */
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      transition: transform 0.85s cubic-bezier(0.34, 1.28, 0.64, 1), height 0.42s ease;
+    }
+
+    .flip-card-inner.is-flipped {
+      transform: rotateY(180deg);
+    }
+
+    /* Luxury Warm Off-White (#F8F7F4) & Soft Neutral (#E9E4DC) 3D Card Faces */
+    .luxury-card-face {
+      width: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      background: linear-gradient(160deg, #F8F7F4 0%, #F3EFE9 65%, #E9E4DC 100%);
+      color: #0E1114;
+      border: 1.5px solid rgba(214, 163, 58, 0.55);
+      box-shadow:
+        0 34px 75px -16px rgba(0, 0, 0, 0.88),
+        0 14px 36px -10px rgba(150, 11, 33, 0.32),
+        0 0 0 1px rgba(255, 255, 255, 0.85) inset,
+        0 -3px 0 0 #E9E4DC inset;
+      border-radius: 1.75rem;
+      overflow: hidden;
+    }
+
+    .card-face-front {
+      position: relative;
+      transform: rotateY(0deg);
+      z-index: 2;
+    }
+
+    .card-face-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      transform: rotateY(180deg);
+      z-index: 1;
+    }
+
+    /* Dynamic Specular Glare Reflecting Warm Gold & Crimson Light */
+    .glare-overlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      border-radius: 1.75rem;
+      background: radial-gradient(
+        circle 290px at var(--mouse-x, 50%) var(--mouse-y, 25%),
+        rgba(214, 163, 58, 0.24),
+        rgba(200, 16, 46, 0.08) 45%,
+        transparent 75%
+      );
+      opacity: 0.9;
+      transition: opacity 0.3s ease;
+      z-index: 20;
+    }
+
+    /* 3D Parallax Floating Depth Layers (translateZ) */
+    .float-3d-layer {
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    .float-obj-bag {
+      transform: translateZ(80px);
+      pointer-events: none;
+    }
+
+    .float-obj-tag {
+      transform: translateZ(95px);
+      pointer-events: auto;
+    }
+
+    .float-obj-box {
+      transform: translateZ(65px);
+      pointer-events: none;
+    }
+
+    .float-obj-lock {
+      transform: translateZ(85px);
+      pointer-events: none;
+    }
+
+    /* Organic 3D Levitation Keyframes */
+    @keyframes floatLuxuryA {
+      0%, 100% { transform: translate3d(0, 0, 0) rotateZ(-4deg) rotateY(-8deg); }
+      50% { transform: translate3d(0, -13px, 12px) rotateZ(4deg) rotateY(9deg); }
+    }
+
+    @keyframes floatLuxuryB {
+      0%, 100% { transform: translate3d(0, 0, 0) rotateZ(5deg) rotateY(8deg); }
+      50% { transform: translate3d(0, -15px, 16px) rotateZ(-4deg) rotateY(-10deg); }
+    }
+
+    @keyframes floatLuxuryC {
+      0%, 100% { transform: translate3d(0, 0, 0) rotateY(8deg) rotateZ(3deg); }
+      50% { transform: translate3d(0, -11px, 10px) rotateY(-10deg) rotateZ(-3deg); }
+    }
+
+    @keyframes floatLuxuryD {
+      0%, 100% { transform: translate3d(0, 0, 0) rotateZ(-4deg); }
+      50% { transform: translate3d(0, -12px, 14px) rotateZ(5deg); }
+    }
+
+    .anim-float-a { animation: floatLuxuryA 5.4s ease-in-out infinite; }
+    .anim-float-b { animation: floatLuxuryB 6.0s ease-in-out infinite; }
+    .anim-float-c { animation: floatLuxuryC 5.8s ease-in-out infinite; }
+    .anim-float-d { animation: floatLuxuryD 5.0s ease-in-out infinite; }
+
+    /* Reactive Micro-Animations for 3D Shopping Icons */
+    @keyframes bagSpringBounce {
+      0% { transform: scale(1) rotate(0deg); }
+      32% { transform: scale(1.24) rotate(-10deg) translateY(-10px); }
+      66% { transform: scale(0.94) rotate(6deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    .bag-react {
+      animation: bagSpringBounce 0.56s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes couponRotate3D {
+      0% { transform: scale(1) rotateY(0deg); }
+      50% { transform: scale(1.18) rotateY(180deg); }
+      100% { transform: scale(1.05) rotateY(360deg); }
+    }
+
+    .coupon-spin-3d {
+      animation: couponRotate3D 0.85s cubic-bezier(0.34, 1.4, 0.64, 1);
+      filter: drop-shadow(0 0 24px rgba(214, 163, 58, 0.85)) !important;
+    }
+
+    @keyframes lockGoldEngage {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.16) rotate(-7deg); }
+      55% { transform: scale(1.22) rotate(7deg); }
+      80% { transform: scale(1.12) rotate(-3deg); }
+    }
+
+    .lock-engaged {
+      animation: lockGoldEngage 0.52s ease-out;
+      filter: drop-shadow(0 0 22px rgba(16, 185, 129, 0.9)) drop-shadow(0 0 12px rgba(214, 163, 58, 0.65)) !important;
+    }
+
+    .lock-shackle-anim {
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-origin: center;
+    }
+
+    .lock-engaged .lock-shackle-anim {
+      transform: translateY(-4px);
+    }
+
+    /* Luxury Soft Neutral (#E9E4DC) Inputs with Dark Slate (#0E1114) Text & Gold (#D6A33A) Focus Glow */
+    .luxury-input {
+      background-color: #E9E4DC;
+      color: #0E1114;
+      border: 1.5px solid rgba(14, 17, 20, 0.12);
+      box-shadow: inset 0 2px 4px rgba(14, 17, 20, 0.06);
+      transition: all 0.24s ease;
+    }
+
+    .luxury-input::placeholder {
+      color: rgba(14, 17, 20, 0.46);
+    }
+
+    .luxury-input:hover {
+      border-color: rgba(214, 163, 58, 0.65);
+      background-color: #EFECE6;
+    }
+
+    .luxury-input:focus {
+      outline: none;
+      background-color: #F8F7F4;
+      border-color: #D6A33A;
+      box-shadow:
+        0 0 0 3.5px rgba(214, 163, 58, 0.28),
+        0 6px 16px -4px rgba(214, 163, 58, 0.22);
+    }
+
+    /* Primary Crimson (#C8102E -> #960B21) 3D CTA Button with Luxury Gold (#D6A33A) Trim */
+    .btn-crimson-3d {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #C8102E 0%, #960B21 100%);
+      color: #F8F7F4;
+      border: 1.5px solid #D6A33A;
+      box-shadow:
+        0 12px 26px -6px rgba(200, 16, 46, 0.5),
+        0 4px 0 0 #660615,
+        0 1px 0 0 rgba(248, 247, 244, 0.35) inset;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.2s ease;
+    }
+
+    .btn-crimson-3d:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.06);
+      box-shadow:
+        0 16px 32px -6px rgba(200, 16, 46, 0.62),
+        0 0 18px rgba(214, 163, 58, 0.35),
+        0 6px 0 0 #660615,
+        0 1px 0 0 rgba(248, 247, 244, 0.45) inset;
+    }
+
+    .btn-crimson-3d:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 5px 14px -2px rgba(200, 16, 46, 0.45),
+        0 1px 0 0 #660615;
+    }
+
+    /* Gold Sheen Sweep across Primary Crimson CTA */
+    .btn-gold-sheen::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -75%;
+      width: 48%;
+      height: 200%;
+      background: linear-gradient(
+        to left,
+        rgba(214, 163, 58, 0) 0%,
+        rgba(248, 247, 244, 0.34) 45%,
+        rgba(214, 163, 58, 0.38) 55%,
+        rgba(214, 163, 58, 0) 100%
+      );
+      transform: rotate(25deg);
+      animation: goldSheenSweep 4.2s infinite;
+    }
+
+    @keyframes goldSheenSweep {
+      0%, 62% { right: -75%; }
+      100% { right: 145%; }
+    }
+
+    /* Celebratory Burst Particles */
+    @keyframes burstFly {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(0.55) rotate(0deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--tx), var(--ty)) scale(1.25) rotate(var(--rot));
+      }
+    }
+
+    .burst-particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      animation: burstFly 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Floating Background Luxury Dust Particles */
+    @keyframes ambientDrift {
+      0%, 100% { transform: translateY(0px) scale(1); opacity: 0.35; }
+      50% { transform: translateY(-18px) scale(1.25); opacity: 0.85; }
+    }
+
+    .gold-dust {
+      animation: ambientDrift 6s ease-in-out infinite;
+    }
+
+    /* Stage 1: Rolling 3D Luxury Shopping Cart & Sequential Item Drop Animations */
+    @keyframes cartChassisBounce {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      25% { transform: translateY(-3px) rotate(-1.2deg); }
+      50% { transform: translateY(0.5px) rotate(0.8deg); }
+      75% { transform: translateY(-2.5px) rotate(-0.8deg); }
+    }
+
+    .cart-chassis-anim {
+      animation: cartChassisBounce 0.65s ease-in-out infinite;
+    }
+
+    @keyframes cartWheelSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-360deg); }
+    }
+
+    .cart-wheel-spin {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: cartWheelSpin 0.55s linear infinite;
+    }
+
+    @keyframes speedLineGlide {
+      0% { transform: translateX(-28px); opacity: 0; }
+      35% { opacity: 0.95; }
+      100% { transform: translateX(48px); opacity: 0; }
+    }
+
+    .cart-speed-line {
+      animation: speedLineGlide 0.85s ease-out infinite;
+    }
+
+    @keyframes itemDropPhysics {
+      0% {
+        opacity: 0;
+        transform: translateY(-78px) scale(0.35) rotate(-22deg);
+      }
+      58% {
+        opacity: 1;
+        transform: translateY(7px) scale(1.12) rotate(6deg);
+      }
+      78% {
+        transform: translateY(-4px) scale(0.96) rotate(-3deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0px) scale(1) rotate(0deg);
+      }
+    }
+
+    .cart-item-dropped {
+      animation: itemDropPhysics 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes goldSparklePop {
+      0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1.3) rotate(90deg); }
+      100% { opacity: 0; transform: scale(0.6) rotate(180deg); }
+    }
+
+    .sparkle-flash {
+      animation: goldSparklePop 0.75s ease-out forwards;
+    }
+
+    @keyframes checkBadgePop {
+      0% { opacity: 0; transform: scale(0.3) rotate(-25deg); }
+      65% { opacity: 1; transform: scale(1.15) rotate(6deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .badge-pop-in {
+      animation: checkBadgePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Bottom-Left Corner Toast Auto-Dismiss Progress Bar (6s) */
+    @keyframes toastGoldProgress {
+      0% { transform: scaleX(1); }
+      100% { transform: scaleX(0); }
+    }
+
+    .toast-progress-animate {
+      transform-origin: right center;
+      animation: toastGoldProgress 6s linear forwards;
+    }
+
+    /* Storefront 3D Luxury Product Card Hover Lift */
+    .luxury-product-card {
+      background: linear-gradient(165deg, #F8F7F4 0%, #F2EEE7 100%);
+      border: 1.5px solid rgba(14, 17, 20, 0.10);
+      box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.55);
+      transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.32s ease, border-color 0.25s ease;
+    }
+
+    .luxury-product-card:hover {
+      transform: translateY(-7px);
+      border-color: #D6A33A;
+      box-shadow:
+        0 24px 44px -12px rgba(0, 0, 0, 0.75),
+        0 10px 24px -8px rgba(200, 16, 46, 0.32);
+    }
+
+    /* Storefront Warm Off-White Atmospheric Surface */
+    .store-page-bg {
+      background-color: #F8F7F4;
+      background-image:
+        radial-gradient(circle at 90% 8%, rgba(214, 163, 58, 0.14), transparent 36%),
+        radial-gradient(circle at 10% 28%, rgba(200, 16, 46, 0.08), transparent 40%);
+    }
+  </style>
+</head>
+<body class="luxury-stage-bg relative min-h-screen selection:bg-crimson selection:text-offwhite">
+
+  <!-- =========================================================================
+       BOTTOM-LEFT CORNER FLOATING TOAST NOTIFICATION ("من جنب الشاشة من تحت")
+  ========================================================================== -->
+  <div
+    id="cornerToast"
+    role="status"
+    aria-live="polite"
+    class="fixed bottom-6 left-6 z-50 w-[calc(100vw-3rem)] max-w-sm pointer-events-none opacity-0 translate-y-6 -translate-x-4 transition-all duration-400 ease-out"
+  >
+    <div class="pointer-events-auto relative overflow-hidden rounded-2xl bg-slatex/95 backdrop-blur-xl text-offwhite border-2 border-gold shadow-[0_24px_50px_-10px_rgba(0,0,0,0.85)]">
+      <div class="p-4 flex items-start gap-3.5">
+        <!-- Animated Emerald & Gold Checkmark Badge -->
+        <div class="relative flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 border border-gold flex items-center justify-center shadow-lg shadow-emerald-600/30">
+          <svg class="w-5 h-5 text-offwhite" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gold animate-ping"></span>
+        </div>
+
+        <!-- Personalized Welcome / Action Content -->
+        <div class="flex-1 min-w-0 text-right">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <span id="cornerToastBadge" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gold/20 text-gold border border-gold/40">
+              متجر نُخبة VIP
+            </span>
+          </div>
+          <p id="cornerToastTitle" class="font-cairo font-extrabold text-sm text-offwhite leading-snug">
+            تم تسجيل الدخول بنجاح!
+          </p>
+          <p id="cornerToastSubtitle" class="font-tajawal text-xs text-neutralsoft/85 mt-0.5 leading-relaxed">
+            أهلاً بك في متجر نُخبة — سلتك جاهزة للتسوق
+          </p>
+        </div>
+
+        <!-- Close Button (×) -->
+        <button
+          id="closeCornerToastBtn"
+          type="button"
+          aria-label="إغلاق الإشعار"
+          class="flex-shrink-0 w-7 h-7 rounded-lg bg-offwhite/10 hover:bg-crimson text-neutralsoft hover:text-offwhite flex items-center justify-center text-base font-bold transition-colors cursor-pointer"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Luxury Gold Auto-Dismiss Progress Bar (6 Seconds) -->
+      <div class="h-1 w-full bg-offwhite/10">
+        <div id="cornerToastProgress" class="h-full w-full bg-gradient-to-l from-gold via-[#F3D48B] to-crimson"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       STAGE 1 & STAGE 2 VIEW: 3D AUTH PORTAL + 3D LOADING CART TRANSITION
+  ========================================================================== -->
+  <div id="authPortalView" class="relative flex flex-col items-center justify-center min-h-screen px-4 py-7 sm:py-11">
+
+    <!-- Ambient Crimson & Gold Orbs + Depth Particle Field -->
+    <div class="pointer-events-none fixed inset-0 overflow-hidden z-0" aria-hidden="true">
+      <div class="absolute -top-28 right-1/5 w-80 h-80 sm:w-[460px] sm:h-[460px] rounded-full bg-deepcrimson/35 blur-[120px]"></div>
+      <div class="absolute -bottom-24 left-1/5 w-80 h-80 sm:w-[430px] sm:h-[430px] rounded-full bg-gold/20 blur-[120px]"></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full border border-gold/10"></div>
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[760px] h-[760px] rounded-full border border-crimson/10"></div>
+
+      <!-- Subtle Floating Luxury Gold & Crimson Depth Particles -->
+      <span class="gold-dust absolute top-[18%] right-[14%] w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_#D6A33A]"></span>
+      <span class="gold-dust absolute top-[28%] left-[16%] w-1.5 h-1.5 rounded-full bg-crimson shadow-[0_0_10px_#C8102E]" style="animation-delay: 1.4s;"></span>
+      <span class="gold-dust absolute bottom-[22%] right-[20%] w-1.5 h-1.5 rounded-full bg-gold shadow-[0_0_12px_#D6A33A]" style="animation-delay: 2.6s;"></span>
+      <span class="gold-dust absolute bottom-[30%] left-[12%] w-2 h-2 rounded-full bg-gold/80 shadow-[0_0_10px_#D6A33A]" style="animation-delay: 3.5s;"></span>
+      <span class="gold-dust absolute top-[62%] right-[10%] w-1.5 h-1.5 rounded-full bg-crimson shadow-[0_0_10px_#C8102E]" style="animation-delay: 0.8s;"></span>
+    </div>
+
+    <!-- Top Storefront Luxury Header -->
+    <header class="relative z-30 w-full max-w-[495px] flex items-center justify-between mb-5 px-1">
+      <a href="#top" onclick="event.preventDefault(); window.resetToAuth();" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-crimson to-deepcrimson flex items-center justify-center shadow-lg shadow-crimson/35 border border-gold/70 group-hover:scale-105 transition-transform">
+          <!-- Luxury Gold Shopping Bag Crest -->
+          <svg class="w-5 h-5 text-gold" viewBox="0 0 24 24" fill="none">
+            <path d="M5.5 8.5H18.5L19.8 20H4.2L5.5 8.5Z" fill="currentColor" fill-opacity="0.92"/>
+            <path d="M9 8.5V6.2C9 4.43269 10.4327 3 12.2 3C13.9673 3 15.4 4.43269 15.4 6.2V8.5" stroke="#F8F7F4" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 12L13 14L15 14.3L13.5 15.7L13.9 17.7L12 16.7L10.1 17.7L10.5 15.7L9 14.3L11 14L12 12Z" fill="#0E1114"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-cairo font-black text-lg sm:text-xl tracking-tight text-offwhite">متجر نُخبة</span>
+            <span class="text-[10px] font-tajawal font-extrabold tracking-widest px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/45">
+              VIP STORE
+            </span>
+          </div>
+          <p class="font-tajawal text-xs text-neutralsoft/75 leading-tight">بوتيك التسوق الفاخر والمزايا الحصرية</p>
+        </div>
+      </a>
+
+      <!-- Interactive 3D Showcase Trigger -->
+      <button
+        id="pulse3dBtn"
+        type="button"
+        title="تفاعل مع الأيقونات ثلاثية الأبعاد"
+        class="flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-full bg-slatex/90 hover:bg-deepcrimson/40 text-gold border border-gold/45 shadow-lg shadow-black/50 transition-all active:scale-95 cursor-pointer"
+      >
+        <span class="inline-block w-2 h-2 rounded-full bg-gold animate-ping"></span>
+        <span>تفاعل 3D</span>
+      </button>
+    </header>
+
+    <!-- =========================================================================
+         MAIN 3D PERSPECTIVE STAGE (perspective: 1400px)
+    ========================================================================== -->
+    <main id="sceneStage" class="perspective-stage relative z-20 w-full max-w-[495px] my-auto py-4 sm:py-6">
+           "خصم 20% لأول طلب - WELCOME20" (Interactive: Hover 3D Spin & Click Copy)
+      ====================================================================== -->
+      <div
+        id="parallaxTag"
+        class="float-3d-layer float-obj-tag absolute -top-9 -left-2 sm:-top-11 sm:-left-12 z-30 select-none"
+      >
+        <button
+          id="floatingCouponBadge"
+          type="button"
+          title="اضغط لنسخ وتفعيل كود الخصم WELCOME20"
+          class="anim-float-b group relative w-28 h-24 sm:w-32 sm:h-28 drop-shadow-[0_18px_26px_rgba(214,163,58,0.45)] cursor-pointer focus:outline-none transition-transform duration-300 hover:scale-110"
+        >
+          <svg viewBox="0 0 148 130" class="w-full h-full overflow-visible">
+            <defs>
+              <linearGradient id="brushedGoldCard" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#F5D993" />
+                <stop offset="48%" stop-color="#D6A33A" />
+                <stop offset="100%" stop-color="#9B6E18" />
+              </linearGradient>
+              <linearGradient id="darkSlateDepth" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1E2329" />
+                <stop offset="100%" stop-color="#0E1114" />
+              </linearGradient>
+            </defs>
+
+            <!-- 3D Extruded Card Thickness -->
+            <g transform="rotate(-9 74 65)">
+              <rect x="14" y="24" width="122" height="82" rx="14" transform="translate(5, 6)" fill="#0E1114" stroke="#960B21" stroke-width="1.5" />
+
+              <!-- Brushed Luxury Gold Metallic Card Body -->
+              <rect x="14" y="24" width="122" height="82" rx="14" fill="url(#brushedGoldCard)" stroke="#F8F7F4" stroke-width="1.6" />
+
+              <!-- Dark Slate Top VIP Header Strip -->
+              <path d="M14 38 C14 30.3 20.3 24 28 24 H122 C129.7 24 136 30.3 136 38 V49 H14 Z" fill="url(#darkSlateDepth)" />
+
+              <!-- Coupon Side Notches -->
+              <circle cx="14" cy="66" r="6" fill="#0E1114" />
+              <circle cx="136" cy="66" r="6" fill="#0E1114" />
+
+              <!-- VIP Header Label -->
+              <text x="75" y="40" text-anchor="middle" fill="#D6A33A" font-weight="800" font-size="10.5" font-family="Cairo, sans-serif">
+                خصم 20% لأول طلب
+              </text>
+
+              <!-- Crimson Promo Pill Inside Gold Card -->
+              <rect x="27" y="55" width="96" height="24" rx="7" fill="#C8102E" stroke="#F8F7F4" stroke-width="1" />
+              <text x="75" y="71" text-anchor="middle" fill="#F8F7F4" font-weight="900" font-size="12" letter-spacing="0.8" font-family="Cairo, sans-serif">
+                WELCOME20
+              </text>
+
+              <!-- Bottom Micro Prompt -->
+              <text x="75" y="95" text-anchor="middle" fill="#0E1114" font-weight="800" font-size="9.5" font-family="Tajawal, sans-serif">
+                اضغط لتفعيل الكود ✨
+              </text>
+            </g>
+          </svg>
+        </button>
+      </div>
+
+      <!-- =====================================================================
+           STAGE 2: 3D SHOPPING CART LOADING TRANSITION (0% to 100%)
+           Directly transitions to Store Shopping Page at 100% without modal!
+      ====================================================================== -->
+      <div
+        id="celebrationOverlay"
+        class="hidden absolute inset-0 z-40 rounded-[1.75rem] bg-gradient-to-b from-offwhite via-[#F4F0E8] to-neutralsoft text-slatex border-2 border-gold p-6 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl overflow-hidden"
+      >
+        <!-- Ambient Radial Gold & Crimson Glow Inside Overlay -->
+        <div class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full bg-gold/20 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full bg-crimson/15 blur-3xl"></div>
+
+        <!-- INTERACTIVE 3D ROLLING SHOPPING CART LOADING (0% -> 100%) -->
+        <div id="cartLoadingStage" class="relative z-10 w-full flex flex-col items-center justify-center">
+          <span class="inline-flex items-center gap-2 text-xs font-extrabold px-3.5 py-1 rounded-full bg-slatex text-gold border border-gold/60 shadow-sm mb-4">
+            <span class="w-2 h-2 rounded-full bg-crimson animate-ping"></span>
+            <span>جاري تجهيز سلة التسوق والدخول للمتجر</span>
+          </span>
+
+          <!-- 3D Rolling Luxury Shopping Cart SVG Stage -->
+          <div class="relative w-64 h-44 sm:w-72 sm:h-48 flex items-center justify-center mb-3 select-none">
+            <!-- Golden Sparkles Popping When Items Drop -->
+            <span id="cartSparkle1" class="opacity-0 absolute top-5 right-14 text-gold text-lg font-black pointer-events-none">✦</span>
+            <span id="cartSparkle2" class="opacity-0 absolute top-3 left-16 text-crimson text-base font-black pointer-events-none">✨</span>
+            <span id="cartSparkle3" class="opacity-0 absolute top-7 left-10 text-gold text-xl font-black pointer-events-none">✦</span>
+
+            <svg viewBox="0 0 280 185" class="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="cartGoldFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#F4D58D" />
+                  <stop offset="50%" stop-color="#D6A33A" />
+                  <stop offset="100%" stop-color="#9A6D17" />
+                </linearGradient>
+                <linearGradient id="cartCrimsonBasket" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#C8102E" />
+                  <stop offset="100%" stop-color="#960B21" />
+                </linearGradient>
+                <linearGradient id="goldTrackGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="rgba(214,163,58,0)" />
+                  <stop offset="25%" stop-color="#D6A33A" />
+                  <stop offset="75%" stop-color="#D6A33A" />
+                  <stop offset="100%" stop-color="rgba(214,163,58,0)" />
+                </linearGradient>
+              </defs>
+
+              <!-- Luxury Gold Track Line -->
+              <rect x="22" y="156" width="236" height="4" rx="2" fill="url(#goldTrackGrad)" />
+              <ellipse cx="140" cy="162" rx="74" ry="5" fill="rgba(14,17,20,0.16)" />
+
+              <!-- Animated Motion Speed Lines Behind Cart -->
+              <g>
+                <rect x="26" y="88" width="26" height="3" rx="1.5" fill="#D6A33A" class="cart-speed-line" />
+                <rect x="16" y="106" width="34" height="3" rx="1.5" fill="#C8102E" class="cart-speed-line" style="animation-delay: 0.25s;" />
+                <rect x="30" y="124" width="22" height="3" rx="1.5" fill="#0E1114" opacity="0.45" class="cart-speed-line" style="animation-delay: 0.5s;" />
+              </g>
+
+              <!-- Rolling Cart Group -->
+              <g class="cart-chassis-anim">
+                <!-- SEQUENTIAL DROPPING LUXURY ITEMS INSIDE CART BASKET -->
+                <!-- Item 1: Crimson & Gold Gift Box -->
+                <g id="cartDropItem1" class="opacity-0">
+                  <g transform="translate(96, 48) rotate(-8)">
+                    <rect x="0" y="6" width="32" height="28" rx="4" fill="url(#cartCrimsonBasket)" stroke="#F8F7F4" stroke-width="1.2" />
+                    <rect x="13" y="6" width="6" height="28" fill="#D6A33A" />
+                    <rect x="0" y="17" width="32" height="5" fill="#D6A33A" />
+                    <circle cx="16" cy="5" r="4.5" fill="#D6A33A" />
+                  </g>
+                </g>
+
+                <!-- Item 2: Golden VIP Discount Tag -->
+                <g id="cartDropItem2" class="opacity-0">
+                  <g transform="translate(132, 42) rotate(10)">
+                    <rect x="0" y="0" width="34" height="24" rx="6" fill="url(#cartGoldFrame)" stroke="#0E1114" stroke-width="1.4" />
+                    <circle cx="7" cy="12" r="2.5" fill="#0E1114" />
+                    <text x="20" y="15.5" text-anchor="middle" fill="#0E1114" font-weight="900" font-size="9.5" font-family="Cairo, sans-serif">VIP</text>
+                  </g>
+                </g>
+
+                <!-- Item 3: Luxury Dark Slate & Gold Shopping Bag -->
+                <g id="cartDropItem3" class="opacity-0">
+                  <g transform="translate(162, 46) rotate(6)">
+                    <path d="M9 8 C9 1, 21 1, 21 8" fill="none" stroke="#D6A33A" stroke-width="2.5" stroke-linecap="round" />
+                    <rect x="3" y="8" width="24" height="27" rx="4" fill="#0E1114" stroke="#D6A33A" stroke-width="1.4" />
+                    <polygon points="15,15 17,19 21,19.5 18,22.5 18.8,26.5 15,24.5 11.2,26.5 12,22.5 9,19.5 13,19" fill="#D6A33A" />
+                  </g>
+                </g>
+
+                <!-- 3D Cart Back Lattice & Depth -->
+                <polygon points="84,68 206,68 192,122 96,122" fill="rgba(14,17,20,0.08)" />
+                <line x1="112" y1="68" x2="118" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="145" y1="68" x2="145" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="178" y1="68" x2="172" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="90" y1="95" x2="199" y2="95" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+
+                <!-- 3D Cart Front Crimson & Gold Frame -->
+                <polygon points="84,68 206,68 192,122 96,122" fill="none" stroke="#0E1114" stroke-width="4.5" stroke-linejoin="round" />
+                <polygon points="86,70 204,70 190,120 98,120" fill="none" stroke="url(#cartGoldFrame)" stroke-width="2" stroke-linejoin="round" />
+
+                <!-- Crimson VIP Emblem Plate on Cart Side -->
+                <rect x="122" y="84" width="46" height="22" rx="6" fill="url(#cartCrimsonBasket)" stroke="#D6A33A" stroke-width="1.5" />
+                <text x="145" y="98.5" text-anchor="middle" fill="#F8F7F4" font-weight="900" font-size="10" font-family="Cairo, sans-serif">نُخبة</text>
+
+                <!-- Cart Handlebar & Lower Chassis -->
+                <path d="M62,50 L78,50 L96,122 L88,136 L194,136" fill="none" stroke="#0E1114" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Luxury Gold Grip -->
+                <rect x="54" y="46" width="18" height="8" rx="4" fill="url(#cartCrimsonBasket)" stroke="#D6A33A" stroke-width="1.5" />
+
+                <!-- Rotating 3D Wheels -->
+                <g class="cart-wheel-spin">
+                  <circle cx="104" cy="146" r="11" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5" />
+                  <circle cx="104" cy="146" r="4" fill="#C8102E" />
+                  <line x1="104" y1="136" x2="104" y2="156" stroke="#F8F7F4" stroke-width="1.4" />
+                  <line x1="94" y1="146" x2="114" y2="146" stroke="#F8F7F4" stroke-width="1.4" />
+                </g>
+
+                <g class="cart-wheel-spin">
+                  <circle cx="182" cy="146" r="11" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5" />
+                  <circle cx="182" cy="146" r="4" fill="#C8102E" />
+                  <line x1="182" y1="136" x2="182" y2="156" stroke="#F8F7F4" stroke-width="1.4" />
+                  <line x1="172" y1="146" x2="192" y2="146" stroke="#F8F7F4" stroke-width="1.4" />
+                </g>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Live Percentage Counter & Dynamic Status Message -->
+          <div class="w-full max-w-xs mb-2 flex items-center justify-between px-1">
+            <span class="text-xs font-extrabold text-slatex/75">تقدم التجهيز</span>
+            <span id="cartProgressPercent" class="font-cairo text-lg font-black text-crimson tabular-nums">0%</span>
+          </div>
+
+          <!-- Sleek Soft Neutral Track with Primary Crimson to Luxury Gold Fill -->
+          <div class="w-full max-w-xs bg-neutralsoft border border-slatex/15 rounded-full h-3.5 overflow-hidden p-0.5 shadow-inner mb-3.5">
+            <div
+              id="cartPrepBar"
+              class="h-full w-0 rounded-full bg-gradient-to-l from-gold via-crimson to-deepcrimson transition-all duration-150 ease-out"
+            ></div>
+          </div>
+
+          <!-- Dynamic Arabic Loading Status Text -->
+          <p id="cartLoadingStatus" class="font-tajawal text-sm font-extrabold text-slatex min-h-[24px] transition-opacity duration-200">
+            جاري التحقق من بياناتك وتجهيز سلة التسوق...
+          </p>
+
+          <!-- 3 Mini Item Check Indicators -->
+          <div class="mt-4 flex items-center justify-center gap-2 text-[11px] font-bold">
+            <span id="stepChip1" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🎁 هدية الترحيب</span>
+            <span id="stepChip2" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🏷️ مزايا VIP</span>
+            <span id="stepChip3" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🔒 تأمين السلة</span>
+          </div>
+        </div>
+      </div>
+
+      </div>
+    </main>
+
+    <!-- Luxury Footer -->
+    <footer class="relative z-20 mt-6 text-center text-xs font-tajawal text-neutralsoft/60">
+      <p>جميع الحقوق محفوظة © 2026 متجر نُخبة — تجربة تسوق فاخرة ثلاثية الأبعاد</p>
+    </footer>
+  </div>
+
+  <!-- =========================================================================
+       STAGE 3 VIEW: FULL INTERACTIVE STORE SHOPPING PAGE ("صفحة التسوق")
+  ========================================================================== -->
+  <div id="storeShoppingView" class="hidden store-page-bg min-h-screen text-slatex flex flex-col">
+
+    <!-- Sticky Luxury Store Header (#0E1114 with #D6A33A Gold Logo & Controls) -->
+    <header class="sticky top-0 z-40 bg-slatex/95 backdrop-blur-xl text-offwhite border-b border-gold/45 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.75)]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <!-- Gold Store Brand Logo -->
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-crimson to-deepcrimson flex items-center justify-center border border-gold shadow-md shadow-crimson/40">
+              <svg class="w-5 h-5 text-gold" viewBox="0 0 24 24" fill="none">
+                <path d="M5.5 8.5H18.5L19.8 20H4.2L5.5 8.5Z" fill="currentColor" fill-opacity="0.92"/>
+                <path d="M9 8.5V6.2C9 4.43269 10.4327 3 12.2 3C13.9673 3 15.4 4.43269 15.4 6.2V8.5" stroke="#F8F7F4" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 12L13 14L15 14.3L13.5 15.7L13.9 17.7L12 16.7L10.1 17.7L10.5 15.7L9 14.3L11 14L12 12Z" fill="#0E1114"/>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-cairo font-black text-lg sm:text-xl text-gold">متجر نُخبة</span>
+                <span class="hidden sm:inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-crimson/30 text-gold border border-gold/40">
+                  VIP BOUTIQUE
+                </span>
+              </div>
+              <p class="font-tajawal text-[11px] text-neutralsoft/75">تشكيلة 2026 الحصرية</p>
+            </div>
+          </div>
+
+          <!-- Live Product Search Bar (Desktop & Tablet) -->
+          <div class="order-3 md:order-2 w-full md:w-auto md:flex-1 md:max-w-md">
+            <div class="relative">
+              <span class="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-gold/80">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+              </span>
+              <input
+                id="storeSearchInput"
+                type="search"
+                placeholder="ابحث عن ساعة فاخرة، عطر، إلكترونيات..."
+                class="w-full rounded-xl bg-offwhite/10 focus:bg-offwhite text-offwhite focus:text-slatex placeholder:text-neutralsoft/60 focus:placeholder:text-slatex/45 border border-gold/35 focus:border-gold pr-10 pl-4 py-2 text-xs sm:text-sm font-medium focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <!-- Logged-in User Pill + Logout + Cart Button -->
+          <div class="order-2 md:order-3 flex items-center gap-2 sm:gap-3">
+            <!-- User Name Pill + Logout -->
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-offwhite/10 border border-gold/40">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="headerUserName" class="text-xs font-extrabold text-offwhite max-w-[110px] sm:max-w-[150px] truncate">
+                متسوقنا المميز
+              </span>
+              <span class="text-gold/40">|</span>
+              <button
+                id="logoutToAuthBtn"
+                type="button"
+                class="text-[11px] font-extrabold text-gold hover:text-crimson transition-colors cursor-pointer"
+                title="العودة إلى بوابة تسجيل الدخول 3D"
+              >
+                تسجيل الخروج
+              </button>
+            </div>
+
+            <!-- Open Cart Drawer Button with Live Counter -->
+            <button
+              id="openCartDrawerBtn"
+              type="button"
+              class="relative flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-l from-crimson to-deepcrimson text-offwhite border border-gold shadow-lg shadow-crimson/35 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            >
+              <svg class="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span class="hidden sm:inline text-xs font-extrabold">السلة</span>
+              <span
+                id="headerCartCount"
+                class="min-w-[22px] h-[22px] px-1.5 rounded-full bg-gold text-slatex font-cairo font-black text-xs flex items-center justify-center shadow"
+              >
+                0
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Store Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+      <!-- Luxury Promotional Hero Banner -->
+      <section class="relative overflow-hidden rounded-3xl bg-slatex text-offwhite border-2 border-gold/70 p-6 sm:p-9 mb-8 shadow-[0_24px_54px_-14px_rgba(14,17,20,0.65)]">
+        <div class="pointer-events-none absolute -top-24 -left-24 w-80 h-80 rounded-full bg-crimson/35 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-24 right-10 w-80 h-80 rounded-full bg-gold/25 blur-3xl"></div>
+
+        <div class="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div class="max-w-2xl">
+            <div class="inline-flex items-center gap-2 text-xs font-extrabold px-3 py-1 rounded-full bg-crimson/35 text-gold border border-gold/55 mb-3">
+              <span>👑</span>
+              <span>عروض الأعضاء الحصرية • شحن سريع مجاني</span>
+            </div>
+            <h1 class="font-cairo text-2xl sm:text-4xl font-black text-offwhite leading-tight mb-2.5">
+              اكتشف فخامة التسوق مع تشكيلة <span class="text-gold">نُخبة 2026</span>
+            </h1>
+            <p class="font-tajawal text-sm sm:text-base text-neutralsoft/85 leading-relaxed">
+              مختارات استثنائية من الساعات السويسرية، العطور الشرقية النادرة، والإلكترونيات الذكية المصممة لأصحاب الذوق الرفيع.
+            </p>
+          </div>
+
+          <!-- Interactive WELCOME20 Banner Card -->
+          <div class="w-full lg:w-auto flex-shrink-0 rounded-2xl bg-gradient-to-br from-deepcrimson via-crimson to-slatex p-4 sm:p-5 border border-gold shadow-xl">
+            <div class="text-xs font-bold text-gold mb-1">هديتك الترحيبية الفورية</div>
+            <div class="font-cairo text-xl sm:text-2xl font-black text-offwhite mb-2">
+              خصم <span class="text-gold">20%</span> على سلتك
+            </div>
+            <button
+              id="heroApplyCouponBtn"
+              type="button"
+              class="w-full py-2 px-4 rounded-xl bg-gold hover:bg-[#e2b24c] text-slatex font-cairo font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              <span>تفعيل كود</span>
+              <span class="px-2 py-0.5 rounded bg-slatex text-gold tracking-wider">WELCOME20</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Category Filter Tabs & Product Count -->
+      <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div id="categoryTabs" class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-category="الكل"
+            class="category-tab-btn px-4 py-2 rounded-xl bg-gradient-to-l from-crimson to-deepcrimson text-offwhite border border-gold font-cairo font-extrabold text-xs sm:text-sm shadow-md transition-all cursor-pointer"
+          >
+            الكل
+          </button>
+          <button
+            type="button"
+            data-category="ساعات فاخرة"
+            class="category-tab-btn px-4 py-2 rounded-xl bg-neutralsoft hover:bg-gold/25 text-slatex border border-slatex/15 font-cairo font-bold text-xs sm:text-sm transition-all cursor-pointer"
+          >
+            ساعات فاخرة
+          </button>
+          <button
+            type="button"
+            data-category="إلكترونيات"
+            class="category-tab-btn px-4 py-2 rounded-xl bg-neutralsoft hover:bg-gold/25 text-slatex border border-slatex/15 font-cairo font-bold text-xs sm:text-sm transition-all cursor-pointer"
+          >
+            إلكترونيات
+          </button>
+          <button
+            type="button"
+            data-category="عطور وإكسسوارات"
+            class="category-tab-btn px-4 py-2 rounded-xl bg-neutralsoft hover:bg-gold/25 text-slatex border border-slatex/15 font-cairo font-bold text-xs sm:text-sm transition-all cursor-pointer"
+          >
+            عطور وإكسسوارات
+          </button>
+        </div>
+
+        <div class="text-xs font-extrabold text-slatex/70">
+          عرض <span id="visibleProductsCount" class="text-crimson font-black">8</span> منتجات فاخرة
+        </div>
+      </section>
+
+      <!-- Responsive Grid of 8 Luxury Product Cards -->
+      <section
+        id="productsGrid"
+        aria-label="قائمة المنتجات الفاخرة"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+      ></section>
+
+      <!-- Empty Search State -->
+      <div id="emptySearchState" class="hidden text-center py-16 px-4 rounded-3xl bg-neutralsoft/70 border border-slatex/15 mt-4">
+        <div class="text-4xl mb-3">🔍</div>
+        <h3 class="font-cairo text-lg font-black text-slatex mb-1">لم نجد منتجات مطابقة لبحثك</h3>
+        <p class="font-tajawal text-sm text-slatex/70 mb-4">جرّب البحث بكلمة أخرى أو استعرض جميع الأقسام الفاخرة.</p>
+        <button
+          id="clearFiltersBtn"
+          type="button"
+          class="btn-crimson-3d px-5 py-2.5 rounded-xl font-cairo font-extrabold text-xs cursor-pointer"
+        >
+          عرض جميع المنتجات
+        </button>
+      </div>
+    </main>
+
+    <!-- Storefront Footer -->
+    <footer class="bg-slatex text-neutralsoft/75 border-t border-gold/35 py-6 px-4 mt-12">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-tajawal">
+        <div class="flex items-center gap-2">
+          <span class="font-cairo font-black text-gold text-sm">متجر نُخبة</span>
+          <span>— وجهتك الأولى للتسوق الفاخر</span>
+        </div>
+        <p>جميع الحقوق محفوظة © 2026 متجر نُخبة VIP</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- =========================================================================
+       SLIDE-OVER SHOPPING CART DRAWER
+  ========================================================================== -->
+  <div id="cartDrawer" class="hidden fixed inset-0 z-50" aria-modal="true" role="dialog" aria-label="سلة التسوق">
+    <!-- Dark Slate Backdrop -->
+    <div id="cartDrawerBackdrop" class="fixed inset-0 bg-slatex/75 backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Drawer Panel (Slides in from Left for RTL Arabic) -->
+    <aside class="fixed inset-y-0 left-0 w-full max-w-md bg-offwhite text-slatex border-r-2 border-gold shadow-2xl flex flex-col z-10">
+      <!-- Drawer Header -->
+      <div class="px-5 py-4 bg-slatex text-offwhite border-b border-gold/50 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-xl bg-crimson border border-gold flex items-center justify-center text-gold">
+            🛍️
+          </span>
+          <div>
+            <h2 class="font-cairo font-black text-base text-offwhite">سلة التسوق الخاصة بك</h2>
+            <p class="font-tajawal text-[11px] text-gold">شحن سريع ومؤمّن لجميع الطلبات</p>
+          </div>
+        </div>
+        <button
+          id="closeCartDrawerBtn"
+          type="button"
+          aria-label="إغلاق السلة"
+          class="w-8 h-8 rounded-xl bg-offwhite/10 hover:bg-crimson text-offwhite flex items-center justify-center text-lg font-bold transition-colors cursor-pointer"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Cart Items Scrollable List -->
+      <div id="cartItemsContainer" class="flex-1 overflow-y-auto p-5 space-y-3.5"></div>
+
+      <!-- Cart Summary & Checkout Footer -->
+      <div class="p-5 bg-neutralsoft border-t border-slatex/15 space-y-3.5">
+        <!-- WELCOME20 Discount Toggle Box -->
+        <div class="flex items-center justify-between gap-2 p-3 rounded-xl bg-slatex text-offwhite border border-gold/60">
+          <div class="flex items-center gap-2">
+            <span class="text-gold text-base">🏷️</span>
+            <div>
+              <div class="text-xs font-extrabold">كود الخصم <span class="text-gold">WELCOME20</span></div>
+              <div class="text-[10px] text-neutralsoft/75">خصم 20% على إجمالي الطلب</div>
+            </div>
+          </div>
+          <button
+            id="cartToggleDiscountBtn"
+            type="button"
+            class="px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer"
+          >
+            تفعيل
+          </button>
+        </div>
+
+        <!-- Totals Breakdown -->
+        <div class="space-y-1.5 text-xs sm:text-sm font-bold">
+          <div class="flex items-center justify-between text-slatex/75">
+            <span>المجموع الفرعي</span>
+            <span id="cartSubtotalText">0 ج.م</span>
+          </div>
+          <div id="cartDiscountRow" class="hidden flex items-center justify-between text-crimson font-extrabold">
+            <span>خصم VIP (20%)</span>
+            <span id="cartDiscountText">- 0 ج.م</span>
+          </div>
+          <div class="pt-2 border-t border-slatex/15 flex items-center justify-between text-base font-cairo font-black text-slatex">
+            <span>الإجمالي النهائي</span>
+            <span id="cartTotalText" class="text-crimson">0 ج.م</span>
+          </div>
+        </div>
+
+        <!-- Checkout CTA -->
+        <button
+          id="checkoutOrderBtn"
+          type="button"
+          class="btn-crimson-3d btn-gold-sheen w-full py-3.5 px-5 rounded-xl font-cairo font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>إتمام الطلب الآن</span>
+          <span>←</span>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- =========================================================================
+       3D INTERACTIVITY, DIRECT STORE REDIRECT & SHOPPING CART ENGINE
+  ========================================================================== -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Views
+      const authPortalView = document.getElementById('authPortalView');
+      const storeShoppingView = document.getElementById('storeShoppingView');
+
+      // Core Stage & Flip Elements
+      const tiltWrapper = document.getElementById('tiltWrapper');
+      const flipCardInner = document.getElementById('flipCardInner');
+      const loginFace = document.getElementById('loginFace');
+      const signupFace = document.getElementById('signupFace');
+      const glareOverlays = document.querySelectorAll('.glare-overlay');
+
+      // 3D Floating Icon Layers & Inner Elements
+      const parallaxBag = document.getElementById('parallaxBag');
+      const parallaxTag = document.getElementById('parallaxTag');
+      const parallaxBox = document.getElementById('parallaxBox');
+      const parallaxLock = document.getElementById('parallaxLock');
+
+      const bagIconInner = document.getElementById('bagIconInner');
+      const bagPlusOne = document.getElementById('bagPlusOne');
+      const floatingCouponBadge = document.getElementById('floatingCouponBadge');
+      const lockIconInner = document.getElementById('lockIconInner');
+
+      // Interactive Controls
+      const toSignupBtn = document.getElementById('toSignupBtn');
+      const toLoginBtn = document.getElementById('toLoginBtn');
+      const switchModeBtns = document.querySelectorAll('[data-switch-mode]');
+      const pulse3dBtn = document.getElementById('pulse3dBtn');
+      const promoCouponBtn = document.getElementById('promoCouponBtn');
+      const promoStatusPill = document.getElementById('promoStatusPill');
+      const promoSubtext = document.getElementById('promoSubtext');
+      const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+
+      // Forms & Stage 2 Loading Overlay
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const quickFillLoginBtn = document.getElementById('quickFillLoginBtn');
+      const quickFillSignupBtn = document.getElementById('quickFillSignupBtn');
+
+      const celebrationOverlay = document.getElementById('celebrationOverlay');
+      const cartLoadingStage = document.getElementById('cartLoadingStage');
+      const cartProgressPercent = document.getElementById('cartProgressPercent');
+      const cartLoadingStatus = document.getElementById('cartLoadingStatus');
+      const cartPrepBar = document.getElementById('cartPrepBar');
+
+      const cartDropItem1 = document.getElementById('cartDropItem1');
+      const cartDropItem2 = document.getElementById('cartDropItem2');
+      const cartDropItem3 = document.getElementById('cartDropItem3');
+      const cartSparkle1 = document.getElementById('cartSparkle1');
+      const cartSparkle2 = document.getElementById('cartSparkle2');
+      const cartSparkle3 = document.getElementById('cartSparkle3');
+      const stepChip1 = document.getElementById('stepChip1');
+      const stepChip2 = document.getElementById('stepChip2');
+      const stepChip3 = document.getElementById('stepChip3');
+
+      // Bottom-Left Corner Toast Elements
+      const cornerToast = document.getElementById('cornerToast');
+      const cornerToastBadge = document.getElementById('cornerToastBadge');
+      const cornerToastTitle = document.getElementById('cornerToastTitle');
+      const cornerToastSubtitle = document.getElementById('cornerToastSubtitle');
+      const cornerToastProgress = document.getElementById('cornerToastProgress');
+      const closeCornerToastBtn = document.getElementById('closeCornerToastBtn');
+
+      // Store Shopping Page & Cart Drawer Elements
+      const headerUserName = document.getElementById('headerUserName');
+      const logoutToAuthBtn = document.getElementById('logoutToAuthBtn');
+      const storeSearchInput = document.getElementById('storeSearchInput');
+      const categoryTabs = document.querySelectorAll('.category-tab-btn');
+      const productsGrid = document.getElementById('productsGrid');
+      const visibleProductsCount = document.getElementById('visibleProductsCount');
+      const emptySearchState = document.getElementById('emptySearchState');
+      const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+      const heroApplyCouponBtn = document.getElementById('heroApplyCouponBtn');
+
+      const openCartDrawerBtn = document.getElementById('openCartDrawerBtn');
+      const closeCartDrawerBtn = document.getElementById('closeCartDrawerBtn');
+      const cartDrawer = document.getElementById('cartDrawer');
+      const cartDrawerBackdrop = document.getElementById('cartDrawerBackdrop');
+      const headerCartCount = document.getElementById('headerCartCount');
+      const cartItemsContainer = document.getElementById('cartItemsContainer');
+      const cartToggleDiscountBtn = document.getElementById('cartToggleDiscountBtn');
+      const cartSubtotalText = document.getElementById('cartSubtotalText');
+      const cartDiscountRow = document.getElementById('cartDiscountRow');
+      const cartDiscountText = document.getElementById('cartDiscountText');
+      const cartTotalText = document.getElementById('cartTotalText');
+      const checkoutOrderBtn = document.getElementById('checkoutOrderBtn');
+
+      let isFlipped = false;
+      let isCouponActivated = false;
+      let cornerToastTimeout = null;
+      let bagTypingCooldown = false;
+      let cartLoadingFrameId = null;
+
+      let activeCategory = 'الكل';
+      let searchQuery = '';
+      let cartItems = [];
+
+      // -----------------------------------------------------------------------
+      // 1. LUXURY BOTTOM-LEFT CORNER TOAST NOTIFICATION (6s AUTO-DISMISS)
+      // -----------------------------------------------------------------------
+      function hideCornerToast() {
+        clearTimeout(cornerToastTimeout);
+        cornerToast.classList.remove('opacity-100', 'translate-y-0', 'translate-x-0');
+        cornerToast.classList.add('opacity-0', 'translate-y-6', '-translate-x-4');
+      }
+
+      function showCornerToast(title, subtitle = '', badge = 'متجر نُخبة VIP') {
+        clearTimeout(cornerToastTimeout);
+        cornerToastTitle.textContent = title;
+        cornerToastSubtitle.textContent = subtitle;
+        cornerToastBadge.textContent = badge;
+
+        // Restart 6-second gold progress bar animation cleanly
+        cornerToastProgress.classList.remove('toast-progress-animate');
+        void cornerToastProgress.offsetWidth;
+        cornerToastProgress.classList.add('toast-progress-animate');
+
+        cornerToast.classList.remove('opacity-0', 'translate-y-6', '-translate-x-4');
+        cornerToast.classList.add('opacity-100', 'translate-y-0', 'translate-x-0');
+
+        cornerToastTimeout = setTimeout(() => {
+          hideCornerToast();
+        }, 6000);
+      }
+
+      closeCornerToastBtn.addEventListener('click', hideCornerToast);
+              <!-- Luxury Gold Track Line -->
+              <rect x="22" y="156" width="236" height="4" rx="2" fill="url(#goldTrackGrad)" />
+              <ellipse cx="140" cy="162" rx="74" ry="5" fill="rgba(14,17,20,0.16)" />
+
+              <!-- Animated Motion Speed Lines Behind Cart -->
+              <g>
+                <rect x="26" y="88" width="26" height="3" rx="1.5" fill="#D6A33A" class="cart-speed-line" />
+                <rect x="16" y="106" width="34" height="3" rx="1.5" fill="#C8102E" class="cart-speed-line" style="animation-delay: 0.25s;" />
+                <rect x="30" y="124" width="22" height="3" rx="1.5" fill="#0E1114" opacity="0.45" class="cart-speed-line" style="animation-delay: 0.5s;" />
+              </g>
+
+              <!-- Rolling Cart Group -->
+              <g class="cart-chassis-anim">
+                <!-- SEQUENTIAL DROPPING LUXURY ITEMS INSIDE CART BASKET -->
+                <!-- Item 1: Crimson & Gold Gift Box -->
+                <g id="cartDropItem1" class="opacity-0">
+                  <g transform="translate(96, 48) rotate(-8)">
+                    <rect x="0" y="6" width="32" height="28" rx="4" fill="url(#cartCrimsonBasket)" stroke="#F8F7F4" stroke-width="1.2" />
+                    <rect x="13" y="6" width="6" height="28" fill="#D6A33A" />
+                    <rect x="0" y="17" width="32" height="5" fill="#D6A33A" />
+                    <circle cx="16" cy="5" r="4.5" fill="#D6A33A" />
+                  </g>
+                </g>
+
+                <!-- Item 2: Golden VIP Discount Tag -->
+                <g id="cartDropItem2" class="opacity-0">
+                  <g transform="translate(132, 42) rotate(10)">
+                    <rect x="0" y="0" width="34" height="24" rx="6" fill="url(#cartGoldFrame)" stroke="#0E1114" stroke-width="1.4" />
+                    <circle cx="7" cy="12" r="2.5" fill="#0E1114" />
+                    <text x="20" y="15.5" text-anchor="middle" fill="#0E1114" font-weight="900" font-size="9.5" font-family="Cairo, sans-serif">VIP</text>
+                  </g>
+                </g>
+
+                <!-- Item 3: Luxury Dark Slate & Gold Shopping Bag -->
+                <g id="cartDropItem3" class="opacity-0">
+                  <g transform="translate(162, 46) rotate(6)">
+                    <path d="M9 8 C9 1, 21 1, 21 8" fill="none" stroke="#D6A33A" stroke-width="2.5" stroke-linecap="round" />
+                    <rect x="3" y="8" width="24" height="27" rx="4" fill="#0E1114" stroke="#D6A33A" stroke-width="1.4" />
+                    <polygon points="15,15 17,19 21,19.5 18,22.5 18.8,26.5 15,24.5 11.2,26.5 12,22.5 9,19.5 13,19" fill="#D6A33A" />
+                  </g>
+                </g>
+
+                <!-- 3D Cart Back Lattice & Depth -->
+                <polygon points="84,68 206,68 192,122 96,122" fill="rgba(14,17,20,0.08)" />
+                <line x1="112" y1="68" x2="118" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="145" y1="68" x2="145" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="178" y1="68" x2="172" y2="122" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+                <line x1="90" y1="95" x2="199" y2="95" stroke="rgba(14,17,20,0.22)" stroke-width="2" />
+
+                <!-- 3D Cart Front Crimson & Gold Frame -->
+                <polygon points="84,68 206,68 192,122 96,122" fill="none" stroke="#0E1114" stroke-width="4.5" stroke-linejoin="round" />
+                <polygon points="86,70 204,70 190,120 98,120" fill="none" stroke="url(#cartGoldFrame)" stroke-width="2" stroke-linejoin="round" />
+
+                <!-- Crimson VIP Emblem Plate on Cart Side -->
+                <rect x="122" y="84" width="46" height="22" rx="6" fill="url(#cartCrimsonBasket)" stroke="#D6A33A" stroke-width="1.5" />
+                <text x="145" y="98.5" text-anchor="middle" fill="#F8F7F4" font-weight="900" font-size="10" font-family="Cairo, sans-serif">نُخبة</text>
+
+                <!-- Cart Handlebar & Lower Chassis -->
+                <path d="M62,50 L78,50 L96,122 L88,136 L194,136" fill="none" stroke="#0E1114" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Luxury Gold Grip -->
+                <rect x="54" y="46" width="18" height="8" rx="4" fill="url(#cartCrimsonBasket)" stroke="#D6A33A" stroke-width="1.5" />
+
+                <!-- Rotating 3D Wheels -->
+                <g class="cart-wheel-spin">
+                  <circle cx="104" cy="146" r="11" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5" />
+                  <circle cx="104" cy="146" r="4" fill="#C8102E" />
+                  <line x1="104" y1="136" x2="104" y2="156" stroke="#F8F7F4" stroke-width="1.4" />
+                  <line x1="94" y1="146" x2="114" y2="146" stroke="#F8F7F4" stroke-width="1.4" />
+                </g>
+
+                <g class="cart-wheel-spin">
+                  <circle cx="182" cy="146" r="11" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5" />
+                  <circle cx="182" cy="146" r="4" fill="#C8102E" />
+                  <line x1="182" y1="136" x2="182" y2="156" stroke="#F8F7F4" stroke-width="1.4" />
+                  <line x1="172" y1="146" x2="192" y2="146" stroke="#F8F7F4" stroke-width="1.4" />
+                </g>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Live Percentage Counter & Dynamic Status Message -->
+          <div class="w-full max-w-xs mb-2 flex items-center justify-between px-1">
+            <span class="text-xs font-extrabold text-slatex/75">تقدم التجهيز</span>
+            <span id="cartProgressPercent" class="font-cairo text-lg font-black text-crimson tabular-nums">0%</span>
+          </div>
+
+          <!-- Sleek Soft Neutral Track with Primary Crimson to Luxury Gold Fill -->
+          <div class="w-full max-w-xs bg-neutralsoft border border-slatex/15 rounded-full h-3.5 overflow-hidden p-0.5 shadow-inner mb-3.5">
+            <div
+              id="cartPrepBar"
+              class="h-full w-0 rounded-full bg-gradient-to-l from-gold via-crimson to-deepcrimson transition-all duration-150 ease-out"
+            ></div>
+          </div>
+
+          <!-- Dynamic Arabic Loading Status Text -->
+          <p id="cartLoadingStatus" class="font-tajawal text-sm font-extrabold text-slatex min-h-[24px] transition-opacity duration-200">
+            جاري التحقق من بياناتك وتجهيز سلة التسوق...
+          </p>
+
+          <!-- 3 Mini Item Check Indicators -->
+          <div class="mt-4 flex items-center justify-center gap-2 text-[11px] font-bold">
+            <span id="stepChip1" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🎁 هدية الترحيب</span>
+            <span id="stepChip2" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🏷️ مزايا VIP</span>
+            <span id="stepChip3" class="px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all">🔒 تأمين السلة</span>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             STAGE 2: SUCCESS CONFIRMATION SCREEN (REVEALED AT 100%)
+        ==================================================================== -->
+        <div id="cartSuccessStage" class="hidden relative z-10 w-full flex flex-col items-center justify-center">
+          <!-- Transformed Cart Icon with Luxury Gold & Emerald Checkmark Badge -->
+          <div class="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-crimson to-deepcrimson border-2 border-gold flex items-center justify-center shadow-xl shadow-crimson/35 mb-5">
+            <svg class="w-11 h-11 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <!-- Luxury Gold & Emerald Checkmark Badge -->
+            <span class="badge-pop-in absolute -top-2.5 -left-2.5 w-9 h-9 rounded-full bg-emerald-600 border-2 border-gold text-offwhite flex items-center justify-center shadow-lg">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+          </div>
+
+          <span class="text-xs font-extrabold px-3.5 py-1 rounded-full bg-slatex text-gold border border-gold/60 mb-2.5">
+            تم بنجاح ✦ متجر نُخبة VIP
+          </span>
+
+          <h3 id="celebrationTitle" class="font-cairo text-2xl sm:text-[26px] font-black text-slatex mb-2 leading-tight">
+            تم إنشاء الحساب بنجاح! 🎉
+          </h3>
+
+          <p id="celebrationSubtitle" class="font-tajawal text-sm text-slatex/80 font-semibold max-w-xs leading-relaxed mb-4">
+            مرحباً بك في متجر نُخبة! تم تجهيز حسابك وسلة تسوقك بالكامل.
+          </p>
+
+          <!-- Confirmation Badge (Coupon or Synced Cart) -->
+          <div id="celebrationCouponBox" class="mb-5 px-4 py-2.5 rounded-xl bg-slatex text-offwhite border border-gold text-xs font-bold shadow-md">
+            🎁 تم تجهيز سلتك وتفعيل خصم 20% (<span class="tracking-wider text-gold font-extrabold">WELCOME20</span>)
+          </div>
+
+          <!-- Primary & Secondary Action Buttons -->
+          <div class="w-full max-w-xs space-y-2.5">
+            <button
+              type="button"
+              id="startShoppingBtn"
+              class="btn-crimson-3d btn-gold-sheen w-full py-3.5 px-5 rounded-xl font-cairo font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span id="startShoppingBtnText">ابدأ التسوق الآن 🛍️</span>
+            </button>
+
+            <button
+              type="button"
+              id="resetDemoBtn"
+              class="w-full py-2.5 px-4 rounded-xl bg-neutralsoft hover:bg-offwhite text-slatex border border-slatex/20 hover:border-gold text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer"
+            >
+              العودة للنموذج
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Luxury Footer -->
+  <footer class="relative z-20 mt-6 text-center text-xs font-tajawal text-neutralsoft/60">
+    <p>جميع الحقوق محفوظة © 2026 متجر نُخبة — تجربة تسوق فاخرة ثلاثية الأبعاد</p>
+  </footer>
+
+  <!-- =========================================================================
+       3D INTERACTIVITY & LUXURY STORE MICRO-INTERACTIONS ENGINE
+  ========================================================================== -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Core Stage & Flip Elements
+      const tiltWrapper = document.getElementById('tiltWrapper');
+      const flipCardInner = document.getElementById('flipCardInner');
+      const loginFace = document.getElementById('loginFace');
+      const signupFace = document.getElementById('signupFace');
+      const glareOverlays = document.querySelectorAll('.glare-overlay');
+
+      // 3D Floating Icon Layers & Inner Elements
+      const parallaxBag = document.getElementById('parallaxBag');
+      const parallaxTag = document.getElementById('parallaxTag');
+      const parallaxBox = document.getElementById('parallaxBox');
+      const parallaxLock = document.getElementById('parallaxLock');
+
+      const bagIconInner = document.getElementById('bagIconInner');
+      const bagPlusOne = document.getElementById('bagPlusOne');
+      const floatingCouponBadge = document.getElementById('floatingCouponBadge');
+      const lockIconInner = document.getElementById('lockIconInner');
+
+      // Interactive Controls
+      const toSignupBtn = document.getElementById('toSignupBtn');
+      const toLoginBtn = document.getElementById('toLoginBtn');
+      const switchModeBtns = document.querySelectorAll('[data-switch-mode]');
+      const pulse3dBtn = document.getElementById('pulse3dBtn');
+      const promoCouponBtn = document.getElementById('promoCouponBtn');
+      const promoStatusPill = document.getElementById('promoStatusPill');
+      const promoSubtext = document.getElementById('promoSubtext');
+      const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+      const resetDemoBtn = document.getElementById('resetDemoBtn');
+
+      // Forms & Celebration Overlay
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const quickFillLoginBtn = document.getElementById('quickFillLoginBtn');
+      const quickFillSignupBtn = document.getElementById('quickFillSignupBtn');
+
+      const celebrationOverlay = document.getElementById('celebrationOverlay');
+      const cartLoadingStage = document.getElementById('cartLoadingStage');
+      const cartSuccessStage = document.getElementById('cartSuccessStage');
+      const cartProgressPercent = document.getElementById('cartProgressPercent');
+      const cartLoadingStatus = document.getElementById('cartLoadingStatus');
+      const cartPrepBar = document.getElementById('cartPrepBar');
+
+      const cartDropItem1 = document.getElementById('cartDropItem1');
+      const cartDropItem2 = document.getElementById('cartDropItem2');
+      const cartDropItem3 = document.getElementById('cartDropItem3');
+      const cartSparkle1 = document.getElementById('cartSparkle1');
+      const cartSparkle2 = document.getElementById('cartSparkle2');
+      const cartSparkle3 = document.getElementById('cartSparkle3');
+      const stepChip1 = document.getElementById('stepChip1');
+      const stepChip2 = document.getElementById('stepChip2');
+      const stepChip3 = document.getElementById('stepChip3');
+
+      const celebrationTitle = document.getElementById('celebrationTitle');
+      const celebrationSubtitle = document.getElementById('celebrationSubtitle');
+      const celebrationCouponBox = document.getElementById('celebrationCouponBox');
+      const startShoppingBtn = document.getElementById('startShoppingBtn');
+      const startShoppingBtnText = document.getElementById('startShoppingBtnText');
+
+      // Toast Notification Elements
+      const storeToast = document.getElementById('storeToast');
+      const toastIcon = document.getElementById('toastIcon');
+      const toastMessage = document.getElementById('toastMessage');
+
+      let isFlipped = false;
+      let isCouponActivated = false;
+      let toastTimeout = null;
+      let bagTypingCooldown = false;
+      let cartLoadingFrameId = null;
+
+      // -----------------------------------------------------------------------
+      // 1. LUXURY TOAST HELPER
+      // -----------------------------------------------------------------------
+      function showToast(message, icon = '✓') {
+        clearTimeout(toastTimeout);
+        toastMessage.textContent = message;
+        toastIcon.textContent = icon;
+
+        storeToast.classList.remove('opacity-0', '-translate-y-4');
+        storeToast.classList.add('opacity-100', 'translate-y-0');
+
+        toastTimeout = setTimeout(() => {
+          storeToast.classList.remove('opacity-100', 'translate-y-0');
+          storeToast.classList.add('opacity-0', '-translate-y-4');
+        }, 3200);
+      }
+
+      // -----------------------------------------------------------------------
+      // 2. SMOOTH 180° 3D CARD FLIP & DYNAMIC HEIGHT SYNC
+      // -----------------------------------------------------------------------
+      function syncCardHeight() {
+        const activeFace = isFlipped ? signupFace : loginFace;
+        if (activeFace) {
+          flipCardInner.style.height = activeFace.offsetHeight + 'px';
+        }
+      }
+
+      function flipTo(mode) {
+        isFlipped = mode === 'signup';
+
+        if (isFlipped) {
+          flipCardInner.classList.add('is-flipped');
+          loginFace.classList.add('pointer-events-none');
+          loginFace.setAttribute('aria-hidden', 'true');
+          signupFace.classList.remove('pointer-events-none');
+          signupFace.setAttribute('aria-hidden', 'false');
+
+          // Spin 3D VIP Coupon Card on Sign Up Flip
+          floatingCouponBadge.classList.remove('coupon-spin-3d');
+          void floatingCouponBadge.offsetWidth;
+          floatingCouponBadge.classList.add('coupon-spin-3d');
+        } else {
+          flipCardInner.classList.remove('is-flipped');
+          signupFace.classList.add('pointer-events-none');
+          signupFace.setAttribute('aria-hidden', 'true');
+          loginFace.classList.remove('pointer-events-none');
+          loginFace.setAttribute('aria-hidden', 'false');
+        }
+
+        syncCardHeight();
+      }
+
+      syncCardHeight();
+      window.addEventListener('resize', syncCardHeight);
+
+      toSignupBtn.addEventListener('click', () => flipTo('signup'));
+      toLoginBtn.addEventListener('click', () => flipTo('login'));
+      switchModeBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          flipTo(btn.getAttribute('data-switch-mode'));
+        });
+      });
+
+      // -----------------------------------------------------------------------
+      // 3. MOUSE & TOUCH 3D PARALLAX TILT + GOLD/CRIMSON SPECULAR GLARE
+      // -----------------------------------------------------------------------
+      let targetRotateX = 0;
+      let targetRotateY = 0;
+      let currentRotateX = 0;
+      let currentRotateY = 0;
+      let pointerActive = false;
+
+      function handlePointerMove(clientX, clientY) {
+        const rect = tiltWrapper.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const normX = Math.max(-1.4, Math.min(1.4, (clientX - centerX) / (rect.width / 2)));
+        const normY = Math.max(-1.4, Math.min(1.4, (clientY - centerY) / (rect.height / 2)));
+
+        targetRotateY = normX * 8.5;
+        targetRotateX = -normY * 7.5;
+        pointerActive = true;
+
+        const relX = ((clientX - rect.left) / rect.width) * 100;
+        const relY = ((clientY - rect.top) / rect.height) * 100;
+        glareOverlays.forEach((glare) => {
+          glare.style.setProperty('--mouse-x', `${relX}%`);
+          glare.style.setProperty('--mouse-y', `${relY}%`);
+        });
+      }
+
+      document.addEventListener('mousemove', (e) => {
+        handlePointerMove(e.clientX, e.clientY);
+      });
+
+      document.addEventListener('mouseleave', () => {
+        pointerActive = false;
+        targetRotateX = 0;
+        targetRotateY = 0;
+      });
+
+      tiltWrapper.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      tiltWrapper.addEventListener('touchend', () => {
+        pointerActive = false;
+        targetRotateX = 0;
+        targetRotateY = 0;
+      });
+
+      function animate3DScene() {
+        currentRotateX += (targetRotateX - currentRotateX) * 0.1;
+        currentRotateY += (targetRotateY - currentRotateY) * 0.1;
+
+        tiltWrapper.style.transform = `rotateX(${currentRotateX.toFixed(2)}deg) rotateY(${currentRotateY.toFixed(2)}deg)`;
+
+        const px = currentRotateY * 1.45;
+        const py = -currentRotateX * 1.45;
+
+        parallaxBag.style.transform = `translate3d(${px * 1.2}px, ${py * 1.2}px, 80px)`;
+        parallaxTag.style.transform = `translate3d(${px * 1.45}px, ${py * 1.35}px, 95px)`;
+        parallaxBox.style.transform = `translate3d(${px * 0.95}px, ${py * 1.05}px, 65px)`;
+        parallaxLock.style.transform = `translate3d(${px * 1.25}px, ${py * 1.15}px, 85px)`;
+
+        requestAnimationFrame(animate3DScene);
+      }
+      requestAnimationFrame(animate3DScene);
+
+      // -----------------------------------------------------------------------
+      // 4. REACTIVE 3D SHOPPING ICONS (BAG BOUNCE, LOCK GLOW, COUPON SPIN)
+      // -----------------------------------------------------------------------
+      document.querySelectorAll('.bag-reactive-input').forEach((input) => {
+        input.addEventListener('input', () => {
+          if (bagTypingCooldown) return;
+          bagTypingCooldown = true;
+
+          bagIconInner.classList.remove('bag-react');
+          void bagIconInner.offsetWidth;
+          bagIconInner.classList.add('bag-react');
+
+          bagPlusOne.classList.remove('opacity-0', '-translate-y-1');
+          bagPlusOne.classList.add('opacity-100', '-translate-y-3');
+
+          setTimeout(() => {
+            bagPlusOne.classList.remove('opacity-100', '-translate-y-3');
+            bagPlusOne.classList.add('opacity-0', '-translate-y-1');
+            bagTypingCooldown = false;
+          }, 680);
+        });
+      });
+
+      document.querySelectorAll('.lock-reactive-input').forEach((input) => {
+        input.addEventListener('focus', () => {
+          lockIconInner.classList.remove('lock-engaged');
+          void lockIconInner.offsetWidth;
+          lockIconInner.classList.add('lock-engaged');
+        });
+      });
+
+      pulse3dBtn.addEventListener('click', () => {
+        bagIconInner.classList.remove('bag-react');
+        floatingCouponBadge.classList.remove('coupon-spin-3d');
+        lockIconInner.classList.remove('lock-engaged');
+        void tiltWrapper.offsetWidth;
+
+        bagIconInner.classList.add('bag-react');
+        setTimeout(() => floatingCouponBadge.classList.add('coupon-spin-3d'), 140);
+        setTimeout(() => lockIconInner.classList.add('lock-engaged'), 280);
+
+        targetRotateY = isFlipped ? -10 : 10;
+        targetRotateX = 7;
+        setTimeout(() => {
+          if (!pointerActive) {
+            targetRotateX = 0;
+            targetRotateY = 0;
+          }
+        }, 650);
+
+        showCornerToast(
+          'أيقونات التسوق الفاخرة تتفاعل معك!',
+          'حرّك المؤشر أو اكتب في الحقول لمشاهدة التأثير ثلاثي الأبعاد',
+          'تفاعل 3D 👑'
+        );
+      });
+
+      // -----------------------------------------------------------------------
+      // 5. SHOW / HIDE PASSWORD EYE TOGGLES
+      // -----------------------------------------------------------------------
+      document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-toggle-password');
+          const input = document.getElementById(targetId);
+          const eyeOpen = btn.querySelector('.eye-open');
+          const eyeClosed = btn.querySelector('.eye-closed');
+
+          if (input.type === 'password') {
+            input.type = 'text';
+            eyeOpen.classList.add('hidden');
+            eyeClosed.classList.remove('hidden');
+          } else {
+            input.type = 'password';
+            eyeClosed.classList.add('hidden');
+            eyeOpen.classList.remove('hidden');
+          }
+        });
+      });
+
+      // -----------------------------------------------------------------------
+      // 6. LIVE PASSWORD STRENGTH BAR (CRIMSON #C8102E -> LUXURY GOLD #D6A33A)
+      // -----------------------------------------------------------------------
+      const signupPasswordInput = document.getElementById('signupPassword');
+      const strengthBars = [
+        document.getElementById('strBar1'),
+        document.getElementById('strBar2'),
+        document.getElementById('strBar3'),
+        document.getElementById('strBar4'),
+      ];
+      const strengthText = document.getElementById('strengthText');
+
+      signupPasswordInput.addEventListener('input', () => {
+        const val = signupPasswordInput.value;
+        let score = 0;
+        if (val.length >= 6) score++;
+        if (val.length >= 9) score++;
+        if (/[A-Z]/.test(val) || /[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val) || (/[a-zA-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 8)) score++;
+
+        const labels = [
+          'قوة الحماية: بانتظار الإدخال',
+          'قوة الحماية: ضعيفة — أضف أرقاماً',
+          'قوة الحماية: متوسطة — مقبولة',
+          'قوة الحماية: قوية 🔒',
+          'قوة الحماية: فائقة الأمان 👑'
+        ];
+
+        const barStyles = [
+          'bg-neutralsoft border border-slatex/10',
+          'bg-crimson',
+          'bg-deepcrimson',
+          'bg-gold',
+          'bg-gradient-to-l from-gold to-crimson'
+        ];
+
+        const activeStyle = val.length === 0 ? barStyles[0] : barStyles[score];
+
+        strengthBars.forEach((bar, index) => {
+          bar.className = 'h-1.5 rounded-full transition-all duration-300 ' +
+            (val.length > 0 && index < score ? activeStyle : barStyles[0]);
+        });
+
+        strengthText.textContent = val.length === 0 ? labels[0] : labels[score];
+      });
+
+      // -----------------------------------------------------------------------
+      // 7. INTERACTIVE WELCOME20 COUPON ACTIVATION & CLIPBOARD COPY
+      // -----------------------------------------------------------------------
+      function activateWelcomeCoupon() {
+        const tempInput = document.createElement('input');
+        tempInput.value = 'WELCOME20';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          // Safe fallback if clipboard restricted
+        }
+        document.body.removeChild(tempInput);
+
+        isCouponActivated = true;
+        promoStatusPill.textContent = 'مُفعّل ✓';
+        promoStatusPill.className = 'flex-shrink-0 text-[11px] font-extrabold px-2.5 py-1 rounded-lg bg-crimson text-offwhite border border-gold shadow-sm';
+        promoSubtext.textContent = 'تم نسخ الكود WELCOME20 وتفعيل خصم 20%!';
+
+        floatingCouponBadge.classList.remove('coupon-spin-3d');
+        void floatingCouponBadge.offsetWidth;
+        floatingCouponBadge.classList.add('coupon-spin-3d');
+
+        updateCartDiscountUI();
+        renderCartDrawer();
+
+        showCornerToast(
+          'تم تفعيل كود الخصم WELCOME20!',
+          'حصلت على خصم 20% فوري على سلة تسوقك',
+          'خصم VIP 🏷️'
+        );
+      }
+
+      promoCouponBtn.addEventListener('click', activateWelcomeCoupon);
+      floatingCouponBadge.addEventListener('click', activateWelcomeCoupon);
+
+      // -----------------------------------------------------------------------
+      // 8. FORGOT PASSWORD & SOCIAL LOGIN MICRO-INTERACTIONS
+      // -----------------------------------------------------------------------
+      forgotPasswordBtn.addEventListener('click', () => {
+        showCornerToast(
+          'استعادة كلمة المرور',
+          'أدخل بريدك الإلكتروني أو جوالك وسنرسل لك رابط الاستعادة فوراً.',
+          'أمان الحساب 🔑'
+        );
+        document.getElementById('loginIdentifier').focus();
+      });
+
+      document.querySelectorAll('.social-auth-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const provider = btn.getAttribute('data-social');
+          triggerStoreCelebration(`عميل ${provider}`, false);
+        });
+      });
+
+      // -----------------------------------------------------------------------
+      // 9. STAGE 2 (3D LOADING CART) -> DIRECT REDIRECT TO STAGE 3 (STORE PAGE)
+      // -----------------------------------------------------------------------
+      function resetCartVisualItems() {
+        [cartDropItem1, cartDropItem2, cartDropItem3].forEach((item) => {
+          item.classList.remove('cart-item-dropped');
+          item.classList.add('opacity-0');
+        });
+        [cartSparkle1, cartSparkle2, cartSparkle3].forEach((sp) => {
+          sp.classList.remove('sparkle-flash');
+          sp.classList.add('opacity-0');
+        });
+        [stepChip1, stepChip2, stepChip3].forEach((chip) => {
+          chip.className = 'px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all';
+        });
+      }
+
+      function dropCartItem(itemEl, sparkleEl, chipEl) {
+        if (!itemEl.classList.contains('cart-item-dropped')) {
+          itemEl.classList.remove('opacity-0');
+          itemEl.classList.add('cart-item-dropped');
+          sparkleEl.classList.remove('opacity-0');
+          sparkleEl.classList.add('sparkle-flash');
+          chipEl.className = 'px-2.5 py-1 rounded-full bg-slatex text-gold border border-gold/60 shadow-sm transition-all scale-105';
+        }
+      }
+
+      function enterStoreShoppingPage(cleanName, isNewAccount) {
+        // Hide 3D Auth Portal & Reset Loading Overlay
+        celebrationOverlay.classList.add('hidden');
+        authPortalView.classList.add('hidden');
+
+        // Auto-activate WELCOME20 for newly registered members
+        if (isNewAccount) {
+          isCouponActivated = true;
+        }
+        updateCartDiscountUI();
+        renderCartDrawer();
+
+        // Populate Logged-in User Name in Store Header
+        headerUserName.textContent = cleanName;
+
+        // Reveal Full Store Shopping Page Immediately (No Full-Screen Success Modal!)
+        storeShoppingView.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Slide in Bottom-Left Corner Toast Notification simultaneously
+        if (isNewAccount) {
+          showCornerToast(
+            'تم إنشاء حسابك بنجاح وتفعيل كود WELCOME20!',
+            `أهلاً بك يا ${cleanName} في متجر نُخبة — استمتع بخصم 20% على سلتك.`,
+            'عضوية جديدة 🎉'
+          );
+        } else {
+          showCornerToast(
+            `تم تسجيل الدخول بنجاح! أهلاً بك يا ${cleanName}`,
+            isCouponActivated
+              ? 'تمت مزامنة سلة تسوقك مع تفعيل كود الخصم WELCOME20.'
+              : 'تمت مزامنة سلة تسوقك وعروضك الحصرية بنجاح.',
+            'تم الدخول بنجاح ✓'
+          );
+        }
+      }
+
+      function triggerStoreCelebration(displayName, isNewAccount) {
+        if (cartLoadingFrameId) {
+          cancelAnimationFrame(cartLoadingFrameId);
+        }
+
+        const cleanName = displayName && displayName.trim() ? displayName.trim() : 'متسوقنا المميز';
+
+        if (flipCardInner.offsetHeight < 475) {
+          flipCardInner.style.height = '475px';
+        }
+
+        // Show Stage 2: 3D Rolling Cart Loading Overlay
+        resetCartVisualItems();
+        cartLoadingStage.classList.remove('hidden');
+        celebrationOverlay.classList.remove('hidden');
+
+        cartProgressPercent.textContent = '0%';
+        cartPrepBar.style.width = '0%';
+        cartLoadingStatus.textContent = isNewAccount
+          ? 'جاري إنشاء حسابك وتجهيز سلتك الخاصة...'
+          : 'جاري التحقق من بياناتك وتجهيز سلة التسوق...';
+
+        const durationMs = 2600;
+        const startTime = performance.now();
+
+        function stepLoading(now) {
+          const elapsed = now - startTime;
+          const rawRatio = Math.min(1, elapsed / durationMs);
+          const easedRatio = 1 - Math.pow(1 - rawRatio, 1.35);
+          const pct = Math.min(100, Math.round(easedRatio * 100));
+
+          cartProgressPercent.textContent = `${pct}%`;
+          cartPrepBar.style.width = `${pct}%`;
+
+          // Sequential Item Drops into the Rolling Cart
+          if (pct >= 18) dropCartItem(cartDropItem1, cartSparkle1, stepChip1);
+          if (pct >= 48) dropCartItem(cartDropItem2, cartSparkle2, stepChip2);
+          if (pct >= 76) dropCartItem(cartDropItem3, cartSparkle3, stepChip3);
+
+          if (pct < 35) {
+            cartLoadingStatus.textContent = isNewAccount
+              ? 'جاري إنشاء حسابك وتجهيز سلتك الخاصة...'
+              : 'جاري التحقق من بياناتك وتجهيز سلة التسوق...';
+          } else if (pct < 70) {
+            cartLoadingStatus.textContent = 'إضافة مزايا العضوية وكود الخصم إلى السلة...';
+          } else {
+            cartLoadingStatus.textContent = 'الانتقال المباشر إلى واجهة المتجر...';
+          }
+
+          if (rawRatio < 1) {
+            cartLoadingFrameId = requestAnimationFrame(stepLoading);
+          } else {
+            // Immediately transition to Store Shopping Page + Bottom-Left Corner Toast
+            setTimeout(() => {
+              enterStoreShoppingPage(cleanName, isNewAccount);
+            }, 180);
+          }
+        }
+
+        cartLoadingFrameId = requestAnimationFrame(stepLoading);
+      }
+
+      window.resetToAuth = function () {
+        if (cartLoadingFrameId) {
+          cancelAnimationFrame(cartLoadingFrameId);
+        }
+        storeShoppingView.classList.add('hidden');
+        cartDrawer.classList.add('hidden');
+        authPortalView.classList.remove('hidden');
+        celebrationOverlay.classList.add('hidden');
+        cartPrepBar.style.width = '0%';
+        cartProgressPercent.textContent = '0%';
+        resetCartVisualItems();
+        syncCardHeight();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      logoutToAuthBtn.addEventListener('click', () => {
+        window.resetToAuth();
+        showCornerToast(
+          'تم تسجيل الخروج بنجاح',
+          'يمكنك تسجيل الدخول أو إنشاء حساب جديد في أي وقت.',
+          'بوابة الدخول 3D'
+        );
+      });
+
+      // Quick Demo Fill Buttons for Instant Testing
+      quickFillLoginBtn.addEventListener('click', () => {
+        document.getElementById('loginIdentifier').value = 'سارة المنصور';
+        document.getElementById('loginPassword').value = 'Nukhba2026!';
+        document.getElementById('loginIdentifierError').classList.add('hidden');
+        document.getElementById('loginPasswordError').classList.add('hidden');
+        bagIconInner.classList.remove('bag-react');
+        void bagIconInner.offsetWidth;
+        bagIconInner.classList.add('bag-react');
+        showCornerToast(
+          'تمت تعبئة البيانات التجريبية!',
+          'اضغط الآن على "تسجيل الدخول" لمشاهدة السلة والدخول للمتجر.',
+          'تعبئة سريعة ⚡'
+        );
+      });
+
+      quickFillSignupBtn.addEventListener('click', () => {
+        document.getElementById('signupName').value = 'سارة المنصور';
+        document.getElementById('signupIdentifier').value = 'sara.vip@nukhba.sa';
+        const passEl = document.getElementById('signupPassword');
+        passEl.value = 'Nukhba2026!';
+        passEl.dispatchEvent(new Event('input'));
+        document.getElementById('signupNameError').classList.add('hidden');
+        document.getElementById('signupIdentifierError').classList.add('hidden');
+        document.getElementById('signupPasswordError').classList.add('hidden');
+        showCornerToast(
+          'تمت تعبئة بيانات الحساب التجريبية!',
+          'اضغط الآن على "إنشاء حساب جديد" لتفعيل الخصم والدخول للمتجر.',
+          'تعبئة سريعة ⚡'
+        );
+      });
+        [cartSparkle1, cartSparkle2, cartSparkle3].forEach((sp) => {
+          sp.classList.remove('sparkle-flash');
+          sp.classList.add('opacity-0');
+        });
+        [stepChip1, stepChip2, stepChip3].forEach((chip) => {
+          chip.className = 'px-2.5 py-1 rounded-full bg-neutralsoft text-slatex/55 border border-slatex/10 transition-all';
+        });
+      }
+
+      function dropCartItem(itemEl, sparkleEl, chipEl) {
+        if (!itemEl.classList.contains('cart-item-dropped')) {
+          itemEl.classList.remove('opacity-0');
+          itemEl.classList.add('cart-item-dropped');
+          sparkleEl.classList.remove('opacity-0');
+          sparkleEl.classList.add('sparkle-flash');
+          chipEl.className = 'px-2.5 py-1 rounded-full bg-slatex text-gold border border-gold/60 shadow-sm transition-all scale-105';
+        }
+      }
+
+      function triggerStoreCelebration(displayName, isNewAccount) {
+        if (cartLoadingFrameId) {
+          cancelAnimationFrame(cartLoadingFrameId);
+        }
+
+        const cleanName = displayName && displayName.trim() ? displayName.trim() : 'متسوقنا المميز';
+
+        // Ensure card height accommodates the 2-stage overlay cleanly
+        if (flipCardInner.offsetHeight < 495) {
+          flipCardInner.style.height = '495px';
+        }
+
+        // Prepare Stage 1 (Cart Loading) & hide Stage 2 (Success)
+        resetCartVisualItems();
+        cartSuccessStage.classList.add('hidden');
+        cartLoadingStage.classList.remove('hidden');
+        celebrationOverlay.classList.remove('hidden');
+
+        cartProgressPercent.textContent = '0%';
+        cartPrepBar.style.width = '0%';
+        cartLoadingStatus.textContent = isNewAccount
+          ? 'جاري إنشاء حسابك وتجهيز سلتك الخاصة...'
+          : 'جاري التحقق من بياناتك وتجهيز سلة التسوق...';
+
+        const durationMs = 2800;
+        const startTime = performance.now();
+
+        function stepLoading(now) {
+          const elapsed = now - startTime;
+          const rawRatio = Math.min(1, elapsed / durationMs);
+          // Smooth ease-out curve for natural progress feel
+          const easedRatio = 1 - Math.pow(1 - rawRatio, 1.35);
+          const pct = Math.min(100, Math.round(easedRatio * 100));
+
+          cartProgressPercent.textContent = `${pct}%`;
+          cartPrepBar.style.width = `${pct}%`;
+
+          // Sequential Item Drops into the Rolling Cart
+          if (pct >= 18) dropCartItem(cartDropItem1, cartSparkle1, stepChip1);
+          if (pct >= 48) dropCartItem(cartDropItem2, cartSparkle2, stepChip2);
+          if (pct >= 76) dropCartItem(cartDropItem3, cartSparkle3, stepChip3);
+
+          // Dynamic Arabic Status Messages across 3 stages
+          if (pct < 35) {
+            cartLoadingStatus.textContent = isNewAccount
+              ? 'جاري إنشاء حسابك وتجهيز سلتك الخاصة...'
+              : 'جاري التحقق من بياناتك وتجهيز سلة التسوق...';
+          } else if (pct < 70) {
+            cartLoadingStatus.textContent = 'إضافة مزايا العضوية وكود الخصم إلى السلة...';
+          } else {
+            cartLoadingStatus.textContent = 'تأمين السلة وربطها بحسابك بنجاح...';
+          }
+
+          if (rawRatio < 1) {
+            cartLoadingFrameId = requestAnimationFrame(stepLoading);
+          } else {
+            // Stage 2: Reveal Success Confirmation Card at 100%
+            setTimeout(() => {
+              launchShoppingBurst();
+
+              if (isNewAccount) {
+                celebrationTitle.textContent = 'تم إنشاء الحساب بنجاح! 🎉';
+                celebrationSubtitle.textContent = `أهلاً بك يا ${cleanName} في متجر نُخبة! تم تجهيز حسابك وسلة تسوقك بالكامل.`;
+                celebrationCouponBox.innerHTML = '🎁 تم تجهيز سلتك وتفعيل خصم 20% (<span class="tracking-wider text-gold font-extrabold">WELCOME20</span>)';
+                startShoppingBtnText.textContent = 'ابدأ التسوق الآن 🛍️';
+              } else {
+                celebrationTitle.textContent = 'تم تسجيل الدخول بنجاح! أهلاً بعودتك 🛍️';
+                celebrationSubtitle.textContent = `سعداء بعودتك يا ${cleanName}! تمت مزامنة سلة تسوقك وعروضك الحصرية بنجاح.`;
+                celebrationCouponBox.innerHTML = isCouponActivated
+                  ? '✨ سلة تسوقك جاهزة مع كود الخصم <span class="tracking-wider text-gold font-extrabold">WELCOME20</span>'
+                  : '✨ سلة تسوقك متزامنة وجاهزة لإتمام الطلب';
+                startShoppingBtnText.textContent = 'متابعة التسوق الآن 🛍️';
+              }
+
+              cartLoadingStage.classList.add('hidden');
+              cartSuccessStage.classList.remove('hidden');
+            }, 220);
+          }
+        }
+
+        cartLoadingFrameId = requestAnimationFrame(stepLoading);
+      }
+
+      window.resetToAuth = function () {
+        if (cartLoadingFrameId) {
+          cancelAnimationFrame(cartLoadingFrameId);
+        }
+        celebrationOverlay.classList.add('hidden');
+        cartLoadingStage.classList.remove('hidden');
+        cartSuccessStage.classList.add('hidden');
+        cartPrepBar.style.width = '0%';
+        cartProgressPercent.textContent = '0%';
+        resetCartVisualItems();
+        syncCardHeight();
+      };
+
+      resetDemoBtn.addEventListener('click', window.resetToAuth);
+
+      startShoppingBtn.addEventListener('click', () => {
+        launchShoppingBurst();
+        showToast('تم الانتقال إلى واجهة المتجر وسلتك جاهزة!', '🛍️');
+      });
+
+      // Quick Demo Fill Buttons for Instant Testing
+      quickFillLoginBtn.addEventListener('click', () => {
+        document.getElementById('loginIdentifier').value = 'sara.vip@nukhba.sa';
+        document.getElementById('loginPassword').value = 'Nukhba2026!';
+        document.getElementById('loginIdentifierError').classList.add('hidden');
+        document.getElementById('loginPasswordError').classList.add('hidden');
+        bagIconInner.classList.remove('bag-react');
+        void bagIconInner.offsetWidth;
+        bagIconInner.classList.add('bag-react');
+        showToast('تم ملء بيانات الدخول التجريبية — اضغط تسجيل الدخول!', '⚡');
+      });
+
+      quickFillSignupBtn.addEventListener('click', () => {
+        document.getElementById('signupName').value = 'سارة المنصور';
+        document.getElementById('signupIdentifier').value = 'sara.vip@nukhba.sa';
+        const passEl = document.getElementById('signupPassword');
+        passEl.value = 'Nukhba2026!';
+        passEl.dispatchEvent(new Event('input'));
+        document.getElementById('signupNameError').classList.add('hidden');
+        document.getElementById('signupIdentifierError').classList.add('hidden');
+        document.getElementById('signupPasswordError').classList.add('hidden');
+        showToast('تم ملء بيانات التسجيل التجريبية — اضغط إنشاء حساب جديد!', '⚡');
+      });
+
+      // Login Form Validation & Submit
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const idInput = document.getElementById('loginIdentifier');
+        const passInput = document.getElementById('loginPassword');
+        const idError = document.getElementById('loginIdentifierError');
+        const passError = document.getElementById('loginPasswordError');
+
+        let valid = true;
+        idError.classList.add('hidden');
+        passError.classList.add('hidden');
+
+        if (!idInput.value.trim()) {
+          idError.textContent = 'يرجى إدخال البريد الإلكتروني أو رقم الجوال للمتابعة.';
+          idError.classList.remove('hidden');
+          valid = false;
+        }
+
+        if (passInput.value.trim().length < 4) {
+          passError.textContent = 'يرجى إدخال كلمة المرور الخاصة بحسابك.';
+          passError.classList.remove('hidden');
+          valid = false;
+        }
+
+        if (!valid) {
+          syncCardHeight();
+          return;
+        }
+
+        const userLabel = idInput.value.includes('@')
+          ? idInput.value.split('@')[0]
+          : idInput.value;
+        triggerStoreCelebration(userLabel, false);
+      });
+
+      // Sign Up Form Validation & Submit
+      signupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('signupName');
+        const idInput = document.getElementById('signupIdentifier');
+        const passInput = document.getElementById('signupPassword');
+
+        const nameError = document.getElementById('signupNameError');
+        const idError = document.getElementById('signupIdentifierError');
+        const passError = document.getElementById('signupPasswordError');
+
+        let valid = true;
+        nameError.classList.add('hidden');
+        idError.classList.add('hidden');
+        passError.classList.add('hidden');
+
+        if (nameInput.value.trim().length < 2) {
+          nameError.textContent = 'يرجى كتابة اسمك الكامل.';
+          nameError.classList.remove('hidden');
+          valid = false;
+        }
+
+        if (!idInput.value.trim()) {
+          idError.textContent = 'يرجى إدخال البريد الإلكتروني أو رقم الجوال.';
+          idError.classList.remove('hidden');
+          valid = false;
+        }
+
+        if (passInput.value.trim().length < 6) {
+          passError.textContent = 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل لحماية حسابك.';
+          passError.classList.remove('hidden');
+          valid = false;
+        }
+
+        if (!valid) {
+          syncCardHeight();
+          return;
+        }
+
+        triggerStoreCelebration(nameInput.value, true);
+      });
+
+      // -----------------------------------------------------------------------
+      // 10. STAGE 3: LUXURY STORE PRODUCTS CATALOG & INTERACTIVE CART DRAWER
+      // -----------------------------------------------------------------------
+      const LUXURY_PRODUCTS = [
+        {
+          id: 1,
+          name: 'ساعة أوريون كرونوغراف الملكية',
+          category: 'ساعات فاخرة',
+          price: 14850,
+          rating: '4.9',
+          reviews: 128,
+          badge: 'الأكثر مبيعاً',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="66" y="8" width="28" height="24" rx="4" fill="#0E1114" stroke="#D6A33A" stroke-width="1.5"/>
+              <rect x="66" y="98" width="28" height="24" rx="4" fill="#0E1114" stroke="#D6A33A" stroke-width="1.5"/>
+              <circle cx="80" cy="65" r="36" fill="#D6A33A" stroke="#0E1114" stroke-width="2"/>
+              <circle cx="80" cy="65" r="30" fill="#0E1114"/>
+              <circle cx="80" cy="65" r="24" fill="none" stroke="#D6A33A" stroke-width="1" stroke-dasharray="2 4"/>
+              <line x1="80" y1="65" x2="80" y2="47" stroke="#F8F7F4" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="80" y1="65" x2="94" y2="65" stroke="#C8102E" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="80" cy="65" r="3.5" fill="#D6A33A"/>
+            </svg>`
+        },
+        {
+          id: 2,
+          name: 'سماعات نُخبة برو اللاسلكية ANC',
+          category: 'إلكترونيات',
+          price: 6400,
+          rating: '4.8',
+          reviews: 94,
+          badge: 'عزل ذكي',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <path d="M42 72 C42 36, 118 36, 118 72" fill="none" stroke="#0E1114" stroke-width="8" stroke-linecap="round"/>
+              <path d="M46 68 C46 40, 114 40, 114 68" fill="none" stroke="#D6A33A" stroke-width="2.5" stroke-linecap="round"/>
+              <rect x="30" y="64" width="22" height="36" rx="10" fill="#C8102E" stroke="#D6A33A" stroke-width="2"/>
+              <rect x="108" y="64" width="22" height="36" rx="10" fill="#C8102E" stroke="#D6A33A" stroke-width="2"/>
+              <circle cx="41" cy="82" r="5" fill="#0E1114"/>
+              <circle cx="119" cy="82" r="5" fill="#0E1114"/>
+            </svg>`
+        },
+        {
+          id: 3,
+          name: 'عطر رويال عود آند عنبر 100 مل',
+          category: 'عطور وإكسسوارات',
+          price: 3250,
+          rating: '5.0',
+          reviews: 215,
+          badge: 'إصدار محدود',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="68" y="16" width="24" height="16" rx="3" fill="#D6A33A" stroke="#0E1114" stroke-width="1.5"/>
+              <rect x="73" y="32" width="14" height="8" fill="#0E1114"/>
+              <rect x="48" y="40" width="64" height="72" rx="12" fill="#960B21" stroke="#D6A33A" stroke-width="2.2"/>
+              <rect x="58" y="54" width="44" height="44" rx="6" fill="#0E1114" stroke="#D6A33A" stroke-width="1.2"/>
+              <text x="80" y="75" text-anchor="middle" fill="#D6A33A" font-weight="900" font-size="10" font-family="Cairo, sans-serif">ROYAL</text>
+              <text x="80" y="88" text-anchor="middle" fill="#F8F7F4" font-weight="700" font-size="8" font-family="Tajawal, sans-serif">OUD VIP</text>
+            </svg>`
+        },
+        {
+          id: 4,
+          name: 'ساعة فينيسيا توربيون الكلاسيكية',
+          category: 'ساعات فاخرة',
+          price: 19200,
+          rating: '4.9',
+          reviews: 64,
+          badge: 'فخامة ملكية',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="67" y="10" width="26" height="22" rx="4" fill="#960B21" stroke="#D6A33A" stroke-width="1.4"/>
+              <rect x="67" y="98" width="26" height="22" rx="4" fill="#960B21" stroke="#D6A33A" stroke-width="1.4"/>
+              <rect x="48" y="33" width="64" height="64" rx="16" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5"/>
+              <circle cx="80" cy="65" r="22" fill="#F8F7F4" stroke="#D6A33A" stroke-width="1.5"/>
+              <line x1="80" y1="65" x2="80" y2="50" stroke="#0E1114" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="80" y1="65" x2="91" y2="71" stroke="#C8102E" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="80" cy="65" r="3" fill="#D6A33A"/>
+            </svg>`
+        },
+        {
+          id: 5,
+          name: 'نظارة تيتانيوم غولد الشمسية',
+          category: 'عطور وإكسسوارات',
+          price: 2890,
+          rating: '4.7',
+          reviews: 81,
+          badge: 'عدسات مستقطبة',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="24" y="48" width="46" height="32" rx="10" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5"/>
+              <rect x="90" y="48" width="46" height="32" rx="10" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5"/>
+              <path d="M70 58 Q80 52 90 58" fill="none" stroke="#D6A33A" stroke-width="3" stroke-linecap="round"/>
+              <line x1="32" y1="56" x2="46" y2="72" stroke="rgba(214,163,58,0.45)" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="98" y1="56" x2="112" y2="72" stroke="rgba(214,163,58,0.45)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>`
+        },
+        {
+          id: 6,
+          name: 'ساعة ذكية نُخبة ألترا أموليد',
+          category: 'إلكترونيات',
+          price: 8750,
+          rating: '4.9',
+          reviews: 152,
+          badge: 'جديد 2026',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="65" y="10" width="30" height="22" rx="5" fill="#C8102E"/>
+              <rect x="65" y="98" width="30" height="22" rx="5" fill="#C8102E"/>
+              <rect x="52" y="32" width="56" height="66" rx="14" fill="#0E1114" stroke="#D6A33A" stroke-width="2.5"/>
+              <circle cx="80" cy="65" r="18" fill="none" stroke="#C8102E" stroke-width="3"/>
+              <path d="M80 47 A18 18 0 1 1 64 73" fill="none" stroke="#D6A33A" stroke-width="3" stroke-linecap="round"/>
+              <text x="80" y="69" text-anchor="middle" fill="#F8F7F4" font-weight="900" font-size="10" font-family="Cairo, sans-serif">10:09</text>
+            </svg>`
+        },
+        {
+          id: 7,
+          name: 'حقيبة يد جلدية كافيار قرمزية',
+          category: 'عطور وإكسسوارات',
+          price: 7900,
+          rating: '4.9',
+          reviews: 109,
+          badge: 'تصميم حصري',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <path d="M58 48 C58 26, 102 26, 102 48" fill="none" stroke="#D6A33A" stroke-width="4.5" stroke-linecap="round"/>
+              <path d="M40 48 H120 L126 106 H34 Z" fill="#C8102E" stroke="#0E1114" stroke-width="2"/>
+              <path d="M40 48 L80 74 L120 48" fill="#960B21" stroke="#D6A33A" stroke-width="1.8"/>
+              <circle cx="80" cy="74" r="6" fill="#D6A33A" stroke="#0E1114" stroke-width="1.5"/>
+            </svg>`
+        },
+        {
+          id: 8,
+          name: 'مكبر صوت منزلي كريستال 360',
+          category: 'إلكترونيات',
+          price: 5150,
+          rating: '4.8',
+          reviews: 77,
+          badge: 'صوت محيطي',
+          svg: `
+            <svg viewBox="0 0 160 130" class="w-32 h-28 drop-shadow-md">
+              <rect x="52" y="20" width="56" height="88" rx="24" fill="#0E1114" stroke="#D6A33A" stroke-width="2.2"/>
+              <ellipse cx="80" cy="28" rx="22" ry="6" fill="#C8102E" stroke="#D6A33A" stroke-width="1.2"/>
+              <circle cx="80" cy="68" r="14" fill="none" stroke="#D6A33A" stroke-width="2"/>
+              <circle cx="80" cy="68" r="6" fill="#C8102E"/>
+            </svg>`
+        }
+      ];
+
+      function formatPriceEGP(amount) {
+        return amount.toLocaleString('en-US') + ' ج.م';
+      }
+
+      function renderProductsGrid() {
+        const filtered = LUXURY_PRODUCTS.filter((p) => {
+          const matchesCat = activeCategory === 'الكل' || p.category === activeCategory;
+          const matchesSearch =
+            !searchQuery ||
+            p.name.includes(searchQuery) ||
+            p.category.includes(searchQuery);
+          return matchesCat && matchesSearch;
+        });
+
+        visibleProductsCount.textContent = filtered.length;
+
+        if (filtered.length === 0) {
+          productsGrid.innerHTML = '';
+          emptySearchState.classList.remove('hidden');
+          return;
+        }
+
+        emptySearchState.classList.add('hidden');
+        productsGrid.innerHTML = filtered
+          .map(
+            (product) => `
+          <article class="luxury-product-card rounded-3xl p-4 flex flex-col justify-between">
+            <div>
+              <!-- Top Category & Badge -->
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-neutralsoft text-slatex border border-slatex/10">
+                  ${product.category}
+                </span>
+                <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slatex text-gold border border-gold/50">
+                  ${product.badge}
+                </span>
+              </div>
+
+              <!-- Soft Neutral (#E9E4DC) Product Showcase Frame -->
+              <div class="relative h-40 rounded-2xl bg-neutralsoft border border-slatex/10 flex items-center justify-center mb-4 overflow-hidden group">
+                <div class="transition-transform duration-300 group-hover:scale-110">
+                  ${product.svg}
+                </div>
+              </div>
+
+              <!-- Rating -->
+              <div class="flex items-center gap-1.5 text-xs font-bold text-slatex/75 mb-1">
+                <span class="text-gold text-sm">★</span>
+                <span class="font-extrabold text-slatex">${product.rating}</span>
+                <span class="text-[11px]">(${product.reviews} تقييم)</span>
+              </div>
+
+              <!-- Title -->
+              <h3 class="font-cairo font-black text-base text-slatex leading-snug mb-3">
+                ${product.name}
+              </h3>
+            </div>
+
+            <!-- Price & Add to Cart CTA -->
+            <div class="pt-3 border-t border-neutralsoft flex items-center justify-between gap-2">
+              <div>
+                <span class="block text-[10px] font-bold text-slatex/60">السعر</span>
+                <span class="font-cairo font-black text-base sm:text-lg text-crimson">
+                  ${formatPriceEGP(product.price)}
+                </span>
+              </div>
+              <button
+                type="button"
+                data-add-product-id="${product.id}"
+                class="btn-crimson-3d px-3.5 py-2.5 rounded-xl font-cairo font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>أضف للسلة</span>
+                <span class="text-gold">+</span>
+              </button>
+            </div>
+          </article>
+        `
+          )
+          .join('');
+      }
+
+      // Initial render of 8 luxury products
+      renderProductsGrid();
+
+      // Category Tab Switching
+      categoryTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          activeCategory = tab.getAttribute('data-category');
+          categoryTabs.forEach((btn) => {
+            const isActive = btn === tab;
+            btn.className = isActive
+              ? 'category-tab-btn px-4 py-2 rounded-xl bg-gradient-to-l from-crimson to-deepcrimson text-offwhite border border-gold font-cairo font-extrabold text-xs sm:text-sm shadow-md transition-all cursor-pointer'
+              : 'category-tab-btn px-4 py-2 rounded-xl bg-neutralsoft hover:bg-gold/25 text-slatex border border-slatex/15 font-cairo font-bold text-xs sm:text-sm transition-all cursor-pointer';
+          });
+          renderProductsGrid();
+        });
+      });
+
+      // Live Search Input
+      storeSearchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value.trim();
+        renderProductsGrid();
+      });
+
+      clearFiltersBtn.addEventListener('click', () => {
+        searchQuery = '';
+        storeSearchInput.value = '';
+        activeCategory = 'الكل';
+        categoryTabs[0].click();
+      });
+
+      // Hero Banner WELCOME20 Button
+      heroApplyCouponBtn.addEventListener('click', () => {
+        isCouponActivated = true;
+        updateCartDiscountUI();
+        renderCartDrawer();
+        showCornerToast(
+          'تم تفعيل كود WELCOME20 على سلتك!',
+          'سيتم تطبيق خصم 20% تلقائياً عند إتمام الطلب.',
+          'عرض VIP 🏷️'
+        );
+      });
+
+      // Add Product to Cart via Event Delegation
+      productsGrid.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('[data-add-product-id]');
+        if (!addBtn) return;
+
+        const productId = Number(addBtn.getAttribute('data-add-product-id'));
+        const product = LUXURY_PRODUCTS.find((p) => p.id === productId);
+        if (!product) return;
+
+        const existingItem = cartItems.find((item) => item.id === productId);
+        if (existingItem) {
+          existingItem.qty += 1;
+        } else {
+          cartItems.push({ ...product, qty: 1 });
+        }
+
+        renderCartDrawer();
+        showCornerToast(
+          'تمت الإضافة إلى سلة التسوق!',
+          `أُضيف "${product.name}" بنجاح إلى سلتك.`,
+          'سلة نُخبة 🛍️'
+        );
+      });
+
+      // Cart Drawer Open / Close & Discount UI
+      function openCartDrawer() {
+        renderCartDrawer();
+        cartDrawer.classList.remove('hidden');
+      }
+
+      function closeCartDrawer() {
+        cartDrawer.classList.add('hidden');
+      }
+
+      openCartDrawerBtn.addEventListener('click', openCartDrawer);
+      closeCartDrawerBtn.addEventListener('click', closeCartDrawer);
+      cartDrawerBackdrop.addEventListener('click', closeCartDrawer);
+
+      function updateCartDiscountUI() {
+        if (isCouponActivated) {
+          cartToggleDiscountBtn.textContent = 'مُفعّل ✓';
+          cartToggleDiscountBtn.className =
+            'px-3 py-1 rounded-lg text-xs font-extrabold bg-crimson text-offwhite border border-gold transition-all cursor-pointer';
+        } else {
+          cartToggleDiscountBtn.textContent = 'تفعيل';
+          cartToggleDiscountBtn.className =
+            'px-3 py-1 rounded-lg text-xs font-extrabold bg-gold text-slatex hover:brightness-110 transition-all cursor-pointer';
+        }
+      }
+
+      cartToggleDiscountBtn.addEventListener('click', () => {
+        isCouponActivated = !isCouponActivated;
+        updateCartDiscountUI();
+        renderCartDrawer();
+        if (isCouponActivated) {
+          showCornerToast(
+            'تم تطبيق خصم 20% (WELCOME20)',
+            'تم تحديث إجمالي سلة التسوق بالخصم الفوري.',
+            'خصم مُفعّل 🏷️'
+          );
+        }
+      });
+
+      function renderCartDrawer() {
+        const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+        headerCartCount.textContent = totalQty;
+
+        if (cartItems.length === 0) {
+          cartItemsContainer.innerHTML = `
+            <div class="h-full flex flex-col items-center justify-center text-center py-12 px-4">
+              <div class="w-16 h-16 rounded-2xl bg-neutralsoft border border-gold/50 flex items-center justify-center text-3xl mb-3">
+                🛍️
+              </div>
+              <h3 class="font-cairo font-black text-base text-slatex mb-1">سلة التسوق فارغة حالياً</h3>
+              <p class="font-tajawal text-xs text-slatex/70 max-w-xs">
+                استكشف التشكيلة الفاخرة في المتجر وأضف منتجاتك المفضلة بضغطة واحدة.
+              </p>
+            </div>
+          `;
+        } else {
+          cartItemsContainer.innerHTML = cartItems
+            .map(
+              (item) => `
+            <div class="flex items-center gap-3 p-3 rounded-2xl bg-neutralsoft/70 border border-slatex/10">
+              <div class="w-16 h-16 rounded-xl bg-offwhite border border-slatex/10 flex items-center justify-center flex-shrink-0 overflow-hidden p-1">
+                ${item.svg}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-cairo font-extrabold text-xs sm:text-sm text-slatex truncate">${item.name}</h4>
+                <div class="font-cairo font-black text-xs text-crimson mt-0.5">${formatPriceEGP(item.price)}</div>
+                <div class="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    data-cart-dec="${item.id}"
+                    class="w-6 h-6 rounded-lg bg-offwhite hover:bg-crimson hover:text-offwhite border border-slatex/15 font-black text-xs flex items-center justify-center transition-colors cursor-pointer"
+                  >-</button>
+                  <span class="text-xs font-extrabold px-1.5">${item.qty}</span>
+                  <button
+                    type="button"
+                    data-cart-inc="${item.id}"
+                    class="w-6 h-6 rounded-lg bg-offwhite hover:bg-crimson hover:text-offwhite border border-slatex/15 font-black text-xs flex items-center justify-center transition-colors cursor-pointer"
+                  >+</button>
+                </div>
+              </div>
+              <button
+                type="button"
+                data-cart-del="${item.id}"
+                aria-label="حذف المنتج"
+                class="text-xs font-bold text-slatex/50 hover:text-crimson p-1.5 transition-colors cursor-pointer"
+              >
+                حذف
+              </button>
+            </div>
+          `
+            )
+            .join('');
+        }
+
+        const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+        const discount = isCouponActivated ? Math.round(subtotal * 0.2) : 0;
+        const finalTotal = subtotal - discount;
+
+        cartSubtotalText.textContent = formatPriceEGP(subtotal);
+        if (isCouponActivated && subtotal > 0) {
+          cartDiscountRow.classList.remove('hidden');
+          cartDiscountText.textContent = '- ' + formatPriceEGP(discount);
+        } else {
+          cartDiscountRow.classList.add('hidden');
+        }
+        cartTotalText.textContent = formatPriceEGP(finalTotal);
+      }
+
+      cartItemsContainer.addEventListener('click', (e) => {
+        const incId = e.target.getAttribute('data-cart-inc');
+        const decId = e.target.getAttribute('data-cart-dec');
+        const delId = e.target.getAttribute('data-cart-del');
+
+        if (incId) {
+          const item = cartItems.find((i) => i.id === Number(incId));
+          if (item) item.qty += 1;
+          renderCartDrawer();
+        } else if (decId) {
+          const idx = cartItems.findIndex((i) => i.id === Number(decId));
+          if (idx > -1) {
+            if (cartItems[idx].qty > 1) {
+              cartItems[idx].qty -= 1;
+            } else {
+              cartItems.splice(idx, 1);
+            }
+          }
+          renderCartDrawer();
+        } else if (delId) {
+          cartItems = cartItems.filter((i) => i.id !== Number(delId));
+          renderCartDrawer();
+        }
+      });
+
+      checkoutOrderBtn.addEventListener('click', () => {
+        if (cartItems.length === 0) {
+          showCornerToast(
+            'سلة التسوق فارغة',
+            'يرجى إضافة منتج واحد على الأقل لإتمام الطلب.',
+            'تنبيه السلة 🛍️'
+          );
+          return;
+        }
+        cartItems = [];
+        renderCartDrawer();
+        closeCartDrawer();
+        showCornerToast(
+          'تم استلام طلبك بنجاح! 🎉',
+          'شكراً لتسوقك من متجر نُخبة — جاري تجهيز شحنتك الفاخرة.',
+          'تأكيد الطلب ✓'
+        );
+      });
+    });
+  </script>
+</body>
+</html>

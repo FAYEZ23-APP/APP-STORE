@@ -21,19 +21,11 @@ import { getSellerReturns, resolveReturn } from '../../api/returnsApi';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 1,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 const formatDate = (isoString, isRTL) => {
   if (!isoString) return '';
@@ -54,8 +46,10 @@ const formatDate = (isoString, isRTL) => {
 
 export default function SellerOrdersScreen({ route }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const isRTL = i18n.language?.startsWith('ar');
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [shipments, setShipments] = useState([]);
   const [returnsList, setReturnsList] = useState([]);
@@ -183,7 +177,7 @@ export default function SellerOrdersScreen({ route }) {
         style={[
           cardShadow,
           tw`rounded-2xl p-4 mb-3 border`,
-          { backgroundColor: colors.cardBg, borderColor: colors.border },
+          { backgroundColor: colors.cardBg, borderColor: 'rgba(236, 233, 230, 0.95)' },
         ]}
       >
         {/* Header: Shipment # and Status */}
@@ -255,25 +249,44 @@ export default function SellerOrdersScreen({ route }) {
         </View>
 
         {/* Waybill Button */}
-        <TouchableOpacity accessible={true} accessibilityRole="button"
+        <AnimatedPressable
+          accessible={true}
+          accessibilityRole="button"
           onPress={() => setWaybillShipment(item)}
-          style={[tw`w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex-row items-center justify-center mt-2`]}
+          scaleTo={0.96}
+          style={[
+            tw`w-full py-2.5 rounded-xl border border-slate-200 bg-white flex-row items-center justify-center mt-2`,
+            {
+              borderBottomWidth: 2,
+              borderBottomColor: '#CBD5E1',
+              ...shadows.tactile,
+            },
+          ]}
         >
           <MaterialCommunityIcons name="receipt-text-outline" size={16} color={colors.textDark} style={isRTL ? tw`ml-1.5` : tw`mr-1.5`} />
           <Text style={tw`text-xs font-bold text-slate-700`}>
             {t('invoice.waybillTitle')}
           </Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         {/* Action Button: Handed to Carrier */}
         {isHandedActionAvailable && (
-          <TouchableOpacity accessible={true} accessibilityRole="button"
-            activeOpacity={0.85}
+          <AnimatedPressable
+            accessible={true}
+            accessibilityRole="button"
             disabled={updatingId === item.id}
             onPress={() => handleHandedToCarrier(item.id)}
+            scaleTo={0.96}
             style={[
-              tw`mt-3 py-2.5 rounded-xl flex-row items-center justify-center`,
-              { backgroundColor: colors.accent },
+              tw`mt-3 py-3 rounded-xl flex-row items-center justify-center`,
+              {
+                backgroundColor: colors.primary,
+                borderBottomWidth: 3,
+                borderBottomColor: '#960B21',
+                borderTopWidth: 1,
+                borderTopColor: 'rgba(255, 255, 255, 0.28)',
+                ...shadows.tactilePrimary,
+              },
             ]}
           >
             {updatingId === item.id ? (
@@ -286,7 +299,7 @@ export default function SellerOrdersScreen({ route }) {
                 </Text>
               </>
             )}
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
       </View>
     );
@@ -319,7 +332,7 @@ export default function SellerOrdersScreen({ route }) {
         style={[
           cardShadow,
           tw`rounded-2xl p-4 mb-3 border`,
-          { backgroundColor: colors.cardBg, borderColor: colors.border },
+          { backgroundColor: colors.cardBg, borderColor: 'rgba(236, 233, 230, 0.95)' },
         ]}
       >
         <View style={tw`flex-row items-center justify-between mb-2`}>
@@ -465,7 +478,7 @@ export default function SellerOrdersScreen({ route }) {
         maxToRenderPerBatch={8}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
-        contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
+        contentContainerStyle={{ padding: 14, paddingBottom: floatingNavClearance }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

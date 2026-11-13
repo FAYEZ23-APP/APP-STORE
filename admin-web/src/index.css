@@ -87,3 +87,267 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #D8D4CF;
 }
+
+/* ─── Egypt Shop 3D Authentication Portal Styles ─────────────────────────── */
+.luxury-stage-bg {
+  background-color: #0E1114;
+  background-image:
+    radial-gradient(circle at 82% 16%, rgba(150, 11, 33, 0.34), transparent 46%),
+    radial-gradient(circle at 18% 82%, rgba(214, 163, 58, 0.18), transparent 48%),
+    radial-gradient(circle at 50% 48%, rgba(200, 16, 46, 0.10), transparent 62%),
+    linear-gradient(to right, rgba(214, 163, 58, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(214, 163, 58, 0.045) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+.perspective-stage {
+  perspective: 1400px;
+  -webkit-perspective: 1400px;
+}
+
+.tilt-wrapper {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.14s ease-out;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.34, 1.28, 0.64, 1), height 0.42s ease;
+}
+
+.flip-card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.luxury-card-face {
+  width: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: linear-gradient(160deg, #F8F7F4 0%, #F3EFE9 65%, #E9E4DC 100%);
+  color: #0E1114;
+  border: 1.5px solid rgba(214, 163, 58, 0.55);
+  box-shadow:
+    0 34px 75px -16px rgba(0, 0, 0, 0.88),
+    0 14px 36px -10px rgba(150, 11, 33, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.85) inset,
+    0 -3px 0 0 #E9E4DC inset;
+  border-radius: 1.75rem;
+  overflow: hidden;
+}
+
+.card-face-front {
+  position: relative;
+  transform: rotateY(0deg);
+  z-index: 2;
+}
+
+.card-face-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: rotateY(180deg);
+  z-index: 1;
+}
+
+.glare-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 1.75rem;
+  background: radial-gradient(
+    circle 290px at var(--mouse-x, 50%) var(--mouse-y, 25%),
+    rgba(214, 163, 58, 0.22),
+    rgba(200, 16, 46, 0.07) 45%,
+    transparent 75%
+  );
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+  z-index: 20;
+}
+
+.luxury-input {
+  background-color: #E9E4DC;
+  color: #0E1114;
+  border: 1.5px solid rgba(14, 17, 20, 0.12);
+  box-shadow: inset 0 2px 4px rgba(14, 17, 20, 0.06);
+  transition: all 0.24s ease;
+}
+
+.luxury-input::placeholder {
+  color: rgba(14, 17, 20, 0.46);
+}
+
+.luxury-input:hover {
+  border-color: rgba(214, 163, 58, 0.65);
+  background-color: #EFECE6;
+}
+
+.luxury-input:focus {
+  outline: none;
+  background-color: #F8F7F4;
+  border-color: #C8102E;
+  box-shadow:
+    0 0 0 3.5px rgba(200, 16, 46, 0.16),
+    0 6px 16px -4px rgba(214, 163, 58, 0.24);
+}
+
+.btn-crimson-3d {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #C8102E 0%, #960B21 100%);
+  color: #F8F7F4;
+  border: 1.5px solid #D6A33A;
+  box-shadow:
+    0 12px 26px -6px rgba(200, 16, 46, 0.5),
+    0 4px 0 0 #660615,
+    0 1px 0 0 rgba(248, 247, 244, 0.35) inset;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.2s ease;
+}
+
+.btn-crimson-3d:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 16px 32px -6px rgba(200, 16, 46, 0.62),
+    0 0 18px rgba(214, 163, 58, 0.35),
+    0 6px 0 0 #660615,
+    0 1px 0 0 rgba(248, 247, 244, 0.45) inset;
+}
+
+.btn-crimson-3d:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 5px 14px -2px rgba(200, 16, 46, 0.45),
+    0 1px 0 0 #660615;
+}
+
+.btn-gold-sheen::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -75%;
+  width: 48%;
+  height: 200%;
+  background: linear-gradient(
+    to left,
+    rgba(214, 163, 58, 0) 0%,
+    rgba(248, 247, 244, 0.32) 45%,
+    rgba(214, 163, 58, 0.36) 55%,
+    rgba(214, 163, 58, 0) 100%
+  );
+  transform: rotate(25deg);
+  animation: goldSheenSweep 4.2s infinite;
+}
+
+@keyframes goldSheenSweep {
+  0%, 62% { right: -75%; }
+  100% { right: 145%; }
+}
+
+@keyframes ambientDrift {
+  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.35; }
+  50% { transform: translateY(-18px) scale(1.25); opacity: 0.85; }
+}
+
+.gold-dust {
+  animation: ambientDrift 6s ease-in-out infinite;
+}
+
+.float-3d-layer {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
+
+@keyframes floatLuxuryA {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateZ(-4deg) rotateY(-8deg); }
+  50% { transform: translate3d(0, -13px, 12px) rotateZ(4deg) rotateY(9deg); }
+}
+
+@keyframes floatLuxuryD {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateZ(-4deg); }
+  50% { transform: translate3d(0, -12px, 14px) rotateZ(5deg); }
+}
+
+.anim-float-a { animation: floatLuxuryA 5.4s ease-in-out infinite; }
+.anim-float-d { animation: floatLuxuryD 5.0s ease-in-out infinite; }
+
+@keyframes bagSpringBounce {
+  0% { transform: scale(1) rotate(0deg); }
+  32% { transform: scale(1.22) rotate(-10deg) translateY(-8px); }
+  66% { transform: scale(0.94) rotate(6deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.bag-react {
+  animation: bagSpringBounce 0.56s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes lockGoldEngage {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.14) rotate(-6deg); }
+  55% { transform: scale(1.18) rotate(6deg); }
+  80% { transform: scale(1.08) rotate(-3deg); }
+}
+
+.lock-engaged {
+  animation: lockGoldEngage 0.52s ease-out;
+  filter: drop-shadow(0 0 18px rgba(214, 163, 58, 0.7));
+}
+
+@keyframes cartChassisBounce {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-1.2deg); }
+  50% { transform: translateY(0.5px) rotate(0.8deg); }
+  75% { transform: translateY(-2.5px) rotate(-0.8deg); }
+}
+
+.cart-chassis-anim {
+  animation: cartChassisBounce 0.65s ease-in-out infinite;
+}
+
+@keyframes cartWheelSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+.cart-wheel-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cartWheelSpin 0.55s linear infinite;
+}
+
+@keyframes speedLineGlide {
+  0% { transform: translateX(-28px); opacity: 0; }
+  35% { opacity: 0.95; }
+  100% { transform: translateX(48px); opacity: 0; }
+}
+
+.cart-speed-line {
+  animation: speedLineGlide 0.85s ease-out infinite;
+}
+
+@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+  .tilt-wrapper {
+    transform: none !important;
+    transition: none !important;
+  }
+  .btn-gold-sheen::after,
+  .gold-dust,
+  .anim-float-a,
+  .anim-float-d {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner {
+    transition: transform 0.2s ease, height 0.2s ease;
+  }
+}

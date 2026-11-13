@@ -18,8 +18,10 @@ import { useTranslation } from 'react-i18next';
 import { AuthContext } from '../../context/AuthContext';
 import { resendCode as resendCodeApi } from '../../api/authApi';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 import OtpInput from '../../components/OtpInput';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -185,12 +187,12 @@ const VerifyScreen = ({ route, navigation }) => {
             />
 
             {/* Verify Button */}
-            <TouchableOpacity
+            <AnimatedPressable
               accessible={true}
               accessibilityRole="button"
               onPress={() => handleVerify(code)}
               disabled={loading || code.length !== 6}
-              activeOpacity={0.85}
+              scaleTo={0.96}
               style={[
                 styles.actionButton,
                 (loading || code.length !== 6) && styles.actionButtonDisabled,
@@ -209,7 +211,7 @@ const VerifyScreen = ({ route, navigation }) => {
                   />
                 </View>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
 
             {/* Resend Section */}
             <View style={styles.resendContainer}>
@@ -350,19 +352,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 30,
     borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   title: {
     fontSize: 22,
@@ -380,24 +371,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   actionButton: {
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   actionButtonDisabled: {
     backgroundColor: colors.disabledBg,

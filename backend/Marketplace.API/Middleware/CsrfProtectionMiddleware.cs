@@ -72,6 +72,7 @@ public class CsrfProtectionMiddleware
         if (!ValidateOriginAndReferer(context))
         {
             _logger.LogWarning("CSRF / Cross-Origin check failed: Unauthorized Origin or Referer for {Method} {Path}", method, context.Request.Path);
+            context.Items["SecurityEventReason"] = "CSRF_ORIGIN_INVALID";
             await WriteForbiddenResponseAsync(context, "Cross-origin request rejected: Unauthorized Origin.");
             return;
         }
@@ -101,6 +102,7 @@ public class CsrfProtectionMiddleware
             if (string.IsNullOrWhiteSpace(headerToken))
             {
                 _logger.LogWarning("CSRF check failed: Missing CSRF header on cookie-authenticated {Method} {Path}", method, context.Request.Path);
+                context.Items["SecurityEventReason"] = "CSRF_MISSING_HEADER";
                 await WriteForbiddenResponseAsync(context, "CSRF token missing in request header.");
                 return;
             }
@@ -119,6 +121,7 @@ public class CsrfProtectionMiddleware
             if (string.IsNullOrWhiteSpace(cookieToken))
             {
                 _logger.LogWarning("CSRF check failed: Missing CSRF cookie on cookie-authenticated {Method} {Path}", method, context.Request.Path);
+                context.Items["SecurityEventReason"] = "CSRF_MISSING_COOKIE";
                 await WriteForbiddenResponseAsync(context, "CSRF cookie missing.");
                 return;
             }
@@ -127,6 +130,7 @@ public class CsrfProtectionMiddleware
             if (!csrfTokenService.ValidateToken(headerToken, cookieToken))
             {
                 _logger.LogWarning("CSRF check failed: Invalid or mismatched CSRF token on {Method} {Path}", method, context.Request.Path);
+                context.Items["SecurityEventReason"] = "CSRF_INVALID_TOKEN";
                 await WriteForbiddenResponseAsync(context, "Invalid CSRF token.");
                 return;
             }
@@ -223,7 +227,7 @@ public class CsrfProtectionMiddleware
     {
         context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
         context.Response.ContentType = "application/json";
-        var payload = JsonSerializer.Serialize(new { error = message });
+        var payload = JsonSerializer.Serialize(new { error = message, code = "CSRF_VALIDATION_FAILED" });
         await context.Response.WriteAsync(payload);
     }
 }

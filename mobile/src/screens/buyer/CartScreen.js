@@ -13,6 +13,7 @@ import {
   I18nManager,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,11 +22,15 @@ import { AuthContext } from '../../context/AuthContext';
 import { getProductById } from '../../api/productsApi';
 import { formatCurrency } from '../../utils/currency';
 import { getImageUrl } from '../../utils/imageUrl';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 
 export default function CartScreen({ navigation }) {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language?.startsWith('ar') || I18nManager.isRTL;
+  const insets = useSafeAreaInsets();
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10);
   const {
     items,
     increase,
@@ -663,17 +668,17 @@ export default function CartScreen({ navigation }) {
         }}
       />
 
-      {/* Sticky Bottom Checkout Bar */}
-      <View style={styles.stickyFooter}>
+      {/* Sticky Bottom Checkout Bar (Respects Floating Tab Bar Clearance) */}
+      <View style={[styles.stickyFooter, { paddingBottom: floatingNavClearance + 12 }]}>
         <View style={styles.footerPriceCol}>
           <Text style={styles.footerPriceLabel}>{t('cart.total')}</Text>
           <Text style={styles.footerPriceValue}>{formatCurrency(totalPrice)}</Text>
         </View>
 
-        <TouchableOpacity
+        <AnimatedPressable
           accessible={true}
           accessibilityRole="button"
-          activeOpacity={0.88}
+          scaleTo={0.96}
           onPress={handleProceedToCheckout}
           style={styles.checkoutCtaButton}
         >
@@ -688,7 +693,7 @@ export default function CartScreen({ navigation }) {
             size={17}
             color="#FFFFFF"
           />
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
     </View>
   );
@@ -767,21 +772,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     marginBottom: 16,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-      default: {},
-    }),
+    ...shadows.cardElevated,
   },
   parcelHeader: {
     backgroundColor: '#FAF8F5',
@@ -1183,22 +1177,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 14,
-    height: 48,
-    paddingHorizontal: 18,
+    borderRadius: 16,
+    height: 50,
+    paddingHorizontal: 20,
     gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   checkoutCtaText: {
     fontSize: 14,

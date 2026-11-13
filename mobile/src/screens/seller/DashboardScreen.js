@@ -28,22 +28,14 @@ import { quickUpdateProductStock } from '../../api/productsApi';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 2,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 const formatDate = (isoString, isRTL) => {
   if (!isoString) return '';
@@ -63,10 +55,13 @@ const formatDate = (isoString, isRTL) => {
 
 export default function DashboardScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { userName } = useContext(AuthContext);
   const isFocused = useIsFocused();
   const isRTL = i18n.language?.startsWith('ar');
   const scrollViewRef = useRef(null);
+
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -231,7 +226,7 @@ export default function DashboardScreen({ navigation }) {
       <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={[styles.scrollContainer, { paddingBottom: floatingNavClearance }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1002,10 +997,11 @@ const styles = StyleSheet.create({
   kpiCard: {
     width: '48.5%',
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   kpiCardTitle: {
     fontSize: 11,
@@ -1034,10 +1030,11 @@ const styles = StyleSheet.create({
   todoCard: {
     width: '48.5%',
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   todoCardAlert: {
     borderColor: 'rgba(234, 88, 12, 0.3)',
@@ -1077,10 +1074,11 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     overflow: 'hidden',
+    ...shadows.cardElevated,
   },
   lowStockRow: {
     flexDirection: 'row',
@@ -1203,8 +1201,13 @@ const styles = StyleSheet.create({
     color: '#16A34A',
   },
   addBanner: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   addBannerGradient: {
     flexDirection: 'row',

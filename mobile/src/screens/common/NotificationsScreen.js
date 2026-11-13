@@ -20,22 +20,15 @@ import {
 } from '../../api/notificationsApi';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-  },
-  android: {
-    elevation: 1,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 export default function NotificationsScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language === 'ar';
   const { userRole, userId } = useContext(AuthContext);
 
@@ -334,7 +327,7 @@ export default function NotificationsScreen({ navigation }) {
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
-          contentContainerStyle={tw`py-3`}
+          contentContainerStyle={[tw`py-3`, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -31,7 +31,9 @@ import { CartContext } from '../../context/CartContext';
 import { AuthContext } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
 import ProductCard from '../../components/ProductCard';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -476,7 +478,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       <ScrollView
         style={tw`flex-1`}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
         showsVerticalScrollIndicator={false}
       >
         {/* 1. Swipeable Image Gallery with "1/4" counter & fixed height to prevent layout jump */}
@@ -788,31 +790,6 @@ export default function ProductDetailsScreen({ route, navigation }) {
               </View>
             </View>
           )}
-
-          {/* WhatsApp Direct Inquiry Button (GAP-BUY-03) */}
-          <TouchableOpacity
-            accessible={true}
-            accessibilityRole="button"
-            activeOpacity={0.85}
-            onPress={() => {
-              const text = encodeURIComponent(
-                (isRTL ? 'مرحباً، أود الاستفسار عن المنتج: ' : 'Hello, I have an inquiry about product: ') +
-                  (product.name || '') + ' (#' + (product.id || '') + ')'
-              );
-              Linking.openURL(`https://wa.me/201000000000?text=${text}`).catch(() => {
-                Alert.alert(t('common.error'), isRTL ? 'تعذر فتح تطبيق واتساب' : 'Could not open WhatsApp');
-              });
-            }}
-            style={[
-              tw`flex-row items-center justify-center p-3 rounded-2xl mb-3 border`,
-              { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' },
-            ]}
-          >
-            <MaterialCommunityIcons name="whatsapp" size={20} color="#16A34A" />
-            <Text style={[tw`font-bold text-xs ml-2`, { color: '#15803D' }]}>
-              {t('product.whatsappInquiry')}
-            </Text>
-          </TouchableOpacity>
 
           {/* Seller row: "Продавец: <sellerName>" */}
           {product.sellerName ? (
@@ -1511,15 +1488,19 @@ export default function ProductDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         ) : (
           <View style={tw`flex-1 flex-row items-center justify-between`}>
-            {/* Wishlist Heart Button */}
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              activeOpacity={0.8}
+            {/* Wishlist Heart Button with Spring Animation */}
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={isFav ? t('wishlist.removeFromWishlist') : t('wishlist.title')}
+              scaleTo={0.88}
               onPress={handleToggleWishlist}
               style={[
-                tw`w-12 h-12 rounded-xl items-center justify-center mr-2 border`,
+                tw`w-12 h-12 rounded-2xl items-center justify-center mr-2 border`,
                 isFav
-                  ? { backgroundColor: '#FFE4E6', borderColor: '#FDA4AF' }
-                  : { backgroundColor: colors.screenBg, borderColor: colors.border },
+                  ? { backgroundColor: '#FFE4E6', borderColor: '#FDA4AF', borderBottomWidth: 2 }
+                  : { backgroundColor: colors.screenBg, borderColor: colors.border, borderBottomWidth: 2 },
+                shadows.sm,
               ]}
             >
               <MaterialCommunityIcons
@@ -1527,57 +1508,77 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 size={22}
                 color={isFav ? '#E11D48' : colors.textMuted}
               />
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            {/* 1. "В корзину" button */}
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              activeOpacity={0.85}
+            {/* 1. Add to Cart with 3D tactile depth */}
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
+              scaleTo={0.96}
               onPress={handleAddToCart}
               style={[
-                tw`flex-1 flex-row items-center justify-center rounded-xl border mr-2`,
+                tw`flex-1 flex-row items-center justify-center rounded-2xl border mr-2`,
                 {
                   minHeight: 48,
                   paddingHorizontal: 8,
-                  backgroundColor: cartQty > 0 ? colors.primarySoft : colors.screenBg,
-                  borderColor: colors.primary,
+                  backgroundColor: cartQty > 0 ? colors.primarySoft : colors.primary,
+                  borderColor: cartQty > 0 ? colors.primaryBorder : '#B50E28',
+                  borderBottomWidth: 3,
+                  borderBottomColor: cartQty > 0 ? '#F8CAD1' : '#960B21',
+                  borderTopWidth: 1,
+                  borderTopColor: cartQty > 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.28)',
                 },
+                cartQty > 0 ? shadows.sm : shadows.tactilePrimary,
               ]}
             >
               <MaterialCommunityIcons
                 name={cartQty > 0 ? 'cart-check' : 'cart-plus'}
                 size={18}
-                color={colors.primary}
+                color={cartQty > 0 ? colors.primary : colors.white}
               />
               <Text
                 numberOfLines={1}
                 style={[
-                  tw`font-bold text-sm ml-1.5`,
-                  { color: colors.primary },
+                  tw`font-extrabold text-sm ml-1.5`,
+                  { color: cartQty > 0 ? colors.primary : colors.white },
                 ]}
               >
                 {cartQty > 0 ? t('cart.inCart') : t('product.addToCart')}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            {/* 2. Buy Now button with vibrant gradient */}
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              activeOpacity={0.85}
+            {/* 2. Buy Now 3D tactile button with gold lightning */}
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
+              scaleTo={0.96}
               onPress={handleBuyNow}
-              style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}
+              style={[
+                tw`flex-1 flex-row items-center justify-center rounded-2xl border`,
+                {
+                  minHeight: 48,
+                  paddingHorizontal: 8,
+                  backgroundColor: colors.secondary,
+                  borderColor: '#171B20',
+                  borderBottomWidth: 3,
+                  borderBottomColor: '#0E1114',
+                  borderTopWidth: 1,
+                  borderTopColor: 'rgba(255, 255, 255, 0.16)',
+                },
+                shadows.tactile,
+              ]}
             >
-              <View style={[tw`flex-row items-center justify-center`, { minHeight: 48, paddingHorizontal: 8, backgroundColor: colors.primary }]}>
-                <MaterialCommunityIcons name="flash" size={18} color={colors.white} />
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    tw`font-bold text-sm ml-1.5`,
-                    { color: colors.white },
-                  ]}
-                >
-                  {t('product.buyNow')}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              <MaterialCommunityIcons name="flash" size={18} color={colors.accent} />
+              <Text
+                numberOfLines={1}
+                style={[
+                  tw`font-extrabold text-sm ml-1.5`,
+                  { color: colors.white },
+                ]}
+              >
+                {t('product.buyNow')}
+              </Text>
+            </AnimatedPressable>
           </View>
         )}
       </View>

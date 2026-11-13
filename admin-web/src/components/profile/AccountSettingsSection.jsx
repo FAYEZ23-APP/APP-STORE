@@ -21,6 +21,8 @@ import {
   ChevronLeft,
   LayoutDashboard,
   PlusCircle,
+  ShoppingBag,
+  Heart,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 
@@ -152,6 +154,135 @@ export default function AccountSettingsSection({
               </div>
               <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ─── GROUP 1B: Shopping & Orders (Buyers Only) ─── */}
+      {!isSeller && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#ECE9E6] shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
+            <h3 className="text-sm font-black text-[#1F2329] flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-[#C8102E]" />
+              <span>{t('profile.groupShopping', 'التسوق والطلبات')}</span>
+            </h3>
+            <Link
+              to="/orders"
+              className="text-xs font-bold text-[#C8102E] hover:underline flex items-center gap-1"
+            >
+              <span>{t('profile.myOrdersCount', 'طلباتي')}</span>
+              <ArrowIcon className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* My Orders */}
+            <Link
+              to="/orders"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] hover:bg-[#ECE9E6]/60 border border-[#ECE9E6] transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#1F2329] block">
+                    {t('profile.myOrdersCount', 'طلباتي')}
+                  </span>
+                  <span className="text-[11px] text-[#595F69] block">
+                    {t('profile.sellerOrdersHubSubtitle', 'متابعة الشحنات والطلبات')}
+                  </span>
+                </div>
+              </div>
+              <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+
+            {/* My Favorites */}
+            <Link
+              to="/search"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] hover:bg-[#ECE9E6]/60 border border-[#ECE9E6] transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Heart className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#1F2329] block">
+                    {t('profile.myFavorites', 'قائمة المفضلة')}
+                  </span>
+                  <span className="text-[11px] text-[#595F69] block">
+                    {t('profile.myFavoritesDesc', 'المنتجات المحفوظة للشراء لاحقاً')}
+                  </span>
+                </div>
+              </div>
+              <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+
+            {/* Returns and Exchanges */}
+            <Link
+              to="/orders"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] hover:bg-[#ECE9E6]/60 border border-[#ECE9E6] transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-red-50 text-[#C8102E] flex items-center justify-center">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#1F2329] block">
+                    {t('profile.returnsExchanges', 'المرتجعات والاستبدال')}
+                  </span>
+                  <span className="text-[11px] text-[#595F69] block">
+                    {t('profile.returnsExchangesDesc', 'متابعة طلبات المرتجعات وحالتها')}
+                  </span>
+                </div>
+              </div>
+              <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+
+            {/* Shopping Cart */}
+            <Link
+              to="/cart"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] hover:bg-[#ECE9E6]/60 border border-[#ECE9E6] transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-[#D6A33A] flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#1F2329] block">
+                    {t('profile.myCart', 'عربة التسوق')}
+                  </span>
+                  <span className="text-[11px] text-[#595F69] block">
+                    {t('profile.myCartDesc', 'عرض المنتجات الجاهزة للشراء')}
+                  </span>
+                </div>
+              </div>
+              <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+
+            {/* Buyer Wallet (Strictly Gated by Feature Flag) */}
+            {walletEnabled && (
+              <button
+                type="button"
+                onClick={onOpenWalletTab}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] hover:bg-[#ECE9E6]/60 border border-[#ECE9E6] transition-all group text-start col-span-1 sm:col-span-2"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-[#D6A33A] flex items-center justify-center">
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[#1F2329] block">
+                      {t('profile.buyerWalletTitle', 'محفظة المشتري')}
+                    </span>
+                    <span className="text-[11px] text-[#595F69] block">
+                      {t('profile.availableBalanceLabel', 'الرصيد المتاح:')} {formatCurrency(walletBalance)}
+                    </span>
+                  </div>
+                </div>
+                <ArrowIcon className="w-4 h-4 text-[#595F69] group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
           </div>
         </div>
       )}

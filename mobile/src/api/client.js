@@ -36,6 +36,69 @@ let isRefreshing = false;
 let refreshPromise = null;
 let currentSessionEpoch = 0;
 
+// ─── CSRF Token Management (MOB-014, SEC-CSRF) ───────────────
+let currentCsrfToken = null;
+let csrfPromise = null;
+
+export const getCsrfToken = () => currentCsrfToken;
+
+export const setCsrfToken = (token) => {
+  currentCsrfToken = token || null;
+};
+
+/**
+ * Checks if a double-submit CSRF token (randomHex.timestamp.signature) is expired or expiring soon.
+ * Backend tokens have a 24-hour lifetime. We proactively refresh if older than 23 hours.
+ */
+export const isCsrfTokenExpired = (token) => {
+  if (!token || typeof token !== 'string') return true;
+  const parts = token.split('.');
+  if (parts.length !== 3) return true;
+  const timestamp = parseInt(parts[1], 10);
+  if (isNaN(timestamp)) return true;
+  const ageSeconds = Math.floor(Date.now() / 1000) - timestamp;
+  return ageSeconds > 23 * 3600 || ageSeconds < -300;
+};
+
+/**
+ * Bootstraps a fresh CSRF token from the server via GET /auth/csrf.
+ * Uses a dedicated axios call without interceptor recursion.
+ * Native Android/iOS HTTP engines automatically store the companion XSRF-TOKEN cookie.
+ */
+export const fetchCsrfToken = async (force = false) => {
+  if (!force && currentCsrfToken && !isCsrfTokenExpired(currentCsrfToken)) {
+    return currentCsrfToken;
+  }
+
+  if (csrfPromise) {
+    return csrfPromise;
+  }
+
+  csrfPromise = (async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/auth/csrf`, {
+        timeout: 10000,
+        headers: { Accept: 'application/json' },
+      });
+      const token = res.data?.csrfToken;
+      if (token) {
+        currentCsrfToken = token;
+        return token;
+      }
+      return null;
+    } catch (err) {
+      if (typeof __DEV__ === 'undefined' || __DEV__) {
+        console.warn('[CSRF] Failed to bootstrap CSRF token', err?.message);
+      }
+      return null;
+    } finally {
+      csrfPromise = null;
+    }
+  })();
+
+  return csrfPromise;
+};
+
 /**
  * Resets client session version to invalidate any pending in-flight refresh requests.
  * Called immediately on logout or account switching.
@@ -44,6 +107,7 @@ export const resetClientSession = () => {
   currentSessionEpoch++;
   isRefreshing = false;
   refreshPromise = null;
+  csrfPromise = null;
 };
 
 export const performSingleFlightRefresh = async () => {
@@ -86,6 +150,11 @@ export const performSingleFlightRefresh = async () => {
 
       if (!newAccessToken) {
         throw new Error('No access token in refresh response');
+      }
+
+      // Capture refreshed CSRF token if returned by backend
+      if (refreshResponse.data?.csrfToken) {
+        setCsrfToken(refreshResponse.data.csrfToken);
       }
 
       // Save rotated tokens in SecureStore BEFORE resolving
@@ -131,6 +200,22 @@ client.interceptors.request.use(
       console.log('[API REQUEST]', config.method?.toUpperCase(), `${config.baseURL || ''}${config.url}`);
     }
 
+    // 2. Attach CSRF token on state-changing requests (POST, PUT, PATCH, DELETE)
+    const method = (config.method || 'get').toUpperCase();
+    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const isCsrfBootstrapEndpoint = (config.url || '').includes('/auth/csrf');
+
+    if (isStateChanging && !isCsrfBootstrapEndpoint) {
+      let csrf = currentCsrfToken;
+      if (!csrf || isCsrfTokenExpired(csrf)) {
+        csrf = await fetchCsrfToken();
+      }
+      if (csrf) {
+        config.headers = config.headers || {};
+        config.headers['X-CSRF-TOKEN'] = csrf;
+      }
+    }
+
     const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -144,10 +229,34 @@ client.interceptors.request.use(
 client.interceptors.response.use(
   (response) => {
     setNetworkOffline(false);
+    // Capture CSRF token if returned in response body
+    if (response.data?.csrfToken) {
+      setCsrfToken(response.data.csrfToken);
+    }
     return response;
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle 403 CSRF validation failures: bootstrap fresh token and retry once
+    const status = error.response?.status;
+    const errorCode = error.response?.data?.code;
+    const errorMsg = error.response?.data?.error || '';
+    const isCsrfError =
+      status === 403 &&
+      (errorCode === 'CSRF_VALIDATION_FAILED' ||
+        errorMsg.toLowerCase().includes('csrf') ||
+        errorMsg.toLowerCase().includes('cross-origin'));
+
+    if (isCsrfError && originalRequest && !originalRequest._retryCsrf) {
+      originalRequest._retryCsrf = true;
+      const freshCsrf = await fetchCsrfToken(true);
+      if (freshCsrf) {
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers['X-CSRF-TOKEN'] = freshCsrf;
+        return client(originalRequest);
+      }
+    }
 
     // Handle 429 Too Many Requests with Retry-After backoff (MOB-002)
     if (error.response && error.response.status === 429 && originalRequest) {

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import {
   getCategories,
@@ -24,23 +25,14 @@ import {
   deleteCategory,
 } from '../../api/categoriesApi';
 import { colors } from '../../theme/colors';
-
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 2,
-  },
-  default: {},
-});
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 
 export default function AdminCategoriesScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language === 'ar';
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -160,8 +152,9 @@ export default function AdminCategoriesScreen({ navigation }) {
     return (
       <View
         style={[
-          tw`bg-white rounded-2xl p-4 mb-3 mx-4 border border-slate-100`,
-          cardShadow,
+          tw`bg-white rounded-2xl p-4 mb-3 mx-4 border`,
+          { borderColor: 'rgba(236, 233, 230, 0.95)' },
+          shadows.cardElevated,
         ]}
       >
         <View style={tw`flex-row justify-between items-start mb-2`}>
@@ -218,21 +211,27 @@ export default function AdminCategoriesScreen({ navigation }) {
           </View>
 
           <View style={tw`flex-row items-center gap-2`}>
-            <TouchableOpacity accessible={true} accessibilityRole="button"
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => handleOpenEdit(item)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={tw`p-1.5 rounded-lg bg-slate-100`}
+              scaleTo={0.88}
+              style={tw`p-2 rounded-lg bg-slate-100 border border-slate-200`}
             >
               <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textDark} />
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            <TouchableOpacity accessible={true} accessibilityRole="button"
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => handleDelete(item)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={tw`p-1.5 rounded-lg bg-red-50`}
+              scaleTo={0.88}
+              style={tw`p-2 rounded-lg bg-red-50 border border-red-100`}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </View>
       </View>
@@ -257,15 +256,27 @@ export default function AdminCategoriesScreen({ navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity accessible={true} accessibilityRole="button"
+        <AnimatedPressable
+          accessible={true}
+          accessibilityRole="button"
           onPress={handleOpenAdd}
-          style={tw`bg-red-600 px-3.5 py-2 rounded-xl flex-row items-center gap-1 shadow-sm`}
+          scaleTo={0.94}
+          style={[
+            tw`bg-red-600 px-4 py-2.5 rounded-xl flex-row items-center gap-1.5`,
+            {
+              borderBottomWidth: 3,
+              borderBottomColor: '#960B21',
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255, 255, 255, 0.28)',
+              ...shadows.tactilePrimary,
+            },
+          ]}
         >
           <MaterialCommunityIcons name="plus" size={16} color="#FFF" />
           <Text style={tw`text-white font-bold text-xs`}>
             {t('categoriesAdmin.addCategory')}
           </Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
 
       {/* Content */}
@@ -289,7 +300,7 @@ export default function AdminCategoriesScreen({ navigation }) {
           maxToRenderPerBatch={8}
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
-          contentContainerStyle={tw`py-4`}
+          contentContainerStyle={[tw`py-4`, { paddingBottom: floatingNavClearance }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

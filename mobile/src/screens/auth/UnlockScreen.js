@@ -13,8 +13,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import tw from '../../theme/tw';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 import { promptBiometricAuth } from '../../utils/biometrics';
 import BrandLogo from '../../components/common/BrandLogo';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 
 export default function UnlockScreen({
   userName,
@@ -112,21 +114,21 @@ export default function UnlockScreen({
         </View>
 
         {/* Biometric Circle & Interaction */}
-        <TouchableOpacity
+        <AnimatedPressable
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={t('biometrics.unlockTitle', 'فتح التطبيق')}
           style={styles.biometricCircle}
           onPress={triggerBiometricPrompt}
           disabled={isAuthenticating}
-          activeOpacity={0.8}
+          scaleTo={0.92}
         >
           {isAuthenticating ? (
             <ActivityIndicator size="large" color={colors.primary} />
           ) : (
             <MaterialCommunityIcons name="fingerprint" size={68} color={colors.primary} />
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <Text style={styles.promptText}>
           {t('biometrics.unlockTitle', 'فتح التطبيق')}
@@ -145,33 +147,33 @@ export default function UnlockScreen({
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <TouchableOpacity
+          <AnimatedPressable
             accessible={true}
             accessibilityRole="button"
             style={styles.retryButton}
             onPress={triggerBiometricPrompt}
             disabled={isAuthenticating}
-            activeOpacity={0.85}
+            scaleTo={0.96}
           >
             <MaterialCommunityIcons name="refresh" size={18} color="#FFFFFF" />
             <Text style={[styles.retryText, isRTL ? tw`mr-2` : tw`ml-2`]}>
               {t('biometrics.retry', 'إعادة المحاولة')}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity
+          <AnimatedPressable
             accessible={true}
             accessibilityRole="button"
             style={styles.passwordButton}
             onPress={onUsePassword}
             disabled={isAuthenticating}
-            activeOpacity={0.85}
+            scaleTo={0.96}
           >
             <MaterialCommunityIcons name="key-outline" size={18} color="#D8D4CF" />
             <Text style={[styles.passwordText, isRTL ? tw`mr-2` : tw`ml-2`]}>
               {t('biometrics.usePassword', 'استخدم كلمة المرور')}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       </View>
     </View>
@@ -312,20 +314,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    height: 50,
+    borderRadius: 16,
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   retryText: {
     color: '#FFFFFF',
@@ -337,10 +332,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1F2329',
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#3A3F4A',
-    paddingVertical: 14,
-    borderRadius: 14,
+    borderBottomWidth: 3,
+    borderBottomColor: '#121518',
   },
   passwordText: {
     color: '#ECE9E6',

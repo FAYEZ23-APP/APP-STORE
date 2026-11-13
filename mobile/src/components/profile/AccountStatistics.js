@@ -145,7 +145,7 @@ export default function AccountStatistics({
     (buyerDashboard?.inTransitCount ?? 0) +
     (buyerDashboard?.readyForPickupCount ?? 0);
   const completedOrders = buyerDashboard?.deliveredCount ?? 0;
-  const totalOrders = activeOrders + completedOrders + (buyerDashboard?.returnedCount ?? 0);
+  const totalOrders = buyerDashboard?.totalOrdersPlaced ?? (activeOrders + completedOrders + (buyerDashboard?.returnedCount ?? 0));
 
   return (
     <View style={styles.container}>

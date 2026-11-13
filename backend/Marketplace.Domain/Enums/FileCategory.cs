@@ -9,5 +9,6 @@ public enum FileCategory
     DisputeEvidence = 5,
     ReturnEvidence = 6,
     AdminDocument = 7,
-    TemporaryUpload = 8
+    TemporaryUpload = 8,
+    CampaignBanner = 9
 }

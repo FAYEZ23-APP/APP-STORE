@@ -419,6 +419,7 @@ internal class FakeUnitOfWork : IUnitOfWork
     public IRepository<SupportTicketMessage> SupportTicketMessages => throw new NotImplementedException();
     public IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches => throw new NotImplementedException();
     public IRepository<TaxInvoice> TaxInvoices => throw new NotImplementedException();
+    public IRepository<Campaign> Campaigns => throw new NotImplementedException();
 
     public Task<int> SaveChangesAsync() => Task.FromResult(1);
     public Task BeginTransactionAsync() => Task.CompletedTask;
@@ -429,3 +430,4 @@ internal class FakeUnitOfWork : IUnitOfWork
     public Task RecomputeProductRatingAsync(int productId) => Task.CompletedTask;
     public void Dispose() { }
 }
+

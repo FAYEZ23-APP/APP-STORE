@@ -21,24 +21,18 @@ import { getMyProducts, deleteProduct } from '../../api/productsApi';
 import { getSellerReviews, replyToReview } from '../../api/reviewsApi';
 import ProductCard from '../../components/ProductCard';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-  },
-  android: {
-    elevation: 2,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 export default function MyProductsScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language?.startsWith('ar');
   const isFocused = useIsFocused();
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [activeTab, setActiveTab] = useState('products'); // 'products' | 'reviews'
   const [products, setProducts] = useState([]);
@@ -217,9 +211,11 @@ export default function MyProductsScreen({ navigation }) {
               )}
             </View>
 
-            <TouchableOpacity accessible={true} accessibilityRole="button"
-              activeOpacity={0.85}
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={() => navigation.navigate('AddEditProduct')}
+              scaleTo={0.94}
               style={styles.addButtonWrap}
             >
               <LinearGradient
@@ -231,7 +227,7 @@ export default function MyProductsScreen({ navigation }) {
                 <MaterialCommunityIcons name="plus" size={18} color={colors.white} />
                 <Text style={styles.addButtonText}>{t('seller.addProduct')}</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
 
           {products.length > 0 && (
@@ -348,7 +344,7 @@ export default function MyProductsScreen({ navigation }) {
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: floatingNavClearance }]}
           columnWrapperStyle={tw`justify-between`}
           ListHeaderComponent={renderHeader}
           refreshControl={
@@ -404,7 +400,7 @@ export default function MyProductsScreen({ navigation }) {
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
           keyExtractor={(item) => `srev-${item.id}`}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: floatingNavClearance }]}
           ListHeaderComponent={renderHeader}
           refreshControl={
             <RefreshControl
@@ -528,9 +524,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   addButtonWrap: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    ...cardShadow,
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   addButton: {
     flexDirection: 'row',

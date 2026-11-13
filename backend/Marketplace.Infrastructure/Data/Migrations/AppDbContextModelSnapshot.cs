@@ -149,6 +149,176 @@ namespace Marketplace.Infrastructure.Data.Migrations
                     b.ToTable("BuyerWalletTransactions");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.Campaign", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BadgeAr")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("BadgeEn")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+
+                    b.Property<string>("CtaAr")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("CtaEn")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImageUrlDesktop")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ImageUrlMobile")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal>("OverlayOpacity")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)")
+                        .HasDefaultValue(0.35m);
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SubtitleAr")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SubtitleEn")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("TargetUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("TextAlignment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("center");
+
+                    b.Property<string>("TitleAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Priority");
+
+                    b.HasIndex("IsActive", "Priority");
+
+                    b.ToTable("campaigns", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            BadgeAr = "الموسم الجديد",
+                            BadgeEn = "NEW ARRIVALS",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CtaAr = "اكتشف التشكيلة",
+                            CtaEn = "EXPLORE COLLECTION",
+                            ImageUrlDesktop = "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=85",
+                            ImageUrlMobile = "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&auto=format&fit=crop&q=85",
+                            IsActive = true,
+                            OverlayOpacity = 0.35m,
+                            Priority = 1,
+                            SubtitleAr = "تصاميم راقية وخامات مختارة بعناية تعكس تميزك",
+                            SubtitleEn = "Refined silhouettes and modern craftsmanship for every moment",
+                            TargetUrl = "category:clothing",
+                            TextAlignment = "center",
+                            TitleAr = "مجموعة الموسم الجديد",
+                            TitleEn = "NEW SEASON COLLECTION",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 2,
+                            BadgeAr = "تشكيلة حصرية",
+                            BadgeEn = "EXCLUSIVE",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CtaAr = "تسوق الإطلالة",
+                            CtaEn = "SHOP THE EDIT",
+                            ImageUrlDesktop = "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&auto=format&fit=crop&q=85",
+                            ImageUrlMobile = "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&auto=format&fit=crop&q=85",
+                            IsActive = true,
+                            OverlayOpacity = 0.30m,
+                            Priority = 2,
+                            SubtitleAr = "قصات كلاسيكية تمنحك إطلالة متجددة طوال اليوم",
+                            SubtitleEn = "Timeless tailoring and effortless neutral aesthetics",
+                            TargetUrl = "category:clothing",
+                            TextAlignment = "center",
+                            TitleAr = "أناقة هادئة وبساطة عصرية",
+                            TitleEn = "THE QUIET LUXURY EDIT",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            BadgeAr = "الأكثر طلباً",
+                            BadgeEn = "TRENDING",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CtaAr = "تصفح العروض",
+                            CtaEn = "VIEW CAPSULE",
+                            ImageUrlDesktop = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1600&auto=format&fit=crop&q=85",
+                            ImageUrlMobile = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=85",
+                            IsActive = true,
+                            OverlayOpacity = 0.35m,
+                            Priority = 3,
+                            SubtitleAr = "أحدث تصاميم السنيكرز والملابس الرياضية اليومية",
+                            SubtitleEn = "Bold contemporary streetwear and essential statement pieces",
+                            TargetUrl = "category:shoes",
+                            TextAlignment = "center",
+                            TitleAr = "أزياء الشارع العصرية",
+                            TitleEn = "URBAN STREETWEAR CAPSULE",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.CarrierRemittanceBatch", b =>
                 {
                     b.Property<int>("Id")

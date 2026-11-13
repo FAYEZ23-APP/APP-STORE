@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSellerStore } from '../../api/productsApi';
 import ProductCard from '../../components/ProductCard';
 import { colors } from '../../theme/colors';
@@ -29,6 +30,7 @@ const SORT_OPTIONS = [
 export default function SellerStoreScreen({ route, navigation }) {
   const { sellerId, sellerName: initialSellerName } = route.params || {};
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n?.language === 'ar';
 
   const [storeData, setStoreData] = useState(null);
@@ -388,7 +390,7 @@ export default function SellerStoreScreen({ route, navigation }) {
         style={[
           tw`flex-row items-center px-4 py-3 border-b`,
           {
-            paddingTop: Platform.OS === 'ios' ? 48 : 16,
+            paddingTop: Math.max(insets.top, 16) + 8,
             backgroundColor: colors.cardBg,
             borderColor: colors.border,
           },
@@ -429,7 +431,7 @@ export default function SellerStoreScreen({ route, navigation }) {
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 8, paddingBottom: 24 }}
+        contentContainerStyle={{ padding: 8, paddingBottom: Math.max(insets.bottom, 16) + 32 }}
         columnWrapperStyle={tw`justify-between`}
         ListHeaderComponent={renderHeader}
         refreshControl={

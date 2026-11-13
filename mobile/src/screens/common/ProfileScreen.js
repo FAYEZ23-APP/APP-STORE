@@ -44,6 +44,9 @@ import { isValidEgyptianPhone } from '../../utils/egyptianPhone';
 import { formatCurrency } from '../../utils/currency';
 import { openWhatsApp } from '../../utils/whatsapp';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkBiometricSupport, promptBiometricAuth } from '../../utils/biometrics';
 import { isBiometricsEnabled, setBiometricsEnabled, removeRefreshToken } from '../../utils/storage';
 
@@ -58,18 +61,7 @@ import {
   AccountEmptyState,
 } from '../../components/profile';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  android: {
-    elevation: 2,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -82,8 +74,10 @@ const formatDate = (dateStr) => {
 
 export default function ProfileScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { logout, reloadUser, userId } = useContext(AuthContext);
   const scrollViewRef = useRef(null);
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [biometricSupport, setBiometricSupport] = useState({ available: false });
   const [biometricsEnabled, setBiometricsEnabledState] = useState(false);
@@ -185,9 +179,9 @@ export default function ProfileScreen({ navigation }) {
       setLinkGoogleLoading(true);
       try {
         await linkGoogle(idToken);
-        Alert.alert(t('common.success'), t('profile.linkGoogleSuccess'));
+        Alert.alert(t('common.success'), t('profile.linkGoogleSuccess', 'تم ربط حسابك بـ Google بنجاح.'));
       } catch (err) {
-        const msg = err.response?.data?.message || t('profile.linkGoogleError');
+        const msg = err.response?.data?.message || t('profile.linkGoogleError', 'فشل ربط حساب Google');
         Alert.alert(t('common.error'), msg);
       } finally {
         setLinkGoogleLoading(false);
@@ -418,7 +412,7 @@ export default function ProfileScreen({ navigation }) {
       if (userId) {
         await removeRefreshToken(userId);
       }
-      Alert.alert(t('common.success', 'تم بنجاح'), t('profile.passwordChanged'), [
+      Alert.alert(t('common.success', 'تم بنجاح'), t('profile.passwordChanged', 'تم تغيير كلمة المرور بنجاح'), [
         { text: t('common.ok', 'حسناً'), onPress: () => logout() },
       ]);
     } catch (err) {
@@ -445,7 +439,7 @@ export default function ProfileScreen({ navigation }) {
         dispatchAddress: sellerProfile.dispatchAddress?.trim() || null,
         contactPhone: sellerProfile.contactPhone?.trim() || null,
       });
-      Alert.alert(t('common.save'), t('profile.sellerProfileSaved'));
+      Alert.alert(t('common.save'), t('profile.sellerProfileSaved', 'تم حفظ بيانات شحن التاجر بنجاح'));
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || t('common.error');
       Alert.alert(t('common.error'), msg);
@@ -538,7 +532,7 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleDeleteAddress = (id) => {
-    Alert.alert(t('common.delete'), t('profile.deleteAddressConfirm'), [
+    Alert.alert(t('common.delete'), t('profile.deleteAddressConfirm', 'هل تريد بالتأكيد حذف هذا العنوان؟'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -678,7 +672,7 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert(t('profile.logout'), t('profile.logoutConfirm'), [
+    Alert.alert(t('profile.logout', 'تسجيل الخروج'), t('profile.logoutConfirm', 'هل أنت متأكد من رغبتك في تسجيل الخروج؟'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('auth.logout'), style: 'destructive', onPress: () => logout() },
     ]);
@@ -692,7 +686,7 @@ export default function ProfileScreen({ navigation }) {
     const opened = await openWhatsApp(defaultSupportPhone, message);
     if (!opened) {
       Alert.alert(
-        t('profile.customerSupport'),
+        t('profile.customerSupport', 'خدمة العملاء (واتساب)'),
         isRTL
           ? 'تواصل معنا مباشرة عبر البريد support@marketplace.com أو عبر واتساب: 01000000000'
           : 'Contact us directly at support@marketplace.com or on WhatsApp: +201000000000'
@@ -739,7 +733,7 @@ export default function ProfileScreen({ navigation }) {
       <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: floatingNavClearance }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -752,6 +746,7 @@ export default function ProfileScreen({ navigation }) {
         <ProfileHeaderCard
           profile={profile}
           sellerDashboard={sellerDashboard}
+          navigation={navigation}
           onEditProfile={() => setIsEditingName(true)}
           onOpenSettings={() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -770,108 +765,81 @@ export default function ProfileScreen({ navigation }) {
           onAddressPress={() => openAddressModal()}
         />
 
-        {/* ─── 3. Order Tracking Hub (Buyers Only) ─── */}
-        {!isSeller && (
+        {/* ─── 3. Order Tracking Hub (Buyers & Sellers) ─── */}
+        <ProfileSectionHeader
+          title={
+            isSeller
+              ? t('profile.sellerOrdersHubTitle', 'متابعة طلبات وشحنات المتجر')
+              : t('profile.buyerHubTitle', 'متابعة طلباتي وشحناتي')
+          }
+          actionLabel={t('profile.viewAllOrders', 'عرض كل الطلبات')}
+          onActionPress={() => {
+            if (isSeller) {
+              navigation?.navigate('SellerOrders');
+            } else {
+              navigation?.navigate('MyOrders', { filterStatus: 'All' });
+            }
+          }}
+          icon="clipboard-pulse-outline"
+        />
+        <OrderTrackingCard
+          role={role}
+          buyerDashboard={buyerDashboard}
+          sellerDashboard={sellerDashboard}
+          sellerOrdersSummary={sellerOrdersSummary}
+          navigation={navigation}
+        />
+
+        {/* ─── 4. Logistics & Address Hub ─── */}
+        {isSeller ? (
           <>
             <ProfileSectionHeader
-              title={t('profile.buyerHubTitle')}
-              actionLabel={t('profile.viewAllOrders')}
-              onActionPress={() => navigation?.navigate('MyOrders', { filterStatus: 'All' })}
-              icon="clipboard-pulse-outline"
-            />
-            <OrderTrackingCard
-              buyerDashboard={buyerDashboard}
-              navigation={navigation}
-            />
-          </>
-        )}
-
-        {/* ─── 4. Egyptian Address Book ─── */}
-        <ProfileSectionHeader
-          title={t('profile.addressesSection')}
-          actionLabel={t('profile.addAddress')}
-          onActionPress={() => openAddressModal()}
-          icon="map-marker-radius-outline"
-        />
-        <AddressBookCard
-          addresses={addresses}
-          onAddNewAddress={() => openAddressModal()}
-          onEditAddress={(addr) => openAddressModal(addr)}
-          onDeleteAddress={(id) => handleDeleteAddress(id)}
-          onSetDefault={(addr) => handleSetDefaultAddress(addr)}
-          onLocateOnMap={handleOpenMapPicker}
-        />
-
-        {/* ─── 5. Seller Dispatch & Warehouse Settings (Sellers Only) ─── */}
-        {isSeller && (
-          <View style={styles.sellerDispatchContainer}>
-            <ProfileSectionHeader
-              title={t('profile.sellerDispatchSettings')}
+              title={t('profile.sellerWarehouseHub', 'مركز شحن ومخزن التاجر (بوسطة)')}
+              actionLabel={t('profile.editDispatchSettings', 'تعديل')}
+              onActionPress={() => setIsEditingSellerDispatch(true)}
               icon="storefront-outline"
             />
-            <View style={[styles.sellerDispatchCard, cardShadow]}>
-              {loadingSellerProfile ? (
-                <ActivityIndicator size="small" color={colors.gold} />
-              ) : (
-                <View>
-                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('profile.mainDispatchCity')}
-                  </Text>
-                  <TextInput
-                    accessible={true}
-                    accessibilityLabel={t('profile.mainDispatchCity')}
-                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                    value={sellerProfile.dispatchCity}
-                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchCity: text }))}
-                    placeholder={isRTL ? 'مثال: القاهرة، الجيزة، الإسكندرية' : 'e.g. Cairo, Giza'}
-                    placeholderTextColor="#94A3B8"
-                  />
+            <SellerDispatchCard
+              sellerProfile={sellerProfile}
+              onEditDispatch={() => setIsEditingSellerDispatch(true)}
+              onLocateOnMap={handleOpenSellerMapPicker}
+            />
 
-                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('profile.detailedDispatchAddress')}
-                  </Text>
-                  <TextInput
-                    accessible={true}
-                    accessibilityLabel={t('profile.detailedDispatchAddress')}
-                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                    value={sellerProfile.dispatchAddress}
-                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchAddress: text }))}
-                    placeholder={isRTL ? 'عنوان المخزن أو المتجر بالتفصيل' : 'Detailed warehouse/store address'}
-                    placeholderTextColor="#94A3B8"
-                  />
-
-                  <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('profile.contactPhoneRepresentative')}
-                  </Text>
-                  <TextInput
-                    accessible={true}
-                    accessibilityLabel={t('profile.contactPhoneRepresentative')}
-                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                    keyboardType="phone-pad"
-                    value={sellerProfile.contactPhone}
-                    onChangeText={(text) => setSellerProfile((p) => ({ ...p, contactPhone: text }))}
-                    placeholder="010xxxxxxxx"
-                    placeholderTextColor="#94A3B8"
-                  />
-
-                  <TouchableOpacity
-                    accessible={true}
-                    accessibilityRole="button"
-                    onPress={handleSaveSellerProfile}
-                    disabled={savingSellerProfile}
-                    style={[styles.sellerSaveBtn, { backgroundColor: colors.accent }]}
-                    activeOpacity={0.85}
-                  >
-                    {savingSellerProfile ? (
-                      <ActivityIndicator size="small" color={colors.white} />
-                    ) : (
-                      <Text style={styles.sellerSaveBtnText}>{t('profile.saveSellerSettings')}</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
+            {/* Collapsible Personal Addresses for Shopping */}
+            <ProfileSectionHeader
+              title={`${t('profile.sellerPersonalAddresses', 'العناوين الشخصية')} (${addresses.length})`}
+              actionLabel={showPersonalAddresses ? (isRTL ? 'إخفاء' : 'Hide') : (isRTL ? 'عرض' : 'Show')}
+              onActionPress={() => setShowPersonalAddresses((p) => !p)}
+              icon="map-marker-radius-outline"
+            />
+            {showPersonalAddresses && (
+              <AddressBookCard
+                addresses={addresses}
+                onAddNewAddress={() => openAddressModal()}
+                onEditAddress={(addr) => openAddressModal(addr)}
+                onDeleteAddress={(id) => handleDeleteAddress(id)}
+                onSetDefault={(addr) => handleSetDefaultAddress(addr)}
+                onLocateOnMap={handleOpenMapPicker}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <ProfileSectionHeader
+              title={t('profile.addressesSection', 'دفتر العناوين المحفوظة')}
+              actionLabel={t('profile.addAddress', 'إضافة عنوان')}
+              onActionPress={() => openAddressModal()}
+              icon="map-marker-radius-outline"
+            />
+            <AddressBookCard
+              addresses={addresses}
+              onAddNewAddress={() => openAddressModal()}
+              onEditAddress={(addr) => openAddressModal(addr)}
+              onDeleteAddress={(id) => handleDeleteAddress(id)}
+              onSetDefault={(addr) => handleSetDefaultAddress(addr)}
+              onLocateOnMap={handleOpenMapPicker}
+            />
+          </>
         )}
 
         {/* ─── 6. Account Services & Settings Groups ─── */}
@@ -911,22 +879,22 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.dialogBox, cardShadow]}>
             <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={styles.dialogTitle}>{t('profile.editName')}</Text>
+              <Text style={styles.dialogTitle}>{t('profile.editName', 'تعديل الاسم')}</Text>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsEditingName(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t('profile.namePlaceholder')}
+              {t('profile.namePlaceholder', 'أدخل اسمك بالكامل')}
             </Text>
             <TextInput
               accessible={true}
-              accessibilityLabel={t('profile.namePlaceholder')}
+              accessibilityLabel={t('profile.namePlaceholder', 'أدخل اسمك بالكامل')}
               style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
               value={nameInput}
               onChangeText={setNameInput}
-              placeholder={t('profile.namePlaceholder')}
+              placeholder={t('profile.namePlaceholder', 'أدخل اسمك بالكامل')}
               placeholderTextColor="#94A3B8"
               autoFocus
             />
@@ -972,7 +940,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <MaterialCommunityIcons name="lock-reset" size={22} color={colors.primary} />
                 <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
-                  {t('profile.changePassword')}
+                  {t('profile.changePassword', 'تغيير كلمة المرور')}
                 </Text>
               </View>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setIsChangingPassword(false)}>
@@ -982,12 +950,12 @@ export default function ProfileScreen({ navigation }) {
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.currentPassword')} *
+                {t('profile.currentPassword', 'كلمة المرور الحالية')} *
               </Text>
               <TextInput
                 secureTextEntry
                 accessible={true}
-                accessibilityLabel={t('profile.currentPassword')}
+                accessibilityLabel={t('profile.currentPassword', 'كلمة المرور الحالية')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
@@ -996,12 +964,12 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.newPassword')} *
+                {t('profile.newPassword', 'كلمة المرور الجديدة')} *
               </Text>
               <TextInput
                 secureTextEntry
                 accessible={true}
-                accessibilityLabel={t('profile.newPassword')}
+                accessibilityLabel={t('profile.newPassword', 'كلمة المرور الجديدة')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -1010,12 +978,12 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.confirmNewPassword')} *
+                {t('profile.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')} *
               </Text>
               <TextInput
                 secureTextEntry
                 accessible={true}
-                accessibilityLabel={t('profile.confirmNewPassword')}
+                accessibilityLabel={t('profile.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -1034,7 +1002,7 @@ export default function ProfileScreen({ navigation }) {
                 {savingPassword ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.fullWidthSaveText}>{t('profile.updatePassword')}</Text>
+                  <Text style={styles.fullWidthSaveText}>{t('profile.updatePassword', 'تحديث كلمة المرور')}</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -1053,7 +1021,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={[styles.sheetBox, cardShadow]}>
             <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={styles.sheetTitle}>
-                {editingAddressId ? t('profile.addressModal.titleEdit') : t('profile.addressModal.titleNew')}
+                {editingAddressId ? t('profile.addressModal.titleEdit', 'تعديل العنوان') : t('profile.addressModal.titleNew', 'إضافة عنوان مصري جديد')}
               </Text>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setAddressModalVisible(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
@@ -1075,15 +1043,15 @@ export default function ProfileScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.primary} />
-                <Text style={styles.mapPickerNudgeText}>{t('profile.locateOnMap')}</Text>
+                <Text style={styles.mapPickerNudgeText}>{t('profile.locateOnMap', 'تحديد على الخريطة')}</Text>
               </TouchableOpacity>
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.label')}
+                {t('profile.addressModal.label', 'اسم العنوان (مثال: المنزل، العمل)')}
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.label')}
+                accessibilityLabel={t('profile.addressModal.label', 'اسم العنوان (مثال: المنزل، العمل)')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.label}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, label: text }))}
@@ -1092,11 +1060,11 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.recipientName')} *
+                {t('profile.addressModal.recipientName', 'اسم المستلم')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.recipientName')}
+                accessibilityLabel={t('profile.addressModal.recipientName', 'اسم المستلم')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.recipientName}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, recipientName: text }))}
@@ -1105,11 +1073,11 @@ export default function ProfileScreen({ navigation }) {
               />
 
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.recipientPhone')} *
+                {t('profile.addressModal.recipientPhone', 'رقم الموبايل المصري (010, 011, 012, 015)')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.recipientPhone')}
+                accessibilityLabel={t('profile.addressModal.recipientPhone', 'رقم الموبايل المصري (010, 011, 012, 015)')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 keyboardType="phone-pad"
                 value={addressForm.recipientPhone}
@@ -1120,11 +1088,11 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 1. Governorate */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.governorate')} *
+                {t('profile.addressModal.governorate', 'المحافظة (مثال: القاهرة، الجيزة، الإسكندرية)')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.governorate')}
+                accessibilityLabel={t('profile.addressModal.governorate', 'المحافظة (مثال: القاهرة، الجيزة، الإسكندرية)')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.governorate}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, governorate: text }))}
@@ -1134,11 +1102,11 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 2. City / Center */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.city')} *
+                {t('profile.addressModal.city', 'المدينة أو المركز (مثال: الدقي، مدينة نصر)')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.city')}
+                accessibilityLabel={t('profile.addressModal.city', 'المدينة أو المركز (مثال: الدقي، مدينة نصر)')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.city}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, city: text }))}
@@ -1148,11 +1116,11 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 3. Area / District */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.area')} *
+                {t('profile.addressModal.area', 'الحي أو المنطقة')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.area')}
+                accessibilityLabel={t('profile.addressModal.area', 'الحي أو المنطقة')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.area}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, area: text }))}
@@ -1162,11 +1130,11 @@ export default function ProfileScreen({ navigation }) {
 
               {/* 4. Street & Building */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                {t('profile.addressModal.streetBuilding')} *
+                {t('profile.addressModal.streetBuilding', 'الشارع ورقم العمارة / رقم الشقة')} *
               </Text>
               <TextInput
                 accessible={true}
-                accessibilityLabel={t('profile.addressModal.streetBuilding')}
+                accessibilityLabel={t('profile.addressModal.streetBuilding', 'الشارع ورقم العمارة / رقم الشقة')}
                 style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={addressForm.streetBuilding}
                 onChangeText={(text) => setAddressForm((p) => ({ ...p, streetBuilding: text }))}
@@ -1177,7 +1145,7 @@ export default function ProfileScreen({ navigation }) {
               {/* Default Address Switch */}
               <View style={[styles.switchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Text style={styles.switchLabel}>
-                  {t('profile.addressModal.isDefault')}
+                  {t('profile.addressModal.isDefault', 'تعيين كعنوان افتراضي رئيسي')}
                 </Text>
                 <Switch
                   value={addressForm.isDefault}
@@ -1219,7 +1187,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <MaterialCommunityIcons name="frequently-asked-questions" size={24} color={colors.primary} />
                 <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
-                  {t('profile.helpCenter')}
+                  {t('profile.helpCenter', 'مركز المساعدة والأسئلة الشائعة')}
                 </Text>
               </View>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setHelpModalVisible(false)}>
@@ -1233,11 +1201,11 @@ export default function ProfileScreen({ navigation }) {
                 <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <MaterialCommunityIcons name="truck-fast-outline" size={18} color={colors.primary} />
                   <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
-                    {t('profile.faqShipping')}
+                    {t('profile.faqShipping', 'الشحن والتوصيل')}
                   </Text>
                 </View>
                 <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t('profile.faqShippingAnswer')}
+                  {t('profile.faqShippingAnswer', 'نوفر شحن سريع لجميع محافظات جمهورية مصر العربية بالتعاون مع بوسطة إكسبريس خلال 2 إلى 5 أيام عمل.')}
                 </Text>
               </View>
 
@@ -1246,11 +1214,11 @@ export default function ProfileScreen({ navigation }) {
                 <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <MaterialCommunityIcons name="keyboard-return" size={18} color="#D97706" />
                   <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
-                    {t('profile.faqReturns')}
+                    {t('profile.faqReturns', 'سياسة الاسترجاع 14 يوماً')}
                   </Text>
                 </View>
                 <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t('profile.faqReturnsAnswer')}
+                  {t('profile.faqReturnsAnswer', 'يحق لك استرجاع المنتجات خلال 14 يوماً من الاستلام وفقاً لقانون حماية المستهلك المصري، ويتم إيداع القيمة في محفظتك.')}
                 </Text>
               </View>
 
@@ -1259,15 +1227,15 @@ export default function ProfileScreen({ navigation }) {
                 <View style={[styles.faqHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <MaterialCommunityIcons name="cash-multiple" size={18} color="#16A34A" />
                   <Text style={[styles.faqQuestion, isRTL ? { marginRight: 6 } : { marginLeft: 6 }]}>
-                    {t('profile.faqCod')}
+                    {t('profile.faqCod', 'الدفع عند الاستلام')}
                   </Text>
                 </View>
                 <Text style={[styles.faqAnswer, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t('profile.faqCodAnswer')}
+                  {t('profile.faqCodAnswer', 'يمكنك الدفع كاش عند استلام الشحنة من مندوب التوصيل بعد فحص الطرد ظاهرياً.')}
                 </Text>
               </View>
 
-              {/* Direct Support WhatsApp CTA */}
+              {/* Direct Support CTA */}
               <TouchableOpacity
                 accessible={true}
                 accessibilityRole="button"
@@ -1275,11 +1243,11 @@ export default function ProfileScreen({ navigation }) {
                   setHelpModalVisible(false);
                   handleSupportWhatsApp();
                 }}
-                style={[styles.whatsappSupportBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                style={[styles.whatsappSupportBtn, { flexDirection: isRTL ? 'row-reverse' : 'row', backgroundColor: colors.primary }]}
                 activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="whatsapp" size={20} color={colors.white} />
-                <Text style={styles.whatsappSupportBtnText}>{t('profile.customerSupport')}</Text>
+                <MaterialCommunityIcons name="headset" size={20} color={colors.white} />
+                <Text style={styles.whatsappSupportBtnText}>{t('profile.contactSupportTeam', 'تواصل مع الدعم الفني')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1299,7 +1267,7 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <MaterialCommunityIcons name="wallet" size={24} color={colors.gold} />
                 <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
-                  {t('profile.walletTxModalTitle')}
+                  {t('profile.walletTxModalTitle', 'محفظة المشتري وسجل المعاملات')}
                 </Text>
               </View>
               <TouchableOpacity accessible={true} accessibilityRole="button" onPress={() => setShowWalletModal(false)}>
@@ -1309,7 +1277,7 @@ export default function ProfileScreen({ navigation }) {
 
             {/* Current Balance Banner */}
             <View style={[styles.walletBalanceBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={styles.walletBalanceLabel}>{t('profile.availableBalanceLabel')}</Text>
+              <Text style={styles.walletBalanceLabel}>{t('profile.availableBalanceLabel', 'الرصيد المتاح:')}</Text>
               <Text style={styles.walletBalanceAmount}>
                 {formatCurrency(walletData?.balance || 0)}
               </Text>
@@ -1323,7 +1291,7 @@ export default function ProfileScreen({ navigation }) {
               {!walletData?.transactions || walletData.transactions.length === 0 ? (
                 <View style={styles.noTxContainer}>
                   <MaterialCommunityIcons name="history" size={36} color={colors.textSecondary} />
-                  <Text style={styles.noTxText}>{t('profile.noPreviousTx')}</Text>
+                  <Text style={styles.noTxText}>{t('profile.noPreviousTx', 'لا توجد معاملات سابقة في محفظتك حتى الآن.')}</Text>
                 </View>
               ) : (
                 walletData.transactions.map((tx, idx) => {
@@ -1350,10 +1318,10 @@ export default function ProfileScreen({ navigation }) {
                         <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                           <Text style={styles.txTitle}>
                             {tx.type === 'RefundCredit'
-                              ? t('profile.refundCredit')
+                              ? t('profile.refundCredit', 'إيداع استرداد مرتجع')
                               : tx.type === 'OrderRedemption'
-                              ? t('profile.orderRedemption')
-                              : tx.type || t('profile.balanceTx')}
+                              ? t('profile.orderRedemption', 'خصم مشتريات بالرصيد')
+                              : tx.type || t('profile.balanceTx', 'معاملة رصيد')}
                           </Text>
                           <Text style={styles.txDate}>
                             {tx.description || formatDate(tx.createdAt)}
@@ -1391,8 +1359,8 @@ export default function ProfileScreen({ navigation }) {
               <MaterialCommunityIcons name="alert-octagon" size={32} color="#DC2626" />
             </View>
 
-            <Text style={styles.deleteModalTitle}>{t('profile.deleteAccountTitle')}</Text>
-            <Text style={styles.deleteModalDesc}>{t('profile.deleteWarning')}</Text>
+            <Text style={styles.deleteModalTitle}>{t('profile.deleteAccountTitle', 'حذف الحساب نهائياً')}</Text>
+            <Text style={styles.deleteModalDesc}>{t('profile.deleteWarning', 'سيتم حذف بياناتك وتشفيرها نهائياً. لا يمكن التراجع عن هذا الإجراء.')}</Text>
 
             {googleEnabled && (
               <View style={[styles.authSwitchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1439,12 +1407,12 @@ export default function ProfileScreen({ navigation }) {
             {deleteAuthMethod === 'password' ? (
               <>
                 <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t('profile.deleteConfirmText')}
+                  {t('profile.deleteConfirmText', 'أدخل كلمة المرور الحالية لتأكيد حذف حسابك نهائياً:')}
                 </Text>
                 <TextInput
                   secureTextEntry
                   accessible={true}
-                  accessibilityLabel={t('profile.deleteConfirmText')}
+                  accessibilityLabel={t('profile.deleteConfirmText', 'أدخل كلمة المرور الحالية لتأكيد حذف حسابك نهائياً:')}
                   style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
                   value={deletePasswordInput}
                   onChangeText={setDeletePasswordInput}
@@ -1493,6 +1461,108 @@ export default function ProfileScreen({ navigation }) {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── MODAL 6: Edit Seller Dispatch Warehouse Settings ─── */}
+      <Modal
+        visible={isEditingSellerDispatch}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsEditingSellerDispatch(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.sheetBox, cardShadow]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.modalTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <MaterialCommunityIcons name="store-cog-outline" size={22} color={colors.gold} />
+                <Text style={[styles.sheetTitle, isRTL ? { marginRight: 8 } : { marginLeft: 8 }]}>
+                  {t('profile.editDispatchSettings', 'تعديل بيانات المخزن والشحن')}
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={() => setIsEditingSellerDispatch(false)}
+              >
+                <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.mainDispatchCity', 'محافظة الشحن الرئيسية *')}
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.mainDispatchCity', 'محافظة الشحن الرئيسية *')}
+                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                value={sellerProfile.dispatchCity}
+                onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchCity: text }))}
+                placeholder={isRTL ? 'مثال: القاهرة، الجيزة، الإسكندرية' : 'e.g. Cairo, Giza'}
+                placeholderTextColor="#94A3B8"
+              />
+
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.detailedDispatchAddress', 'عنوان المخزن أو المعرض بالتفصيل')}
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.detailedDispatchAddress', 'عنوان المخزن أو المعرض بالتفصيل')}
+                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                value={sellerProfile.dispatchAddress}
+                onChangeText={(text) => setSellerProfile((p) => ({ ...p, dispatchAddress: text }))}
+                placeholder={isRTL ? 'عنوان المخزن أو المتجر بالتفصيل' : 'Detailed warehouse/store address'}
+                placeholderTextColor="#94A3B8"
+              />
+
+              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('profile.contactPhoneRepresentative', 'موبايل مندوب الاستلام')}
+              </Text>
+              <TextInput
+                accessible={true}
+                accessibilityLabel={t('profile.contactPhoneRepresentative', 'رقم هاتف التواصل مع المندوب')}
+                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                keyboardType="phone-pad"
+                value={sellerProfile.contactPhone}
+                onChangeText={(text) => setSellerProfile((p) => ({ ...p, contactPhone: text }))}
+                placeholder="010xxxxxxxx"
+                placeholderTextColor="#94A3B8"
+              />
+
+              {/* Map Address Picker Button */}
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={handleOpenSellerMapPicker}
+                style={[styles.mapNudgeBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} />
+                <Text style={styles.mapNudgeText}>
+                  {t('profile.locateOnMap', 'تحديد موقع المخزن بدقة على الخريطة 📍')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessible={true}
+                accessibilityRole="button"
+                onPress={async () => {
+                  await handleSaveSellerProfile();
+                  setIsEditingSellerDispatch(false);
+                }}
+                disabled={savingSellerProfile}
+                style={[styles.fullWidthSaveBtn, { backgroundColor: colors.accent, marginTop: 16 }]}
+                activeOpacity={0.85}
+              >
+                {savingSellerProfile ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.fullWidthSaveText}>{t('profile.saveSellerSettings', 'حفظ الإعدادات')}</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1820,5 +1890,20 @@ const styles = StyleSheet.create({
   authMethodBtnTextActive: {
     color: colors.white,
     fontWeight: '800',
+  },
+  mapNudgeBtn: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  mapNudgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });

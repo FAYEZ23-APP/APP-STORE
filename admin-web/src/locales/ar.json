@@ -653,7 +653,17 @@
     "egyptianPhonePlaceholder": "010XXXXXXXX أو 011XXXXXXXX",
     "alreadyHaveAccount": "لديك حساب بالفعل؟",
     "verificationCodeResent": "تمت إعادة إرسال رمز التحقق بنجاح",
-    "passwordTooShort": "يجب ألا تقل كلمة المرور عن 6 أحرف"
+    "passwordTooShort": "يجب ألا تقل كلمة المرور عن 6 أحرف",
+    "strengthIdle": "قوة كلمة المرور: بانتظار الإدخال",
+    "strengthWeak": "قوة كلمة المرور: ضعيفة — أضف أرقاماً",
+    "strengthFair": "قوة كلمة المرور: متوسطة — مقبولة",
+    "strengthGood": "قوة كلمة المرور: قوية",
+    "strengthStrong": "قوة كلمة المرور: فائقة الأمان",
+    "enteringStore": "تم التحقق بنجاح — جاري نقلك...",
+    "preparingWorkspace": "جاري تجهيز جلستك الآمنة...",
+    "portalBadge": "بوابة سوق مصر",
+    "rememberNote": "جلسة محمية بتشفير HttpOnly و CSRF",
+    "serverUnavailable": "تعذر الاتصال بالخادم. يرجى التأكد من تشغيل خادم الـ API والمحاولة مرة أخرى."
   },
   "seller": {
     "dashboard": "لوحة التاجر",

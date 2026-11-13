@@ -6,20 +6,26 @@ import {
   RefreshControl,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 
 import { getAdminStats } from '../../api/adminApi';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 import { AdminHeader, cardShadow, ErrorState } from './adminUi';
 
 export default function AdminStatsScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +91,7 @@ export default function AdminStatsScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: floatingNavClearance }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -205,10 +211,11 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   iconWrap: {
     width: 38,
@@ -237,10 +244,11 @@ const styles = StyleSheet.create({
   },
   panelCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   panelTitle: {
     fontSize: 13,

@@ -297,7 +297,7 @@ export default function ProfilePage() {
     setPasswordLoading(true);
     try {
       await changePassword({ currentPassword, newPassword });
-      setPasswordMsg({ type: 'success', text: t('profile.passwordChanged') });
+      setPasswordMsg({ type: 'success', text: t('profile.passwordChanged', 'تم تغيير كلمة المرور بنجاح') });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -437,7 +437,7 @@ export default function ProfilePage() {
 
   // Delete Address
   const handleDeleteAddress = async (id) => {
-    if (!window.confirm(t('profile.deleteAddressConfirm'))) return;
+    if (!window.confirm(t('profile.deleteAddressConfirm', 'هل تريد بالتأكيد حذف هذا العنوان؟'))) return;
     try {
       await deleteMyAddress(id);
       await loadAddresses();
@@ -545,7 +545,7 @@ export default function ProfilePage() {
 
   // Logout
   const handleLogout = () => {
-    if (window.confirm(t('profile.logoutConfirm'))) {
+    if (window.confirm(t('profile.logoutConfirm', 'هل أنت متأكد من رغبتك في تسجيل الخروج؟'))) {
       logout();
       window.location.href = '/';
     }
@@ -669,7 +669,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
               <h3 className="font-black text-sm text-[#1F2329] flex items-center gap-2">
                 <User className="w-4 h-4 text-[#C8102E]" />
-                <span>{t('profile.editName')}</span>
+                <span>{t('profile.editName', 'تعديل الاسم')}</span>
               </h3>
               <button
                 type="button"
@@ -734,7 +734,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
               <h3 className="font-black text-sm text-[#1F2329] flex items-center gap-2">
                 <Key className="w-4 h-4 text-[#C8102E]" />
-                <span>{t('profile.changePassword')}</span>
+                <span>{t('profile.changePassword', 'تغيير كلمة المرور')}</span>
               </h3>
               <button
                 type="button"
@@ -760,7 +760,7 @@ export default function ProfilePage() {
             <form onSubmit={handleChangePassword} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-[#1F2329] mb-1">
-                  {t('profile.currentPassword')} *
+                  {t('profile.currentPassword', 'كلمة المرور الحالية')} *
                 </label>
                 <input
                   type="password"
@@ -773,7 +773,7 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-xs font-bold text-[#1F2329] mb-1">
-                  {t('profile.newPassword')} *
+                  {t('profile.newPassword', 'كلمة المرور الجديدة')} *
                 </label>
                 <input
                   type="password"
@@ -787,7 +787,7 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-xs font-bold text-[#1F2329] mb-1">
-                  {t('profile.confirmNewPassword')} *
+                  {t('profile.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')} *
                 </label>
                 <input
                   type="password"
@@ -812,7 +812,7 @@ export default function ProfilePage() {
                   disabled={passwordLoading}
                   className="px-5 py-2 bg-[#C8102E] hover:bg-[#A80D26] text-white text-xs font-bold rounded-xl shadow-md shadow-[#C8102E]/20 disabled:opacity-50 transition-all"
                 >
-                  {passwordLoading ? (isRTL ? 'جاري التحديث...' : 'Updating...') : t('profile.updatePassword')}
+                  {passwordLoading ? (isRTL ? 'جاري التحديث...' : 'Updating...') : t('profile.updatePassword', 'تحديث كلمة المرور')}
                 </button>
               </div>
             </form>
@@ -830,7 +830,7 @@ export default function ProfilePage() {
                 <span>
                   {editingAddress
                     ? (isRTL ? 'تعديل بيانات العنوان' : 'Edit Saved Address')
-                    : t('profile.addressModal.titleNew')}
+                    : t('profile.addressModal.titleNew', 'إضافة عنوان مصري جديد')}
                 </span>
               </h3>
               <button
@@ -890,7 +890,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.label')}
+                    {t('profile.addressModal.label', 'اسم العنوان (مثال: المنزل، العمل)')}
                   </label>
                   <input
                     type="text"
@@ -902,7 +902,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.recipientName')}
+                    {t('profile.addressModal.recipientName', 'اسم المستلم')}
                   </label>
                   <input
                     type="text"
@@ -916,7 +916,7 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                  {t('profile.addressModal.recipientPhone')} *
+                  {t('profile.addressModal.recipientPhone', 'رقم الموبايل المصري (010, 011, 012, 015)')} *
                 </label>
                 <input
                   type="tel"
@@ -932,7 +932,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.governorate')} *
+                    {t('profile.addressModal.governorate', 'المحافظة (مثال: القاهرة، الجيزة، الإسكندرية)')} *
                   </label>
                   <input
                     type="text"
@@ -945,7 +945,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.city')} *
+                    {t('profile.addressModal.city', 'المدينة أو المركز (مثال: الدقي، مدينة نصر)')} *
                   </label>
                   <input
                     type="text"
@@ -961,7 +961,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.area')} *
+                    {t('profile.addressModal.area', 'الحي أو المنطقة')} *
                   </label>
                   <input
                     type="text"
@@ -974,7 +974,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#1F2329] mb-1">
-                    {t('profile.addressModal.streetBuilding')} *
+                    {t('profile.addressModal.streetBuilding', 'الشارع ورقم العمارة / رقم الشقة')} *
                   </label>
                   <input
                     type="text"
@@ -1047,7 +1047,7 @@ export default function ProfilePage() {
                   className="rounded accent-[#C8102E]"
                 />
                 <span className="text-xs text-[#595F69] font-medium">
-                  {t('profile.addressModal.isDefault')}
+                  {t('profile.addressModal.isDefault', 'تعيين كعنوان افتراضي رئيسي')}
                 </span>
               </label>
 
@@ -1079,7 +1079,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
               <h3 className="font-black text-sm text-[#1F2329] flex items-center gap-2">
                 <HelpCircle className="w-5 h-5 text-[#C8102E]" />
-                <span>{t('profile.helpCenter')}</span>
+                <span>{t('profile.helpCenter', 'مركز المساعدة والأسئلة الشائعة')}</span>
               </h3>
               <button
                 type="button"
@@ -1095,10 +1095,10 @@ export default function ProfilePage() {
               <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#ECE9E6] space-y-1">
                 <h4 className="font-bold text-[#1F2329] flex items-center gap-2">
                   <Truck className="w-4 h-4 text-[#C8102E]" />
-                  <span>{t('profile.faqShipping')}</span>
+                  <span>{t('profile.faqShipping', 'الشحن والتوصيل')}</span>
                 </h4>
                 <p className="text-[#595F69] leading-relaxed text-[11px]">
-                  {t('profile.faqShippingAnswer')}
+                  {t('profile.faqShippingAnswer', 'نوفر شحن سريع لجميع محافظات جمهورية مصر العربية بالتعاون مع بوسطة إكسبريس خلال 2 إلى 5 أيام عمل.')}
                 </p>
               </div>
 
@@ -1106,10 +1106,10 @@ export default function ProfilePage() {
               <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#ECE9E6] space-y-1">
                 <h4 className="font-bold text-[#1F2329] flex items-center gap-2">
                   <RotateCcw className="w-4 h-4 text-amber-600" />
-                  <span>{t('profile.faqReturns')}</span>
+                  <span>{t('profile.faqReturns', 'سياسة الاسترجاع 14 يوماً')}</span>
                 </h4>
                 <p className="text-[#595F69] leading-relaxed text-[11px]">
-                  {t('profile.faqReturnsAnswer')}
+                  {t('profile.faqReturnsAnswer', 'يحق لك استرجاع المنتجات خلال 14 يوماً من الاستلام وفقاً لقانون حماية المستهلك المصري، ويتم إيداع القيمة في محفظتك.')}
                 </p>
               </div>
 
@@ -1117,10 +1117,10 @@ export default function ProfilePage() {
               <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#ECE9E6] space-y-1">
                 <h4 className="font-bold text-[#1F2329] flex items-center gap-2">
                   <Banknote className="w-4 h-4 text-emerald-600" />
-                  <span>{t('profile.faqCod')}</span>
+                  <span>{t('profile.faqCod', 'الدفع عند الاستلام')}</span>
                 </h4>
                 <p className="text-[#595F69] leading-relaxed text-[11px]">
-                  {t('profile.faqCodAnswer')}
+                  {t('profile.faqCodAnswer', 'يمكنك الدفع كاش عند استلام الشحنة من مندوب التوصيل بعد فحص الطرد ظاهرياً.')}
                 </p>
               </div>
             </div>
@@ -1134,7 +1134,7 @@ export default function ProfilePage() {
               className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all mt-4"
             >
               <Headphones className="w-4 h-4" />
-              <span>{t('profile.customerSupport')}</span>
+              <span>{t('profile.customerSupport', 'خدمة العملاء (واتساب)')}</span>
             </button>
           </div>
         </div>
@@ -1147,7 +1147,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
               <h3 className="font-black text-sm text-[#1F2329] flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-[#D6A33A]" />
-                <span>{t('profile.walletTxModalTitle')}</span>
+                <span>{t('profile.walletTxModalTitle', 'محفظة المشتري وسجل المعاملات')}</span>
               </h3>
               <button
                 type="button"
@@ -1162,7 +1162,7 @@ export default function ProfilePage() {
             <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200 flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold text-amber-900 block">
-                  {t('profile.availableBalanceLabel')}
+                  {t('profile.availableBalanceLabel', 'الرصيد المتاح:')}
                 </span>
                 <span className="text-2xl font-black text-[#1F2329] font-mono mt-0.5 block">
                   {formatCurrency(walletData?.balance || 0)}
@@ -1174,7 +1174,7 @@ export default function ProfilePage() {
             </div>
 
             <p className="text-[11px] text-[#595F69] leading-relaxed">
-              {t('profile.buyerWalletNotice')}
+              {t('profile.buyerWalletNotice', 'يتم إيداع مبالغ المرتجعات (خلال 14 يوم) في محفظتك تلقائياً، ويمكنك خصمها مباشرة عند إتمام أي طلب جديد.')}
             </p>
 
             <div className="border-t border-[#ECE9E6] pt-3">
@@ -1184,7 +1184,7 @@ export default function ProfilePage() {
 
               {!walletData?.transactions || walletData.transactions.length === 0 ? (
                 <div className="py-8 text-center text-xs text-[#595F69]">
-                  {t('profile.noPreviousTx')}
+                  {t('profile.noPreviousTx', 'لا توجد معاملات سابقة في محفظتك حتى الآن.')}
                 </div>
               ) : (
                 <div className="divide-y divide-[#ECE9E6] max-h-60 overflow-y-auto">
@@ -1211,7 +1211,7 @@ export default function ProfilePage() {
                           </div>
                           <div>
                             <span className="font-bold text-[#1F2329] block text-[11px]">
-                              {tx.description || (isPositive ? t('profile.refundCredit') : t('profile.orderRedemption'))}
+                              {tx.description || (isPositive ? t('profile.refundCredit', 'إيداع استرداد مرتجع') : t('profile.orderRedemption', 'خصم مشتريات بالرصيد'))}
                             </span>
                             <span className="text-[10px] text-[#8C929B]">
                               {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US') : ''}
@@ -1243,7 +1243,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between border-b border-[#ECE9E6] pb-3">
               <h3 className="font-black text-sm text-[#1F2329] flex items-center gap-2">
                 <Link2 className="w-4 h-4 text-blue-600" />
-                <span>{t('profile.googleLinkingTitle')}</span>
+                <span>{t('profile.googleLinkingTitle', 'ربط الحساب بـ Google')}</span>
               </h3>
               <button
                 type="button"
@@ -1255,7 +1255,7 @@ export default function ProfilePage() {
             </div>
 
             <p className="text-xs text-[#595F69] leading-relaxed">
-              {t('profile.googleLinkingDesc')}
+              {t('profile.googleLinkingDesc', 'يمكنك ربط حسابك الحالي بحساب Google لتسجيل الدخول السريع مستقبلاً بأمان تام.')}
             </p>
 
             {linkGoogleMsg && (
@@ -1273,14 +1273,14 @@ export default function ProfilePage() {
             <form onSubmit={handleLinkGoogleAccount} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-[#1F2329] mb-1">
-                  {t('profile.googleIdTokenLabel')}:
+                  {t('profile.googleIdTokenLabel', 'رمز تعريف Google ID Token')}:
                 </label>
                 <textarea
                   rows={3}
                   required
                   value={linkGoogleToken}
                   onChange={(e) => setLinkGoogleToken(e.target.value)}
-                  placeholder={t('profile.googleIdTokenPlaceholder')}
+                  placeholder={t('profile.googleIdTokenPlaceholder', 'ألصق رمز Google ID Token هنا')}
                   className="w-full px-3.5 py-2 rounded-xl border border-[#ECE9E6] bg-[#FAF8F5] text-xs font-mono text-[#1F2329] outline-none focus:border-[#C8102E]"
                 />
               </div>
@@ -1299,7 +1299,7 @@ export default function ProfilePage() {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5"
                 >
                   <Link2 className="w-4 h-4" />
-                  <span>{linkGoogleLoading ? t('common.loading') : t('profile.linkGoogleBtn')}</span>
+                  <span>{linkGoogleLoading ? t('common.loading') : t('profile.linkGoogleBtn', 'ربط الحساب بـ Google')}</span>
                 </button>
               </div>
             </form>
@@ -1317,7 +1317,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h3 className="font-black text-sm text-[#1F2329]">
-                  {t('profile.deleteConfirmTitle')}
+                  {t('profile.deleteConfirmTitle', 'تأكيد حذف الحساب')}
                 </h3>
                 <span className="text-[11px] text-red-600 font-bold">
                   {isRTL ? 'إجراء لا يمكن التراجع عنه (قانون 151/2020)' : 'Irreversible Action (PDPL 151/2020)'}
@@ -1326,7 +1326,7 @@ export default function ProfilePage() {
             </div>
 
             <p className="text-xs text-[#595F69] leading-relaxed">
-              {t('profile.deleteWarning')}
+              {t('profile.deleteWarning', 'سيتم حذف بياناتك وتشفيرها نهائياً. لا يمكن التراجع عن هذا الإجراء.')}
             </p>
 
             {deleteError && (
@@ -1349,7 +1349,7 @@ export default function ProfilePage() {
                       : 'text-[#595F69] hover:text-[#1F2329]'
                   }`}
                 >
-                  {t('profile.currentPassword')}
+                  {t('profile.currentPassword', 'كلمة المرور الحالية')}
                 </button>
                 <button
                   type="button"
@@ -1372,7 +1372,7 @@ export default function ProfilePage() {
               {deleteAuthMethod === 'password' ? (
                 <div>
                   <label className="block text-xs font-bold text-[#1F2329] mb-1">
-                    {t('profile.deleteConfirmText')}
+                    {t('profile.deleteConfirmText', 'أدخل كلمة المرور الحالية لتأكيد حذف حسابك نهائياً:')}
                   </label>
                   <input
                     type="password"

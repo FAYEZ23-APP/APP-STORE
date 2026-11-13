@@ -16,12 +16,15 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 
 import { getAdminPayouts, processAdminPayout } from '../../api/adminApi';
 import { formatCurrency } from '../../utils/currency';
 import { getPayoutStatusLabel, getPayoutMethodLabel } from '../../utils/enumTranslations';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import {
   AdminHeader,
   FilterChip,
@@ -35,7 +38,9 @@ import {
 
 export default function AdminPayoutsScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [payouts, setPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -272,7 +277,7 @@ export default function AdminPayoutsScreen() {
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: floatingNavClearance }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -454,11 +459,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
+    ...shadows.cardElevated,
   },
   vendorName: {
     fontSize: 14,

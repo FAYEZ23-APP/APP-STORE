@@ -53,6 +53,7 @@ public class UnitOfWork : IUnitOfWork
         SupportTicketMessages = new Repository<SupportTicketMessage>(context);
         CarrierRemittanceBatches = new Repository<CarrierRemittanceBatch>(context);
         TaxInvoices = new Repository<TaxInvoice>(context);
+        Campaigns = new Repository<Campaign>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -93,6 +94,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<SupportTicketMessage> SupportTicketMessages { get; }
     public IRepository<CarrierRemittanceBatch> CarrierRemittanceBatches { get; }
     public IRepository<TaxInvoice> TaxInvoices { get; }
+    public IRepository<Campaign> Campaigns { get; }
 
     public async Task<int> SaveChangesAsync()
         => await _context.SaveChangesAsync();
@@ -213,3 +215,4 @@ public class UnitOfWork : IUnitOfWork
         _context.Dispose();
     }
 }
+

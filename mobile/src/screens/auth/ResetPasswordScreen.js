@@ -17,8 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { resetPassword as resetPasswordApi, forgotPassword as forgotPasswordApi } from '../../api/authApi';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 import OtpInput from '../../components/OtpInput';
 import BrandLogo from '../../components/common/BrandLogo';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 
 const ResetPasswordScreen = ({ route, navigation }) => {
   const { t, i18n } = useTranslation();
@@ -285,10 +287,10 @@ const ResetPasswordScreen = ({ route, navigation }) => {
             </View>
 
             {/* Save Button */}
-            <TouchableOpacity
+            <AnimatedPressable
               onPress={handleResetPassword}
               disabled={loading}
-              activeOpacity={0.88}
+              scaleTo={0.96}
               style={[styles.primaryButton, loading && styles.disabledButton]}
               accessibilityRole="button"
               accessibilityLabel={t('auth.resetPasswordButton')}
@@ -301,7 +303,7 @@ const ResetPasswordScreen = ({ route, navigation }) => {
                   <Ionicons name="checkmark-done-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
                 </>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
 
             {/* Back to login */}
             <View style={styles.bottomLink}>
@@ -357,20 +359,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 28,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    ...shadows.cardElevated,
   },
   iconCircle: {
     width: 58,
@@ -459,24 +450,17 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: '100%',
     height: 50,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   disabledButton: {
     backgroundColor: colors.disabledBg,

@@ -17,6 +17,7 @@ import {
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CartContext } from '../../context/CartContext';
 import { createOrder } from '../../api/ordersApi';
 import { getDeliveryCities, getPickupPoints, calculateDeliveryQuote } from '../../api/deliveryApi';
@@ -26,10 +27,13 @@ import { validateCoupon } from '../../api/couponsApi';
 import { formatCurrency } from '../../utils/currency';
 import { isValidEgyptianPhone, normalizeEgyptianPhone } from '../../utils/egyptianPhone';
 import { getImageUrl } from '../../utils/imageUrl';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
 
 export default function CheckoutScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { removeItems } = useContext(CartContext);
   const isRTL = i18n.language?.startsWith('ar') || I18nManager.isRTL;
 
@@ -1151,12 +1155,12 @@ export default function CheckoutScreen({ route, navigation }) {
                   placeholderTextColor={colors.textSecondary}
                   autoCapitalize="characters"
                 />
-                <TouchableOpacity
+                <AnimatedPressable
                   accessible={true}
                   accessibilityRole="button"
-                  activeOpacity={0.8}
                   disabled={validatingCoupon || !couponCodeInput.trim()}
                   onPress={handleApplyCoupon}
+                  scaleTo={0.96}
                   style={[
                     styles.applyCouponBtn,
                     (!couponCodeInput.trim() || validatingCoupon) && styles.applyCouponBtnDisabled,
@@ -1167,7 +1171,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   ) : (
                     <Text style={styles.applyCouponText}>{t('checkout.applyPromo')}</Text>
                   )}
-                </TouchableOpacity>
+                </AnimatedPressable>
               </View>
             )}
           </View>
@@ -1279,18 +1283,18 @@ export default function CheckoutScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Sticky Bottom Order Confirmation Bar */}
-      <View style={styles.stickyFooter}>
+      <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.stickyPriceCol}>
           <Text style={styles.stickyPriceLabel}>{t('checkout.grandTotal')}</Text>
           <Text style={styles.stickyPriceValue}>{formatCurrency(grandTotal)}</Text>
         </View>
 
-        <TouchableOpacity
+        <AnimatedPressable
           accessible={true}
           accessibilityRole="button"
-          activeOpacity={0.88}
           disabled={submitting || checkoutItems.length === 0}
           onPress={handleConfirmOrder}
+          scaleTo={0.96}
           style={[
             styles.confirmOrderBtn,
             (submitting || checkoutItems.length === 0) && styles.confirmOrderBtnDisabled,
@@ -1309,7 +1313,7 @@ export default function CheckoutScreen({ route, navigation }) {
               />
             </View>
           )}
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -1368,20 +1372,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(236, 233, 230, 0.95)',
     padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-      default: {},
-    }),
+    ...shadows.cardElevated,
   },
   freeShippingCard: {
     backgroundColor: '#F0FDF4',
@@ -1896,6 +1889,9 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#0E1114',
+    ...shadows.tactile,
   },
   applyCouponBtnDisabled: {
     opacity: 0.4,
@@ -2056,22 +2052,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.cardBg,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: 'rgba(236, 233, 230, 0.8)',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 28 : 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 8,
-      },
-      default: {},
-    }),
+    ...shadows.floating,
   },
   stickyPriceCol: {
     justifyContent: 'center',
@@ -2087,26 +2072,21 @@ const styles = StyleSheet.create({
   },
   confirmOrderBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
-    height: 48,
-    paddingHorizontal: 18,
+    borderRadius: 16,
+    height: 50,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    borderBottomWidth: 3,
+    borderBottomColor: '#960B21',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.28)',
+    ...shadows.tactilePrimary,
   },
   confirmOrderBtnDisabled: {
     backgroundColor: colors.disabledBg,
+    borderBottomWidth: 0,
+    borderTopWidth: 0,
     elevation: 0,
     shadowOpacity: 0,
   },

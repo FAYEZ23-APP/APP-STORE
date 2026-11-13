@@ -20,6 +20,7 @@ import { getAllProducts } from '../../api/productsApi';
 import { getCategories } from '../../api/categoriesApi';
 import ProductCard from '../../components/ProductCard';
 import BrandLogo from '../../components/common/BrandLogo';
+import HeroCampaignBanner from '../../components/buyer/HeroCampaignBanner';
 import { useWishlist } from '../../context/WishlistContext';
 import { colors } from '../../theme/colors';
 
@@ -123,6 +124,7 @@ export default function CatalogScreen({ route, navigation }) {
   const isRTL = i18n?.language === 'ar';
   const { wishlistCount } = useWishlist();
   const { userId } = useContext(AuthContext);
+  const floatingNavClearance = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10) + 16;
 
   const [categories, setCategories] = useState([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -137,13 +139,21 @@ export default function CatalogScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sync when navigated to with a categoryKey route param
+  // Sync when navigated to with route params or tab reset
   useEffect(() => {
-    if (route?.params?.categoryKey !== undefined) {
-      const incomingKey = route.params.categoryKey || 'all';
-      setSelectedCategoryKey(incomingKey);
+    if (route?.params?.resetHomeTimestamp) {
+      setSelectedCategoryKey('all');
+      setOnlyDiscounted(false);
+    } else {
+      if (route?.params?.categoryKey !== undefined) {
+        const incomingKey = route.params.categoryKey || 'all';
+        setSelectedCategoryKey(incomingKey);
+      }
+      if (route?.params?.onlyDiscounted !== undefined) {
+        setOnlyDiscounted(Boolean(route.params.onlyDiscounted));
+      }
     }
-  }, [route?.params?.categoryKey]);
+  }, [route?.params?.categoryKey, route?.params?.onlyDiscounted, route?.params?.resetHomeTimestamp]);
 
   const fetchCategoriesList = useCallback(async () => {
     try {
@@ -254,164 +264,24 @@ export default function CatalogScreen({ route, navigation }) {
     return (
       <View style={styles.headerContainer}>
         {/* =========================================================================
-            1. HERO PROMOTIONAL BANNER (Charcoal #1F2329 with Egyptian Red & Gold Glow)
-            Matching Web HomePage.jsx Hero Section
+            1. HERO PROMOTIONAL BANNER CAROUSEL (Zara / H&M Luxury Fashion Campaign)
             ========================================================================= */}
         {isHomeRoot && (
-          <View style={styles.heroCard}>
-            {/* Subtle atmospheric ambient glow */}
-            <View style={styles.heroGlowRed} />
-            <View style={styles.heroGlowGold} />
-
-            {/* Official Egyptian Identity Pill */}
-            <View style={styles.heroPill}>
-              <Text style={styles.heroFlag}>🇪🇬</Text>
-              <Text style={styles.heroPillGold}>سوق مصر</Text>
-              <Text style={styles.heroPillDivider}>|</Text>
-              <Text style={styles.heroPillWhite}>
-                {isRTL ? 'المنصة الرسمية للتجار المعتمدين' : 'Official Egyptian Marketplace'}
-              </Text>
-              <MaterialCommunityIcons name="creation" size={13} color={colors.accent} />
-            </View>
-
-            {/* Headline with Gold Accent */}
-            <Text style={[styles.heroHeadline, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {isRTL ? (
-                <>
-                  تسوق أفضل العروض اليومية مع{' '}
-                  <Text style={{ color: colors.accent }}>أكبر تجار مصر</Text>{' '}
-                  بأسعار الجنيه الرسمية
-                </>
-              ) : (
-                <>
-                  Shop Egypt's Premier Daily Deals with{' '}
-                  <Text style={{ color: colors.accent }}>Top Verified Merchants</Text>
-                </>
-              )}
-            </Text>
-
-            {/* Subtitle */}
-            <Text style={[styles.heroSubtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {isRTL
-                ? 'آلاف المنتجات الأصلية من موردين وتجار محليين مع خدمة الدفع عند الاستلام، إمكانية معاينة الطلب عند الباب، وشحن سريع لكافة المحافظات عبر بوسطة.'
-                : 'Thousands of authentic products from vetted local merchants. Enjoy Cash on Delivery, door-to-door order inspection, and express shipping across all Egyptian governorates.'}
-            </Text>
-
-            {/* Action CTA Buttons */}
-            <View style={styles.heroActionsRow}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setOnlyDiscounted(true)}
-                style={styles.heroDealsButton}
-              >
-                <MaterialCommunityIcons name="fire" size={16} color={colors.accent} />
-                <Text style={styles.heroDealsButtonText}>
-                  {isRTL ? 'تصفح عروض الخصم الحصرية' : 'Exclusive Daily Deals'}
-                </Text>
-                <MaterialCommunityIcons
-                  name={isRTL ? 'chevron-left' : 'chevron-right'}
-                  size={16}
-                  color={colors.white}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Trust Guarantee Badges Row */}
-            <View style={styles.trustBadgesRow}>
-              <View style={styles.trustBadgeItem}>
-                <MaterialCommunityIcons name="truck-fast-outline" size={14} color={colors.accent} />
-                <Text style={styles.trustBadgeText}>
-                  {isRTL ? 'شحن لـ 27 محافظة' : '27 Governorates'}
-                </Text>
-              </View>
-
-              <View style={styles.trustBadgeItem}>
-                <MaterialCommunityIcons name="shield-check" size={14} color="#34D399" />
-                <Text style={styles.trustBadgeText}>
-                  {isRTL ? 'دفع عند الاستلام' : 'Cash on Delivery'}
-                </Text>
-              </View>
-
-              <View style={styles.trustBadgeItem}>
-                <MaterialCommunityIcons name="refresh" size={14} color="#38BDF8" />
-                <Text style={styles.trustBadgeText}>
-                  {isRTL ? 'إرجاع 14 يوم (قانون 181)' : '14-Day Returns'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <HeroCampaignBanner
+            onNavigateTarget={(targetUrl) => {
+              if (targetUrl?.startsWith('category:')) {
+                const catKey = targetUrl.replace('category:', '').trim();
+                handleSelectCategoryKey(catKey);
+              } else if (targetUrl === 'deals') {
+                setOnlyDiscounted(true);
+              } else {
+                navigation.navigate('Categories');
+              }
+            }}
+          />
         )}
 
-        {/* =========================================================================
-            2. CATEGORIES THEMED SLIDER (Web Category Visual Themes)
-            ========================================================================= */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>
-            {t('home.popularCategories')}
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Categories')}
-            style={styles.viewAllButton}
-          >
-            <Text style={styles.viewAllText}>
-              {t('buyer.allCategories')}
-            </Text>
-            <MaterialCommunityIcons
-              name={isRTL ? 'chevron-left' : 'chevron-right'}
-              size={16}
-              color={colors.accent}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesSliderContent}
-        >
-          {categoryItems.map((cat) => {
-            const isSelected = selectedCategoryKey === cat.key;
-            const theme = getCategoryTheme(cat.key);
-            return (
-              <TouchableOpacity
-                key={cat.key}
-                onPress={() => handleSelectCategoryKey(cat.key)}
-                activeOpacity={0.8}
-                style={[
-                  styles.categoryCard,
-                  {
-                    backgroundColor: isSelected ? colors.primary : theme.bg,
-                    borderColor: isSelected ? colors.primary : theme.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.categoryIconCircle,
-                    {
-                      backgroundColor: isSelected ? colors.white : theme.iconBg,
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={theme.icon}
-                    size={18}
-                    color={isSelected ? colors.primary : theme.iconColor}
-                  />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.categoryCardTitle,
-                    { color: isSelected ? colors.white : colors.textPrimary },
-                  ]}
-                >
-                  {t(`categories.${cat.key}`, { defaultValue: cat.key })}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        
 
         {/* =========================================================================
             3. NEW ARRIVALS & FEATURED DEALS CAROUSEL
@@ -648,7 +518,7 @@ export default function CatalogScreen({ route, navigation }) {
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.gridContentContainer}
+          contentContainerStyle={[styles.gridContentContainer, { paddingBottom: floatingNavClearance }]}
           columnWrapperStyle={styles.gridColumnWrapper}
           ListHeaderComponent={renderListHeader}
           refreshControl={
@@ -1103,7 +973,7 @@ const styles = StyleSheet.create({
   },
   gridContentContainer: {
     paddingHorizontal: 8,
-    paddingBottom: 24,
+    paddingBottom: 104, // Generous padding to prevent floating tab bar overlap
   },
   gridColumnWrapper: {
     justifyContent: 'space-between',

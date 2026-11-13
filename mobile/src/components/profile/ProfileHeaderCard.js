@@ -20,12 +20,6 @@ export default function ProfileHeaderCard({
   const isSeller = role === 'Seller';
   const isAdmin = role === 'Admin';
 
-  const roleLabel = isAdmin
-    ? t('profile.adminBadge', 'مدير المنصة')
-    : isSeller
-    ? t('profile.sellerBadge', 'تاجر موثق 🇪🇬')
-    : t('profile.buyerBadge', 'مشتري معتمد');
-
   const storeName = isSeller && (sellerDashboard?.storeName || profile?.storeName);
   const sellerId = isSeller && (sellerDashboard?.sellerId || profile?.id);
   const dispatchCity = isSeller && (profile?.dispatchCity || sellerDashboard?.dispatchCity);
@@ -60,36 +54,22 @@ export default function ProfileHeaderCard({
             <VerificationBadge profile={profile} role={role} />
           </View>
 
-          {/* Role & Store Information */}
-          <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.roleChip, isSeller ? styles.sellerRoleChip : styles.buyerRoleChip]}>
-              <MaterialCommunityIcons
-                name={isAdmin ? 'shield-crown' : isSeller ? 'store' : 'shopping'}
-                size={11}
-                color={isSeller ? colors.gold : colors.white}
-              />
-              <Text
-                style={[
-                  styles.roleChipText,
-                  { color: isSeller ? colors.gold : colors.white },
-                ]}
-              >
-                {roleLabel}
-              </Text>
-            </View>
-
-            {isSeller && storeName && (
+          {/* Store Name (for Seller) */}
+          {isSeller && storeName && (
+            <View style={[styles.storeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <MaterialCommunityIcons name="store" size={13} color={colors.gold} />
               <Text
                 style={[
                   styles.storeMetaText,
-                  isRTL ? { marginRight: 6 } : { marginLeft: 6 },
+                  isRTL ? { marginRight: 5 } : { marginLeft: 5 },
+                  { textAlign: isRTL ? 'right' : 'left' },
                 ]}
                 numberOfLines={1}
               >
                 {storeName}
               </Text>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Email or Phone or Dispatch City */}
           <View style={[styles.contactRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -207,29 +187,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
-  roleChip: {
-    flexDirection: 'row',
+  storeRow: {
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    gap: 4,
-  },
-  buyerRoleChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  sellerRoleChip: {
-    backgroundColor: 'rgba(214, 163, 58, 0.12)',
-    borderColor: 'rgba(214, 163, 58, 0.3)',
-  },
-  roleChipText: {
-    fontSize: 11,
-    fontWeight: '800',
+    marginTop: 3,
+    marginBottom: 1,
   },
   storeMetaText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.gold,
     flex: 1,

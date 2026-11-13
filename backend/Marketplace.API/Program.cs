@@ -580,8 +580,8 @@ using (var scope = app.Services.CreateScope())
 app.UseForwardedHeaders();
 
 app.UseMiddleware<Marketplace.API.Middleware.SecurityEventLoggingMiddleware>();
-app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Browser security headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy) (WEB-006)
 app.UseMiddleware<SecurityHeadersMiddleware>();

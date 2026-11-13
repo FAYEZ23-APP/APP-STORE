@@ -34,10 +34,13 @@ export default function AddressBookCard({
           </div>
           <div>
             <h2 className="text-sm font-black text-[#1F2329]">
-              {t('profile.egyptianAddressBook')}
+              {t('profile.egyptianAddressBook', 'دفتر العناوين المصري')}
             </h2>
             <p className="text-[11px] text-[#595F69]">
-              {t('profile.addressesCount', { count: addresses.length })}
+              {t('profile.addressesCount', {
+                count: addresses.length,
+                defaultValue: `${addresses.length} عناوين مسجلة لسرعة التوصيل`,
+              })}
             </p>
           </div>
         </div>
@@ -48,14 +51,14 @@ export default function AddressBookCard({
           className="px-3.5 py-1.5 bg-[#C8102E] hover:bg-[#A80D26] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>{t('profile.addAddress')}</span>
+          <span>{t('profile.addAddress', 'إضافة عنوان جديد')}</span>
         </button>
       </div>
 
       {/* Address Grid or Empty State */}
       {loading ? (
         <div className="py-8 text-center text-xs text-[#595F69]">
-          {t('common.loading')}
+          {t('common.loading', 'جاري التحميل...')}
         </div>
       ) : addresses.length === 0 ? (
         <div className="p-8 text-center bg-[#FAF8F5] rounded-2xl border border-dashed border-[#ECE9E6] space-y-3">
@@ -67,7 +70,7 @@ export default function AddressBookCard({
               {isRTL ? 'لم تقم بحفظ أي عنوان بعد' : 'No Saved Addresses Yet'}
             </p>
             <p className="text-[11px] text-[#595F69] mt-0.5 leading-relaxed">
-              {t('profile.noAddresses')}
+              {t('profile.noAddresses', 'لا توجد عناوين مسجلة. أضف عنوانك لاستخدامه تلقائياً في الشحن والدفع.')}
             </p>
           </div>
           <button
@@ -76,7 +79,7 @@ export default function AddressBookCard({
             className="px-4 py-2 bg-[#C8102E] hover:bg-[#A80D26] text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-sm transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>{t('profile.addAddress')}</span>
+            <span>{t('profile.addAddress', 'إضافة عنوان جديد')}</span>
           </button>
         </div>
       ) : (
@@ -91,12 +94,12 @@ export default function AddressBookCard({
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span className="font-bold text-xs text-[#1F2329] flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-[#C8102E]" />
-                      <span>{addr.label || t('profile.defaultDelivery')}</span>
+                      <span>{addr.label || t('profile.defaultDelivery', 'عنوان التوصيل')}</span>
                     </span>
 
                     {addr.isDefault ? (
                       <span className="bg-[#FDF2F4] text-[#C8102E] border border-[#F8CAD1] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        {t('profile.defaultBadge')}
+                        {t('profile.defaultBadge', 'افتراضي')}
                       </span>
                     ) : onSetDefault ? (
                       <button
@@ -104,7 +107,7 @@ export default function AddressBookCard({
                         onClick={() => onSetDefault(addr)}
                         className="text-[11px] text-[#595F69] hover:text-[#C8102E] underline font-medium"
                       >
-                        {t('profile.setDefault')}
+                        {t('profile.setDefault', 'تعيين كافتراضي')}
                       </button>
                     ) : null}
                   </div>

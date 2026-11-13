@@ -21,22 +21,15 @@ import { getMyCoupons, createCoupon } from '../../api/couponsApi';
 import { fetchSafeAppConfig } from '../../api/configApi';
 import { formatCurrency } from '../../utils/currency';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  android: {
-    elevation: 3,
-  },
-  default: {},
-});
+const cardShadow = shadows.cardElevated;
 
 export default function SellerCouponsScreen({ navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language?.startsWith('ar');
 
   const [loading, setLoading] = useState(true);
@@ -183,7 +176,7 @@ export default function SellerCouponsScreen({ navigation }) {
   return (
     <View style={[tw`flex-1`, { backgroundColor: colors.screenBg }]}>
       <ScrollView
-        contentContainerStyle={tw`pb-12`}
+        contentContainerStyle={[tw`pb-12`, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         {/* Top Header */}
@@ -213,13 +206,26 @@ export default function SellerCouponsScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity accessible={true} accessibilityRole="button"
+            <AnimatedPressable
+              accessible={true}
+              accessibilityRole="button"
               onPress={handleOpenCreateModal}
-              style={[tw`px-3 py-2 rounded-xl flex-row items-center`, { backgroundColor: colors.accent }]}
+              scaleTo={0.94}
+              style={[
+                tw`px-3.5 py-2 rounded-xl flex-row items-center`,
+                {
+                  backgroundColor: colors.primary,
+                  borderBottomWidth: 3,
+                  borderBottomColor: '#960B21',
+                  borderTopWidth: 1,
+                  borderTopColor: 'rgba(255, 255, 255, 0.28)',
+                  ...shadows.tactilePrimary,
+                },
+              ]}
             >
-              <MaterialCommunityIcons name="plus" size={18} color={colors.accentContrast} style={isRTL ? tw`ml-1` : tw`mr-1`} />
-              <Text style={[tw`text-xs font-black`, { color: colors.accentContrast }]}>{t('coupons.createCoupon')}</Text>
-            </TouchableOpacity>
+              <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" style={isRTL ? tw`ml-1` : tw`mr-1`} />
+              <Text style={tw`text-xs font-black text-white`}>{t('coupons.createCoupon')}</Text>
+            </AnimatedPressable>
           </View>
         </LinearGradient>
 

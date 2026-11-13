@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import DashboardScreen from '../screens/seller/DashboardScreen';
 import MyProductsScreen from '../screens/seller/MyProductsScreen';
 import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
 import SellerWalletScreen from '../screens/seller/SellerWalletScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
+import FloatingTabBar from './FloatingTabBar';
 import { fetchSafeAppConfig } from '../api/configApi';
 import { colors } from '../theme/colors';
 
@@ -16,7 +15,6 @@ const Tab = createBottomTabNavigator();
 
 export default function SellerTabs() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const [walletEnabled, setWalletEnabled] = useState(false);
 
   useEffect(() => {
@@ -29,32 +27,10 @@ export default function SellerTabs() {
       });
   }, []);
 
-  // Ensure plenty of bottom padding on Android navigation bar (3 buttons or gesture handle)
-  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 10);
-
   return (
     <Tab.Navigator
+      tabBar={(props) => <FloatingTabBar {...props} prominentRouteName="SellerOrders" />}
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.cardBg,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 64 + bottomInset,
-          paddingBottom: bottomInset,
-          paddingTop: 8,
-          elevation: 16,
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '700',
-          marginTop: 2,
-        },
         headerStyle: {
           backgroundColor: colors.secondary,
         },
@@ -75,7 +51,7 @@ export default function SellerTabs() {
             <MaterialCommunityIcons
               name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
               color={color}
-              size={26}
+              size={24}
             />
           ),
         }}
@@ -87,9 +63,9 @@ export default function SellerTabs() {
           title: t('seller.myProducts'),
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons
-              name="package-variant-closed"
+              name={focused ? 'package-variant-closed' : 'package-variant-closed'}
               color={color}
-              size={26}
+              size={24}
             />
           ),
         }}
@@ -103,7 +79,7 @@ export default function SellerTabs() {
             <MaterialCommunityIcons
               name={focused ? 'clipboard-check' : 'clipboard-check-outline'}
               color={color}
-              size={26}
+              size={24}
             />
           ),
         }}
@@ -119,7 +95,7 @@ export default function SellerTabs() {
               <MaterialCommunityIcons
                 name={focused ? 'wallet' : 'wallet-outline'}
                 color={color}
-                size={26}
+                size={24}
               />
             ),
           }}
@@ -134,7 +110,7 @@ export default function SellerTabs() {
             <MaterialCommunityIcons
               name={focused ? 'account' : 'account-outline'}
               color={color}
-              size={26}
+              size={24}
             />
           ),
         }}

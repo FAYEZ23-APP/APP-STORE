@@ -22,6 +22,9 @@ import { getMySellerProfile } from '../../api/usersApi';
 import { getImageUrl } from '../../utils/imageUrl';
 import { getCategoryIconName } from '../../utils/categoryIcons';
 import { colors } from '../../theme/colors';
+import { shadows } from '../../theme/shadows';
+import AnimatedPressable from '../../components/common/AnimatedPressable';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const MAX_IMAGES = 8;
@@ -30,9 +33,11 @@ const JPEG_COMPRESS_QUALITY = 0.8;
 
 export default function AddEditProductScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = i18n.language?.startsWith('ar');
   const editingProduct = route.params?.product;
   const isMountedRef = useRef(true);
+  const safeBottom = Math.max(insets.bottom, 16) + 36;
 
   const [name, setName] = useState(editingProduct?.name || '');
   const [description, setDescription] = useState(editingProduct?.description || '');
@@ -432,10 +437,10 @@ export default function AddEditProductScreen({ route, navigation }) {
     >
       <ScrollView
         style={[tw`flex-1`, { backgroundColor: colors.cardBg }]}
-      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
+        contentContainerStyle={{ padding: 20, paddingBottom: safeBottom }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={[tw`text-2xl font-bold mb-4`, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
         {editingProduct ? t('common.edit') : t('seller.addProduct')}
       </Text>
@@ -1064,11 +1069,24 @@ export default function AddEditProductScreen({ route, navigation }) {
         )}
       </View>
 
-      <TouchableOpacity accessible={true} accessibilityRole="button"
-        style={{ borderRadius: 14, overflow: 'hidden', marginTop: 8 }}
+      <AnimatedPressable
+        accessible={true}
+        accessibilityRole="button"
+        style={[
+          {
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginTop: 10,
+            borderBottomWidth: 3,
+            borderBottomColor: '#960B21',
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.28)',
+          },
+          loading || anyUploading || loadingCategories ? null : shadows.tactilePrimary,
+        ]}
         onPress={handleSave}
         disabled={loading || anyUploading || loadingCategories}
-        activeOpacity={0.85}
+        scaleTo={0.96}
       >
         <LinearGradient
           colors={
@@ -1094,7 +1112,7 @@ export default function AddEditProductScreen({ route, navigation }) {
             </>
           )}
         </LinearGradient>
-      </TouchableOpacity>
+      </AnimatedPressable>
     </ScrollView>
     </KeyboardAvoidingView>
   );

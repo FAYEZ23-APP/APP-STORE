@@ -653,7 +653,17 @@
     "egyptianPhonePlaceholder": "010XXXXXXXX or 011XXXXXXXX",
     "alreadyHaveAccount": "Already have an account?",
     "verificationCodeResent": "Verification code has been resent successfully",
-    "passwordTooShort": "Password must be at least 6 characters"
+    "passwordTooShort": "Password must be at least 6 characters",
+    "strengthIdle": "Password strength: waiting for input",
+    "strengthWeak": "Password strength: weak — add numbers",
+    "strengthFair": "Password strength: fair",
+    "strengthGood": "Password strength: strong",
+    "strengthStrong": "Password strength: very strong",
+    "enteringStore": "Verified — redirecting...",
+    "preparingWorkspace": "Preparing your secure session...",
+    "portalBadge": "Egypt Market Portal",
+    "rememberNote": "Protected with HttpOnly session & CSRF",
+    "serverUnavailable": "Unable to reach the server. Please ensure the API server is running and try again."
   },
   "seller": {
     "dashboard": "Seller Dashboard",

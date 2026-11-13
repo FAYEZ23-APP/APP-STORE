@@ -75,14 +75,24 @@ export default function App() {
   const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/verify'].includes(location.pathname);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-[#1F2329]">
+    <div
+      className={`min-h-screen flex flex-col ${
+        isAuthPage ? 'luxury-stage-bg text-[#F8F7F4]' : 'bg-[#FAF8F5] text-[#1F2329]'
+      }`}
+    >
       {isAuthPage ? (
         <AuthHeader />
       ) : (
         <Navbar isStorefrontEnabled={isStorefrontEnabled} />
       )}
 
-      <main className="flex-1 max-w-[1440px] w-[calc(100%-48px)] mx-auto py-6">
+      <main
+        className={`flex-1 w-full mx-auto ${
+          isAuthPage
+            ? 'max-w-7xl px-4 py-4 sm:py-6 flex items-center justify-center overflow-x-clip'
+            : 'max-w-[1440px] w-[calc(100%-48px)] py-6'
+        }`}
+      >
         <React.Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             {isStorefrontEnabled ? (
